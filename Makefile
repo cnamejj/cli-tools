@@ -1,4 +1,5 @@
 PROGS = quipi
+SOBJS = parse_command_options.o
 
 # ---
 
@@ -6,6 +7,7 @@ CC = gcc
 LD = gcc
 CFLAGS = -g -Wall -pedantic
 LDFLAGS = 
+ARCOMM = ar rlc
 
 # ---
 
@@ -19,11 +21,16 @@ all: $(PROGS)
 
 # ---
 
-%.o : %.c %.h Makefile
+%.o : %.c
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(PROGS) : % : %.o
+$(SOBJS) : % : Makefile parse_opt.h
+
+$(PROGS) : % : %.o %.h Makefile parse_opt.h
 	$(CC) -o $@ $(@).o $(LDFLAGS)
+
+libCLISUB.a : $(SOBJS)
+	$(ARCOMM) $@ $(SOBJS)
 
 # ---
 
