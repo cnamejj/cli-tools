@@ -1,4 +1,5 @@
-PROGS = quipi
+PROGS = quipi send-udp-message
+SOLOPROGS = 
 SOBJS = parse_command_options.o
 
 # ---
@@ -17,14 +18,17 @@ default:
 # ---
 
 .PHONY: all
-all: $(PROGS)
+all: $(PROGS) $(SOLOPROGS)
 
 # ---
 
-%.o : %.c
+%.o : %.c Makefile
 	$(CC) -c -o $@ $(CFLAGS) $<
 
 $(SOBJS) : % : Makefile parse_opt.h
+
+$(SOLOPROGS) : % : %.o Makefile parse_opt.h
+	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 $(PROGS) : % : %.o %.h Makefile parse_opt.h
 	$(CC) -o $@ $(@).o $(LDFLAGS)
