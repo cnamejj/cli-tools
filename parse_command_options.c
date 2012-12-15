@@ -24,11 +24,11 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
   int nopt, int narg, char **opts)
 
 {
-   int match, ii, op, cnum, *int_val, nconv;
-   char *st = 0, *first = 0;
+   int match, ii, op, *int_val, nconv;
+   char *st = 0, *first = 0, *dup_opt = 0;
    float *fl_val = 0;
    struct option_set *curr = 0;
-   struct word_chain *invlist = 0, *inv = 0;
+   struct word_chain *invlist = 0, *inv = 0, *endlist = 0;
 
    *rc = 0;
 
@@ -38,8 +38,9 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
    {
       curr = plist + op;
       curr->val = 0;
-      curr->flags &= ~OP_FL_SET;
+      curr->flags = OP_FL_BLANK;
       curr->parsed = 0;
+      curr->opt_num = 0;
    }
 
    /* ---
@@ -65,20 +66,22 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
 
             if( plist[ op].type != OP_TYPE_FLAG)
               if( ++ii < narg) plist[ op].val = opts[ ii];
+            plist[ op].opt_num = ii;
 	 }
       }
 
       if( !match)
       {
          inv = (struct word_chain *) malloc( (sizeof *inv));
-         if( !inv) *rc = ERR_MALLOC_FAILED;
+         dup_opt = strdup( opts[ ii]);
+         if( !inv || !dup_opt) *rc = ERR_MALLOC_FAILED;
          else
          {
-            inv->next = invlist;
-            invlist = inv;
-            inv->opt = strdup( opts[ ii]);
-            if( !inv->opt) *rc = ERR_MALLOC_FAILED;
-            else *rc = ERR_INVALID_DATA;
+            if( !endlist) invlist = endlist = inv;
+            else endlist->next = inv;
+            inv->next = 0;
+            inv->opt = dup_opt;
+            endlist = inv;
          }
       }
    }
@@ -86,7 +89,6 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
    for( op = 0; op < nopt && !*rc; op++)
    {
       curr = plist + op;
-      cnum = curr->num;
 
       if( !curr->val) if( curr->type != OP_TYPE_FLAG)
         curr->val = curr->def;

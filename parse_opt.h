@@ -20,6 +20,7 @@
 #define OP_TYPE_VOID  4
 #define OP_TYPE_FLOAT 5
 
+#define OP_FL_BLANK   0x00
 #define OP_FL_FOUND   0x01
 #define OP_FL_SET     0x02
 #define OP_FL_INVALID 0x04
@@ -35,6 +36,7 @@ struct option_set {
    unsigned int num, type, flags;
    char *name, *val, *def;
    void *parsed;
+   int opt_num;
 };
 
 struct word_chain {

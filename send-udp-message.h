@@ -11,12 +11,20 @@
 #define OP_IPV4 5
 #define OP_IPV6 6
 
-#define FL_DEST_BOTH "dest"
-#define FL_MESSAGE "msg"
-#define FL_PORT "port"
-#define FL_HOST "host"
+#define FL_DEST_BOTH "d"
+#define FL_DEST_BOTH_2 "dest"
+#define FL_DEST_BOTH_3 "destination"
+#define FL_MESSAGE "m"
+#define FL_MESSAGE_2 "msg"
+#define FL_MESSAGE_3 "message"
+#define FL_PORT "p"
+#define FL_PORT_2 "port"
+#define FL_HOST "h"
+#define FL_HOST_2 "host"
 #define FL_IPV4 "ipv4"
+#define FL_IPV4_2 "4"
 #define FL_IPV6 "ipv6"
+#define FL_IPV6_2 "6"
 
 #define DEF_DEST_BOTH ""
 #define DEF_MESSAGE "N/A"
