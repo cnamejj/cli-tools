@@ -25,10 +25,18 @@
 #define OP_FL_SET     0x02
 #define OP_FL_INVALID 0x04
 
+#define EXT_FLAG_PREFIX "--"
+#define EXT_FLAG_NEGATE "--no-"
+
 /* --- */
 
+#define RC_NORMAL 0
+
+#define ERR_SYS_CALL 106
 #define ERR_MALLOC_FAILED 115
+#define ERR_GETHOST_FAILED 135
 #define ERR_INVALID_DATA 141
+#define ERR_OPT_CONFIG 159
 
 /* --- */
 

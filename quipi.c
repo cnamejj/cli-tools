@@ -19,7 +19,7 @@
 void init_addrinfo_data( struct addrinfo *ai )
 
 {
-    ai->ai_flags = AI_ALL | AI_CANONNAME;
+    ai->ai_flags = AI_CANONNAME;
     ai->ai_family = AF_UNSPEC;
     ai->ai_socktype = 0;
     ai->ai_protocol = 0;

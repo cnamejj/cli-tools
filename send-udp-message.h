@@ -26,12 +26,24 @@
 #define FL_IPV6 "ipv6"
 #define FL_IPV6_2 "6"
 
-#define DEF_DEST_BOTH ""
+#define DEF_DEST_BOTH "localhost:48112"
 #define DEF_MESSAGE "N/A"
 #define DEF_PORT "48112"
 #define DEF_HOST "localhost"
 #define DEF_IPV4 "1"
 #define DEF_IPV6 "1"
+
+#define DO_IPV4 0x1
+#define DO_IPV6 0x2
+
+/* --- */
+
+struct task_details {
+    unsigned int use_ip, dest_port, found_family;
+    char *dest_host, *message, *err_msg;
+    struct sockaddr_in dest4;
+    struct sockaddr_in6 dest6;
+};
 
 /* --- */
 
