@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "parse_opt.h"
 #include "send-udp-message.h"
 
@@ -19,7 +20,19 @@
 
 #define IP_DISPLAY_SIZE INET6_ADDRSTRLEN
 
-#define IPV6_LOCAL_SCOPE 0x2
+#define IPV6_LOOPBACK_ADDRESS "::1"
+
+/* -- Can't use this constants from "in6.h", so hardcode tem
+#define SCOPE_LOOP __IPV6_ADDR_SCOPE_INTFACELOCAL
+#define SCOPE_LINK __IPV6_ADDR_SCOPE_LINKLOCAL
+#define SCOPE_SITE __IPV6_ADDR_SCOPE_SITELOCAL
+#define SCOPE_GLOBAL __IPV6_ADDR_SCOPE_GLOBAL
+ */
+#define SCOPE_LOOP 0x01
+#define SCOPE_LINK 0x02
+#define SCOPE_SITE 0x05
+#define SCOPE_GLOBAL 0x0e
+
 
 /* --- */
 
@@ -45,7 +58,7 @@ struct task_details *allocate_plan_data()
         plan->dest6.sin6_port = 0;
         plan->dest6.sin6_flowinfo = 0;
         plan->dest6.sin6_addr = in6addr_loopback;
-        plan->dest6.sin6_scope_id = IPV6_LOCAL_SCOPE;
+        plan->dest6.sin6_scope_id = SCOPE_LINK;
     }
 
     return( plan);
@@ -291,7 +304,7 @@ int get_destination_ip( struct task_details *plan)
     plan->dest6.sin6_port = 0;
     plan->dest6.sin6_flowinfo = 0;
     plan->dest6.sin6_addr = in6addr_loopback;
-    plan->dest6.sin6_scope_id = IPV6_LOCAL_SCOPE;
+    plan->dest6.sin6_scope_id = SCOPE_LINK;
 
     plan->dest4.sin_family = AF_INET;
     plan->dest4.sin_port = 0;
@@ -356,8 +369,8 @@ printf( "hr --> %x %x/%x/%x %x %x %d %s\n",
                 {
                     sa6 = (struct sockaddr_in6 *) match6->ai_addr;
                     plan->dest6.sin6_addr = sa6->sin6_addr;
-                    plan->dest6.sin6_scope_id = sa6->sin6_scope_id;
                     plan->found_family = AF_INET6;
+                    plan->dest6.sin6_scope_id = sa6->sin6_scope_id;
 		}
 printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
 	    }
@@ -370,6 +383,11 @@ printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
 	}
     }
 
+    if( !strcmp( plan->dest_host, IPV6_LOOPBACK_ADDRESS)) plan->dest6.sin6_scope_id = SCOPE_LOOP;
+    else if( IN6_IS_ADDR_LINKLOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_LINK;
+    else if( IN6_IS_ADDR_SITELOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_SITE;
+    else plan->dest6.sin6_scope_id = SCOPE_GLOBAL;
+
     if( rc == ERR_MALLOC_FAILED) plan->err_msg = ERRMSG_MALLOC_FAILED;
     else if( rc == ERR_GETHOST_FAILED) plan->err_msg = ERRMSG_GETHOST_FAILED;
 
@@ -381,10 +399,12 @@ printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
 int main( int narg, char **opts)
 
 {
-    int rc = RC_NORMAL;
+    int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen;
+    struct sockaddr *dest = 0;
     char *chrc = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
+    void *s_addr;
 
     /* --- */
 
@@ -415,8 +435,26 @@ int main( int narg, char **opts)
     }
     else if( rc == RC_NORMAL)
     {
+        if( plan->found_family == AF_INET)
+        {
+            plan->dest4.sin_port = htons( plan->dest_port);
+            dest = (struct sockaddr *) &plan->dest4;
+            destlen = (sizeof plan->dest4);
+            s_addr = &plan->dest4.sin_addr;
+	}
+        else
+        {
+            plan->dest6.sin6_port = htons( plan->dest_port);
+            dest = (struct sockaddr *) &plan->dest6;
+            destlen = (sizeof plan->dest6);
+            s_addr = &plan->dest6.sin6_addr;
+	}
+        chrc = (char *) inet_ntop( plan->found_family, s_addr, display_ip, IP_DISPLAY_SIZE);
+        
+/*
         if( plan->found_family == AF_INET) chrc = (char *) inet_ntop( AF_INET, &plan->dest4.sin_addr, display_ip, IP_DISPLAY_SIZE);
         else chrc = (char *) inet_ntop( AF_INET6, &plan->dest6.sin6_addr, display_ip, IP_DISPLAY_SIZE);
+ */
 
         if( !chrc)
         {
@@ -424,6 +462,55 @@ int main( int narg, char **opts)
             plan->err_msg = ERRMSG_SYS_CALL;
 	}
         else printf( "Dest(%s) IP(%s)\n", plan->dest_host, display_ip);
+    }
+
+    if( rc == RC_NORMAL)
+    {
+/*
+printf( "ff:%d type:%d\n", plan->found_family, SOCK_DGRAM);
+ */
+        sock = socket( plan->found_family, SOCK_DGRAM, 0);
+        if( sock == -1)
+        {
+            rc = ERR_SYS_CALL;
+            plan->err_msg = ERRMSG_SYS_CALL;
+	}
+        else if( plan->found_family == AF_INET6)
+        {
+            sysrc = setsockopt( sock, IPPROTO_IPV6, IPV6_V6ONLY, &opt_on, (sizeof opt_on));
+            if( sysrc)
+            {
+                rc = ERR_SYS_CALL;
+                plan->err_msg = ERRMSG_SYS_CALL;
+	    }
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        msglen = strlen( plan->message);
+/* 
+printf( "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n", sock, msglen, destlen,
+  ((struct sockaddr_in *)dest)->sin_family, ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
+ */
+        sysrc = sendto( sock, plan->message, msglen, 0, dest, destlen);
+        if( sysrc == -1)
+        {
+printf( "**Error(%d)** sendto() call failed, errno=%d\n", sysrc, errno);
+            rc = ERR_SYS_CALL;
+            plan->err_msg = ERRMSG_SYS_CALL;
+	}
+        else if( sysrc != msglen)
+        {
+printf( "**Error(%d/%d)** sendto() partial write, errno=%d\n", sysrc, destlen, errno);
+            rc = ERR_SYS_CALL;
+            plan->err_msg = ERRMSG_SYS_CALL;
+	}
+        else
+        {
+            printf( "Done... A %d character UDP message sent to %s (%s) port %d.\n",
+              msglen, plan->dest_host, display_ip, plan->dest_port);
+	}
     }
 
     /* --- */
