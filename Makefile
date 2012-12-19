@@ -1,7 +1,8 @@
 PROGS = quipi send-udp-message
 SOLOPROGS = dumb
-SOBJS = parse_command_options.o
+SOBJS = parse_command_options.o cli_strerror.o
 LIBS = libCLISUB.a
+UBIQ_H = parse_opt.h err_ref.h
 
 # ---
 
@@ -26,12 +27,12 @@ all: $(PROGS) $(SOLOPROGS) $(LIBS)
 %.o : %.c Makefile %.c
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(SOBJS) : % : Makefile parse_opt.h
+$(SOBJS) : % : Makefile $(UBIQ_H)
 
-$(SOLOPROGS) : % : %.o Makefile parse_opt.h $(LIBS)
+$(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile parse_opt.h $(LIBS)
+$(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libCLISUB.a : $(SOBJS)

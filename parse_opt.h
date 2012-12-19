@@ -30,16 +30,6 @@
 
 /* --- */
 
-#define RC_NORMAL 0
-
-#define ERR_SYS_CALL 106
-#define ERR_MALLOC_FAILED 115
-#define ERR_GETHOST_FAILED 135
-#define ERR_INVALID_DATA 141
-#define ERR_OPT_CONFIG 159
-
-/* --- */
-
 struct option_set {
    unsigned int num, type, flags;
    char *name, *val, *def;

@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include "parse_opt.h"
+#include "err_ref.h"
 
 /*
  * Revision history

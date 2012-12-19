@@ -7,6 +7,7 @@
 #include <errno.h>
 #include "parse_opt.h"
 #include "send-udp-message.h"
+#include "err_ref.h"
 
 /* --- */
 
@@ -130,7 +131,6 @@ int parse_destination_value( struct task_details *plan, char *destination)
         if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
         else snprintf( plan->err_msg, errlen, ERRMSG_BAD_DEST, destination);
     }
-    else if( rc == ERR_MALLOC_FAILED) plan->err_msg = ERRMSG_MALLOC_FAILED;
     
     return( rc);
 }
@@ -281,8 +281,6 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
 
 /* ...figure out how to deal with "--no-" options for host, port and destination flags... */
 
-    if( rc == ERR_OPT_CONFIG && plan) plan->err_msg = ERRMSG_OPT_CONFIG;
-
     *returncode = rc;
 
     return( plan);
@@ -388,9 +386,6 @@ printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
     else if( IN6_IS_ADDR_SITELOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_SITE;
     else plan->dest6.sin6_scope_id = SCOPE_GLOBAL;
 
-    if( rc == ERR_MALLOC_FAILED) plan->err_msg = ERRMSG_MALLOC_FAILED;
-    else if( rc == ERR_GETHOST_FAILED) plan->err_msg = ERRMSG_GETHOST_FAILED;
-
     return( rc);
 }
 
@@ -401,7 +396,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen;
     struct sockaddr *dest = 0;
-    char *chrc = 0;
+    char *chrc = 0, *err_msg = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -415,25 +410,17 @@ int main( int narg, char **opts)
         printf( "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n", plan->dest_host, plan->dest_port, plan->use_ip & DO_IPV4,
           plan->use_ip & DO_IPV6, plan->message);
     }
-    else
-    { 
-        printf( "Error, rc=%d\n", rc);
-        if( plan) if( plan->err_msg) printf( "%s\n", plan->err_msg);
-    }
 
     /* --- */
 
-    rc = get_destination_ip( plan);
-
-    if( !plan->found_family)
+    if( rc == RC_NORMAL)
     {
-        if( rc == RC_NORMAL)
-        {
-           rc = ERR_GETHOST_FAILED;
-           plan->err_msg = ERRMSG_GETHOST_FAILED;
-	}
+        rc = get_destination_ip( plan);
+
+        if( rc == RC_NORMAL && !plan->found_family) rc = ERR_GETHOST_FAILED;
     }
-    else if( rc == RC_NORMAL)
+
+    if( rc == RC_NORMAL)
     {
         if( plan->found_family == AF_INET)
         {
@@ -451,16 +438,7 @@ int main( int narg, char **opts)
 	}
         chrc = (char *) inet_ntop( plan->found_family, s_addr, display_ip, IP_DISPLAY_SIZE);
         
-/*
-        if( plan->found_family == AF_INET) chrc = (char *) inet_ntop( AF_INET, &plan->dest4.sin_addr, display_ip, IP_DISPLAY_SIZE);
-        else chrc = (char *) inet_ntop( AF_INET6, &plan->dest6.sin6_addr, display_ip, IP_DISPLAY_SIZE);
- */
-
-        if( !chrc)
-        {
-            rc = ERR_SYS_CALL;
-            plan->err_msg = ERRMSG_SYS_CALL;
-	}
+        if( !chrc) rc = ERR_SYS_CALL;
         else printf( "Dest(%s) IP(%s)\n", plan->dest_host, display_ip);
     }
 
@@ -470,19 +448,11 @@ int main( int narg, char **opts)
 printf( "ff:%d type:%d\n", plan->found_family, SOCK_DGRAM);
  */
         sock = socket( plan->found_family, SOCK_DGRAM, 0);
-        if( sock == -1)
-        {
-            rc = ERR_SYS_CALL;
-            plan->err_msg = ERRMSG_SYS_CALL;
-	}
+        if( sock == -1) rc = ERR_SYS_CALL;
         else if( plan->found_family == AF_INET6)
         {
             sysrc = setsockopt( sock, IPPROTO_IPV6, IPV6_V6ONLY, &opt_on, (sizeof opt_on));
-            if( sysrc)
-            {
-                rc = ERR_SYS_CALL;
-                plan->err_msg = ERRMSG_SYS_CALL;
-	    }
+            if( sysrc) rc = ERR_SYS_CALL;
 	}
     }
 
@@ -494,18 +464,8 @@ printf( "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n", sock, msglen, des
   ((struct sockaddr_in *)dest)->sin_family, ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
  */
         sysrc = sendto( sock, plan->message, msglen, 0, dest, destlen);
-        if( sysrc == -1)
-        {
-printf( "**Error(%d)** sendto() call failed, errno=%d\n", sysrc, errno);
-            rc = ERR_SYS_CALL;
-            plan->err_msg = ERRMSG_SYS_CALL;
-	}
-        else if( sysrc != msglen)
-        {
-printf( "**Error(%d/%d)** sendto() partial write, errno=%d\n", sysrc, destlen, errno);
-            rc = ERR_SYS_CALL;
-            plan->err_msg = ERRMSG_SYS_CALL;
-	}
+        if( sysrc == -1) rc = ERR_SYS_CALL;
+        else if( sysrc != msglen) rc = ERR_SYS_CALL;
         else
         {
             printf( "Done... A %d character UDP message sent to %s (%s) port %d.\n",
@@ -518,7 +478,10 @@ printf( "**Error(%d/%d)** sendto() partial write, errno=%d\n", sysrc, destlen, e
     if( rc != RC_NORMAL)
     {
         printf( "Error, rc=%d\n", rc);
-        if( plan) if( plan->err_msg) printf( "%s\n", plan->err_msg);
+        if( !plan) err_msg = cli_strerror( rc);
+        else if( !plan->err_msg) err_msg = cli_strerror( rc);
+        else err_msg = plan->err_msg;
+        printf( "%s\n", err_msg);
     }
 
     exit( rc);
