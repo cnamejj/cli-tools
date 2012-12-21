@@ -11,32 +11,6 @@
 
 /* --- */
 
-#define DEBUG_OPTION_PARSING
-
-#define ERRMSG_BAD_DEST "Destination '%s' invalid, expected 'host:port'."
-#define ERRMSG_MALLOC_FAILED "Memory allocation failed."
-#define ERRMSG_OPT_CONFIG "Unrecoverable configuration error."
-#define ERRMSG_GETHOST_FAILED "Can't lookup hostname."
-#define ERRMSG_SYS_CALL "A system call failed."
-
-#define IP_DISPLAY_SIZE INET6_ADDRSTRLEN
-
-#define IPV6_LOOPBACK_ADDRESS "::1"
-
-/* -- Can't use this constants from "in6.h", so hardcode tem
-#define SCOPE_LOOP __IPV6_ADDR_SCOPE_INTFACELOCAL
-#define SCOPE_LINK __IPV6_ADDR_SCOPE_LINKLOCAL
-#define SCOPE_SITE __IPV6_ADDR_SCOPE_SITELOCAL
-#define SCOPE_GLOBAL __IPV6_ADDR_SCOPE_GLOBAL
- */
-#define SCOPE_LOOP 0x01
-#define SCOPE_LINK 0x02
-#define SCOPE_SITE 0x05
-#define SCOPE_GLOBAL 0x0e
-
-
-/* --- */
-
 struct task_details *allocate_plan_data()
 
 {
@@ -49,6 +23,7 @@ struct task_details *allocate_plan_data()
         plan->use_ip = 0;
         plan->dest_port = 0;
         plan->found_family = 0;
+        plan->debug = 0;
         plan->dest_host = 0;
         plan->message = 0;
         plan->err_msg = 0;
@@ -157,6 +132,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2, 0, DEF_IPV4, 0, 0 },
       { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6, 0, DEF_IPV6, 0, 0 },
       { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
+      { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -167,67 +143,66 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     plan = allocate_plan_data();
     if( !plan) rc = ERR_MALLOC_FAILED;
 
-
     /* --- */
    
     if( rc == RC_NORMAL)
     {
         extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
 
-#ifdef DEBUG_OPTION_PARSING
         /* --- */
 
-        printf( "rc=%d extra(", rc);
-        sep = "";
-        for( walk = extra_opts; walk; )
+        if( plan->debug >= DEBUG_HIGH)
         {
-            printf( "%s%s", sep, walk->opt);
-            walk = walk->next;
-            if( walk) sep = " ";
-            else sep = "";
-        }
-        printf( ")\n");
-
-        printf( "Seq Num Typ Fl Opt\n");
-
-        for( off= 0; off < nflags; off++)
-        {
-            co = opset + off;
-            if( co->opt_num)
+            fprintf( stderr, "rc=%d extra(", rc);
+            sep = "";
+            for( walk = extra_opts; walk; )
             {
-                printf( "%2d. %3d %3d %2x ", off + 1, co->num, co->type, co->flags);
-                printf( "%3d ", co->opt_num);
+                fprintf( stderr, "%s%s", sep, walk->opt);
+                walk = walk->next;
+                if( walk) sep = " ";
+                else sep = "";
+            }
+            fprintf( stderr, ")\n");
+
+            fprintf( stderr, "Seq Num Typ Fl Opt\n");
+
+            for( off= 0; off < nflags; off++)
+            {
+                co = opset + off;
+                if( co->opt_num)
+                {
+                    fprintf( stderr, "%2d. %3d %3d %2x ", off + 1, co->num, co->type, co->flags);
+                    fprintf( stderr, "%3d ", co->opt_num);
+                    if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
+                    {
+                        int_p = (int *) co->parsed;
+                        fprintf( stderr, "%d ", (int) *int_p);
+                    }
+                    else if( co->type == OP_TYPE_CHAR) fprintf( stderr, "(%s) ", (char *) co->parsed);
+                    else fprintf( stderr, "/?/ ");
+                    fprintf( stderr, "(%s) (%s) ", co->name, co->val);
+                    fprintf( stderr, "\n");
+                }
+            }
+            fprintf( stderr, "Seq Num Typ Fl Opt\n");
+
+            for( off= 0; off < nflags; off++)
+            {
+                co = opset + off;
+                fprintf( stderr, "%2d. %3d %3d %2x ", off + 1, co->num, co->type, co->flags);
+                fprintf( stderr, "%3d ", co->opt_num);
                 if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
                 {
                     int_p = (int *) co->parsed;
-                    printf( "%d ", (int) *int_p);
+                    fprintf( stderr, "%d ", (int) *int_p);
                 }
-                else if( co->type == OP_TYPE_CHAR) printf( "(%s) ", (char *) co->parsed);
-                else printf( "/?/ ");
-                printf( "(%s) (%s) ", co->name, co->val);
-                printf( "\n");
+                else if( co->type == OP_TYPE_CHAR) fprintf( stderr, "(%s) ", (char *) co->parsed);
+                else fprintf( stderr, "/?/ ");
+                fprintf( stderr, "(%s) (%s) ", co->name, co->val);
+                fprintf( stderr, "\n");
             }
-        }
-
-        printf( "Seq Num Typ Fl Opt\n");
-
-        for( off= 0; off < nflags; off++)
-        {
-            co = opset + off;
-            printf( "%2d. %3d %3d %2x ", off + 1, co->num, co->type, co->flags);
-            printf( "%3d ", co->opt_num);
-            if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
-            {
-                int_p = (int *) co->parsed;
-                printf( "%d ", (int) *int_p);
-            }
-            else if( co->type == OP_TYPE_CHAR) printf( "(%s) ", (char *) co->parsed);
-            else printf( "/?/ ");
-            printf( "(%s) (%s) ", co->name, co->val);
-            printf( "\n");
         }
     }
-#endif
 
     /* --- */
 
@@ -279,7 +254,19 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         else plan->use_ip &= ~DO_IPV6;
     }
 
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_DEBUG, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else plan->debug = *((int *) co->parsed);
+    }
+
 /* ...figure out how to deal with "--no-" options for host, port and destination flags... */
+/* ...also while it's a bit of a hack, if "-ipv6" is specified w/o "-ipv4", then assume
+   we only want IPV6 addresses, meaning don't require "+ipv4 -ipv6".  Alternatively, adding
+   a "-prefer [v6 | v4]" option might be cleaner... */
+
+    if( rc == ERR_OPT_CONFIG) plan->err_msg = "Unrecoverable internal configuration error, can't continue.";
 
     *returncode = rc;
 
@@ -291,7 +278,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
 int get_destination_ip( struct task_details *plan)
 
 {
-    int rc = RC_NORMAL, sysrc;
+    int rc = RC_NORMAL, sysrc, errlen;
     struct addrinfo hints, *host_recs = 0, *walk, *match4 = 0, *match6 = 0;
     struct sockaddr_in *sa4 = 0;
     struct sockaddr_in6 *sa6 = 0;
@@ -314,21 +301,21 @@ int get_destination_ip( struct task_details *plan)
     if( sysrc == 1)
     {
         plan->found_family = AF_INET;
-printf( "Found '%s' is a V4 IP address.\n", plan->dest_host);
+        if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V4 IP address.\n", plan->dest_host);
     }
-    else if( sysrc) { printf( "...wtf?...\n"); exit( 1); }
+    else if( sysrc) rc = ERR_OPT_CONFIG;
     else
     {
         sysrc = inet_pton( AF_INET6, plan->dest_host, &plan->dest6.sin6_addr);
         if( sysrc == 1)
         {
             plan->found_family = AF_INET6;
-printf( "Found '%s' is a V6 IP address.\n", plan->dest_host);
+            if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V6 IP address.\n", plan->dest_host);
 	}
-        else if( sysrc) { printf( "...wtf?...\n"); exit( 1); }
+        else if( sysrc) rc = ERR_OPT_CONFIG;
         else
         {
-printf( "Looks like a hostname, need to look it up.\n");
+            if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Looks like a hostname, need to look it up.\n");
             hints.ai_flags = AI_CANONNAME;
             if( (plan->use_ip & DO_IPV4) && (plan->use_ip & DO_IPV6)) hints.ai_family = AF_UNSPEC;
             else if( plan->use_ip & DO_IPV6) hints.ai_family = AF_INET6;
@@ -343,14 +330,14 @@ printf( "Looks like a hostname, need to look it up.\n");
             sysrc = getaddrinfo( plan->dest_host, 0, &hints, &host_recs);
             if( !sysrc)
             {
-printf( "...getaddrinfo() call worked, scan the host records to find the one we want...\n");
+                if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "...getaddrinfo() call worked, scan the host records to find the one we want...\n");
                 match4 = match6 = 0;
                 for( walk = host_recs; walk; )
                 {
-/*
-printf( "hr --> %x %x/%x/%x %x %x %d %s\n",
-  walk->ai_flags, walk->ai_family, AF_INET, AF_INET6, walk->ai_socktype, walk->ai_protocol, walk->ai_addrlen, walk->ai_canonname);
- */
+                    if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "hr --> %x %x/%x/%x %x %x %d %s\n",
+                      walk->ai_flags, walk->ai_family, AF_INET, AF_INET6, walk->ai_socktype, 
+                      walk->ai_protocol, walk->ai_addrlen, walk->ai_canonname);
+
                     if( !match4 && walk->ai_family == AF_INET) match4 = walk;
                     if( !match6 && walk->ai_family == AF_INET6) match6 = walk;
                     if( match4 && match6) walk = 0;
@@ -370,13 +357,12 @@ printf( "hr --> %x %x/%x/%x %x %x %d %s\n",
                     plan->found_family = AF_INET6;
                     plan->dest6.sin6_scope_id = sa6->sin6_scope_id;
 		}
-printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
+                if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
 	    }
             else
             {
                 if( sysrc == EAI_MEMORY) rc = ERR_MALLOC_FAILED;
                 else rc = ERR_GETHOST_FAILED;
-
 	    }
 	}
     }
@@ -386,6 +372,21 @@ printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
     else if( IN6_IS_ADDR_SITELOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_SITE;
     else plan->dest6.sin6_scope_id = SCOPE_GLOBAL;
 
+    if( rc == ERR_GETHOST_FAILED)
+    {
+        errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->dest_host);
+        plan->err_msg = (char *) malloc( errlen);
+        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+        else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->dest_host);
+    }
+    else if( rc == ERR_OPT_CONFIG)
+    {
+        errlen = strlen( ERRMSG_INET_PTON) + strlen( plan->dest_host);
+        plan->err_msg = (char *) malloc( errlen);
+        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+        else snprintf( plan->err_msg, errlen, ERRMSG_INET_PTON, plan->dest_host);
+    }
+
     return( rc);
 }
 
@@ -394,7 +395,7 @@ printf( "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
 int main( int narg, char **opts)
 
 {
-    int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen;
+    int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen, errlen;
     struct sockaddr *dest = 0;
     char *chrc = 0, *err_msg = 0;
     char display_ip[ IP_DISPLAY_SIZE];
@@ -407,8 +408,8 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        printf( "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n", plan->dest_host, plan->dest_port, plan->use_ip & DO_IPV4,
-          plan->use_ip & DO_IPV6, plan->message);
+        if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n",
+          plan->dest_host, plan->dest_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
     }
 
     /* --- */
@@ -417,7 +418,14 @@ int main( int narg, char **opts)
     {
         rc = get_destination_ip( plan);
 
-        if( rc == RC_NORMAL && !plan->found_family) rc = ERR_GETHOST_FAILED;
+        if( rc == RC_NORMAL && !plan->found_family)
+        {
+            rc = ERR_GETHOST_FAILED;
+            errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->dest_host);
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->dest_host);
+	}
     }
 
     if( rc == RC_NORMAL)
@@ -437,38 +445,72 @@ int main( int narg, char **opts)
             s_addr = &plan->dest6.sin6_addr;
 	}
         chrc = (char *) inet_ntop( plan->found_family, s_addr, display_ip, IP_DISPLAY_SIZE);
-        
-        if( !chrc) rc = ERR_SYS_CALL;
-        else printf( "Dest(%s) IP(%s)\n", plan->dest_host, display_ip);
+
+        if( !chrc)
+        {
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_INET_NTOP) + INT_ERR_DISPLAY_LEN;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
+	}
+        else if( plan->debug > DEBUG_LOW) fprintf( stderr, "Dest(%s) IP(%s)\n", plan->dest_host, display_ip);
     }
 
     if( rc == RC_NORMAL)
     {
-/*
-printf( "ff:%d type:%d\n", plan->found_family, SOCK_DGRAM);
- */
+        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "ff:%d type:%d\n", plan->found_family, SOCK_DGRAM);
+
         sock = socket( plan->found_family, SOCK_DGRAM, 0);
-        if( sock == -1) rc = ERR_SYS_CALL;
+        if( sock == -1)
+        {
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_SOCKET_CALL) + INT_ERR_DISPLAY_LEN;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_SOCKET_CALL, errno);
+	}
         else if( plan->found_family == AF_INET6)
         {
             sysrc = setsockopt( sock, IPPROTO_IPV6, IPV6_V6ONLY, &opt_on, (sizeof opt_on));
-            if( sysrc) rc = ERR_SYS_CALL;
+            if( sysrc)
+            {
+                rc = ERR_SYS_CALL;
+                errlen = strlen( ERRMSG_SETSOCKOPT_CALL) + INT_ERR_DISPLAY_LEN;
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_SETSOCKOPT_CALL, errno);
+            }
 	}
     }
 
     if( rc == RC_NORMAL)
     {
         msglen = strlen( plan->message);
-/* 
-printf( "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n", sock, msglen, destlen,
-  ((struct sockaddr_in *)dest)->sin_family, ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
- */
+        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n",
+          sock, msglen, destlen, ((struct sockaddr_in *)dest)->sin_family, 
+          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
+
         sysrc = sendto( sock, plan->message, msglen, 0, dest, destlen);
-        if( sysrc == -1) rc = ERR_SYS_CALL;
-        else if( sysrc != msglen) rc = ERR_SYS_CALL;
+        if( sysrc == -1)
+        {
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_SENDTO_FAIL) + INT_ERR_DISPLAY_LEN;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_SENDTO_FAIL, errno);
+	}
+        else if( sysrc != msglen)
+        {
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_SENDTO_PARTIAL) + INT_ERR_DISPLAY_LEN * 2;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_SENDTO_PARTIAL, sysrc, msglen);
+	}
         else
         {
-            printf( "Done... A %d character UDP message sent to %s (%s) port %d.\n",
+            printf( "A %d character UDP message sent to %s (%s) port %d.\n",
               msglen, plan->dest_host, display_ip, plan->dest_port);
 	}
     }
@@ -477,11 +519,12 @@ printf( "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n", sock, msglen, des
 
     if( rc != RC_NORMAL)
     {
-        printf( "Error, rc=%d\n", rc);
+        fprintf( stderr, "Error, rc=%d\n", rc);
         if( !plan) err_msg = cli_strerror( rc);
         else if( !plan->err_msg) err_msg = cli_strerror( rc);
         else err_msg = plan->err_msg;
-        printf( "%s\n", err_msg);
+        fprintf( stderr, "%s\n", err_msg);
+        if( errno) fprintf( stderr, "System error message: %s\n", strerror( errno));
     }
 
     exit( rc);
