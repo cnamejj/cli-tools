@@ -32,8 +32,8 @@
 #define DEF_MESSAGE "N/A"
 #define DEF_PORT "48112"
 #define DEF_HOST "localhost"
-#define DEF_IPV4 "1"
-#define DEF_IPV6 "1"
+#define DEF_IPV4 "0"
+#define DEF_IPV6 "0"
 #define DEF_DEBUG "0"
 
 #define ERRMSG_BAD_DEST "Destination '%s' invalid, expected 'host:port'."

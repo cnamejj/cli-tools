@@ -134,7 +134,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
       { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
     };
-    struct option_set *co = 0;
+    struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
     int nflags = (sizeof opset) / (sizeof opset[0]);
     
@@ -244,6 +244,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
         else plan->use_ip &= ~DO_IPV4;
+        ipv4 = co;
     }
 
     if( rc == RC_NORMAL)
@@ -252,6 +253,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
         else plan->use_ip &= ~DO_IPV6;
+        ipv6 = co;
     }
 
     if( rc == RC_NORMAL)
@@ -266,7 +268,21 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
    we only want IPV6 addresses, meaning don't require "+ipv4 -ipv6".  Alternatively, adding
    a "-prefer [v6 | v4]" option might be cleaner... */
 
+    /* By default both IPV4 and IPV6 are disabled.  If neither option was selected via
+     * command line flags, them turn the both on so the code will take whichever one it
+     * finds.
+     */
+
+    if( !(plan->use_ip & (DO_IPV4 | DO_IPV6)))
+    {
+        if( ipv4->opt_num && ipv6->opt_num) rc = ERR_INVALID_DATA;
+        else if( ipv4->opt_num) plan->use_ip = DO_IPV6;
+        else if( ipv6->opt_num) plan->use_ip = DO_IPV4;
+        else plan->use_ip = DO_IPV4 | DO_IPV6;
+    }
+
     if( rc == ERR_OPT_CONFIG) plan->err_msg = "Unrecoverable internal configuration error, can't continue.";
+    else if( rc == ERR_INVALID_DATA) plan->err_msg = "Both --no-ipv4 and --no-ipv6 specified, at least one needs to be allowed.";
 
     *returncode = rc;
 
