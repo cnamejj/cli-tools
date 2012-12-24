@@ -276,9 +276,9 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     if( !(plan->use_ip & (DO_IPV4 | DO_IPV6)))
     {
         if( ipv4->opt_num && ipv6->opt_num) rc = ERR_INVALID_DATA;
-        else if( ipv4->opt_num) plan->use_ip = DO_IPV6;
-        else if( ipv6->opt_num) plan->use_ip = DO_IPV4;
-        else plan->use_ip = DO_IPV4 | DO_IPV6;
+        else if( ipv4->opt_num) plan->use_ip |= DO_IPV6;
+        else if( ipv6->opt_num) plan->use_ip |= DO_IPV4;
+        else plan->use_ip |= (DO_IPV4 | DO_IPV6);
     }
 
     if( rc == ERR_OPT_CONFIG) plan->err_msg = "Unrecoverable internal configuration error, can't continue.";
