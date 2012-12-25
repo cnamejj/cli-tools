@@ -176,3 +176,24 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
 
    return invlist;
 }
+
+/* --- */
+
+struct option_set *get_matching_option( int flag_num, struct option_set *opset, int nflags)
+
+{
+    struct option_set *walk, *match = 0;
+    int off;
+
+    for( off= 0, walk = opset; off < nflags; off++, walk++)
+    {
+        if( walk->num == flag_num)
+        {
+            if( !match) match = walk;
+            else if( walk->opt_num > match->opt_num) match = walk;
+	}
+    }
+
+    return( match);
+}
+

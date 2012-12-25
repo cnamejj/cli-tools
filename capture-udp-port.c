@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include "parse_opt.h"
-#include "send-udp-message.h"
+#include "capture-udp-port.h"
 #include "err_ref.h"
 #include "net-task-data.h"
 
@@ -18,21 +18,23 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     int rc = RC_NORMAL, off, *int_p = 0, dest_set = 0;
     struct task_details *plan = 0;
     struct option_set opset[] = {
-      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH, 0, DEF_DEST_BOTH, 0, 0 },
-      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_2, 0, DEF_DEST_BOTH, 0, 0 },
-      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_3, 0, DEF_DEST_BOTH, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_2, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_3, 0, DEF_MESSAGE, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT, 0, DEF_PORT, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT_2, 0, DEF_PORT, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST, 0, DEF_HOST, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2, 0, DEF_HOST, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6, 0, DEF_IPV6, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
-      { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
+      { OP_SERVER,  OP_TYPE_CHAR, OP_FL_BLANK, FL_SERVER,    0, DEF_SERVER,  0, 0 },
+      { OP_SERVER,  OP_TYPE_CHAR, OP_FL_BLANK, FL_SERVER_2,  0, DEF_SERVER,  0, 0 },
+      { OP_USER,    OP_TYPE_CHAR, OP_FL_BLANK, FL_USER,      0, DEF_USER,    0, 0 },
+      { OP_USER,    OP_TYPE_CHAR, OP_FL_BLANK, FL_USER_2,    0, DEF_USER,    0, 0 },
+      { OP_PORT,    OP_TYPE_INT,  OP_FL_BLANK, FL_PORT,      0, DEF_PORT,    0, 0 },
+      { OP_PORT,    OP_TYPE_INT,  OP_FL_BLANK, FL_PORT_2,    0, DEF_PORT,    0, 0 },
+      { OP_HOST,    OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST,      0, DEF_HOST,    0, 0 },
+      { OP_HOST,    OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2,    0, DEF_HOST,    0, 0 },
+      { OP_IPV4,    OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4,      0, DEF_IPV4,    0, 0 },
+      { OP_IPV4,    OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2,    0, DEF_IPV4,    0, 0 },
+      { OP_IPV6,    OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6,      0, DEF_IPV6,    0, 0 },
+      { OP_IPV6,    OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2,    0, DEF_IPV6,    0, 0 },
+      { OP_LOGFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOGFILE,   0, DEF_LOGFILE, 0, 0 },
+      { OP_LOGFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOGFILE_2, 0, DEF_LOGFILE, 0, 0 },
+      { OP_MODE,    OP_TYPE_INT,  OP_FL_BLANK, FL_MODE,      0, DEF_MODE,    0, 0 },
+      { OP_MODE,    OP_TYPE_INT,  OP_FL_BLANK, FL_MODE_2,    0, DEF_MODE,    0, 0 },
+      { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;

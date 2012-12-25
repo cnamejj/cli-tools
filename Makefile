@@ -1,8 +1,9 @@
 PROGS = quipi send-udp-message
 SOLOPROGS = dumb
-SOBJS = parse_command_options.o cli_strerror.o
+SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
+	parse_destination_value.o
 LIBS = libCLISUB.a
-UBIQ_H = parse_opt.h err_ref.h
+UBIQ_H = parse_opt.h err_ref.h net-task-data.h
 
 # ---
 

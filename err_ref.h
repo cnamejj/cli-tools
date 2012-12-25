@@ -83,6 +83,14 @@ char *cli_strerror( int);
 #define ERR_UNSUPPORTED 158
 #define ERR_OPT_CONFIG 159
 
+#define ERRMSG_BAD_DEST "Destination '%s' invalid, expected 'host:port'."
+#define ERRMSG_GETHOST_FAILED "Hostname '%s' could not be resolved to an acceptable IP address."
+#define ERRMSG_INET_NTOP "Call to inet_ntop() failed with rc=%d."
+#define ERRMSG_SOCKET_CALL "A socket() system call failed with rc=%d."
+#define ERRMSG_SETSOCKOPT_CALL "Call to setsockopt() failed with rc=%d"
+#define ERRMSG_SENDTO_FAIL "Call to sendto() failed with rc=%d"
+#define ERRMSG_SENDTO_PARTIAL "Sent only %d of %d bytes requested."
+#define ERRMSG_INET_PTON "Interal error, invalid address family passed to inet_pton() routing, host '%s'."
 
 /* --- */
 

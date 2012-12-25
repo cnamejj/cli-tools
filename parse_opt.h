@@ -46,6 +46,8 @@ struct word_chain {
 
 struct word_chain *parse_command_options( int *rc, struct option_set *plist, int nopt, int narg, char **opts);
 
+struct option_set *get_matching_option( int flag_num, struct option_set *opset, int nflags);
+
 /* --- */
 
 #endif
