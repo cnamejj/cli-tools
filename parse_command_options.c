@@ -1,8 +1,10 @@
-#if defined( linux) || defined( sun) || defined( __CYGWIN__)
+#if defined( linux) || defined( sun) || defined( __CYGWIN__) || defined( __APPLE__)
 #include <string.h>
 #include <stdio.h>
 #endif
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 #include <errno.h>
 #include <stdlib.h>
 #include "parse_opt.h"
