@@ -41,8 +41,8 @@ int parse_destination_value( struct task_details *plan, char *destination)
 
     if( rc == RC_NORMAL)
     {
-        plan->dest_host = host;
-        plan->dest_port = port;
+        plan->target_host = host;
+        plan->target_port = port;
     }
     else if( rc == ERR_INVALID_DATA)
     {

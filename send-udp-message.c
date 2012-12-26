@@ -128,14 +128,14 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_PORT, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->opt_num >= dest_set) plan->dest_port = *((int *) co->parsed);
+        else if( co->opt_num >= dest_set) plan->target_port = *((int *) co->parsed);
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_HOST, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->opt_num >= dest_set) plan->dest_host = (char *) co->parsed;
+        else if( co->opt_num >= dest_set) plan->target_host = (char *) co->parsed;
     }
 
     if( rc == RC_NORMAL)
@@ -208,7 +208,7 @@ int main( int narg, char **opts)
     if( rc == RC_NORMAL)
     {
         if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n",
-          plan->dest_host, plan->dest_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
+          plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
     }
 
     /* --- */
@@ -220,10 +220,10 @@ int main( int narg, char **opts)
         if( rc == RC_NORMAL && !plan->found_family)
         {
             rc = ERR_GETHOST_FAILED;
-            errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->dest_host);
+            errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->target_host);
             plan->err_msg = (char *) malloc( errlen);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->dest_host);
+            else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->target_host);
 	}
     }
 
@@ -231,14 +231,14 @@ int main( int narg, char **opts)
     {
         if( plan->found_family == AF_INET)
         {
-            plan->dest4.sin_port = htons( plan->dest_port);
+            plan->dest4.sin_port = htons( plan->target_port);
             dest = (struct sockaddr *) &plan->dest4;
             destlen = (sizeof plan->dest4);
             s_addr = &plan->dest4.sin_addr;
 	}
         else
         {
-            plan->dest6.sin6_port = htons( plan->dest_port);
+            plan->dest6.sin6_port = htons( plan->target_port);
             dest = (struct sockaddr *) &plan->dest6;
             destlen = (sizeof plan->dest6);
             s_addr = &plan->dest6.sin6_addr;
@@ -253,7 +253,8 @@ int main( int narg, char **opts)
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
             else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
-        else if( plan->debug > DEBUG_LOW) fprintf( stderr, "Dest(%s) IP(%s)\n", plan->dest_host, display_ip);
+        else if( plan->debug > DEBUG_LOW) fprintf( stderr, "Dest(%s) IP(%s)\n", plan->target_host,
+          display_ip);
     }
 
     if( rc == RC_NORMAL)
@@ -310,7 +311,7 @@ int main( int narg, char **opts)
         else
         {
             printf( "A %d character UDP message sent to %s (%s) port %d.\n",
-              msglen, plan->dest_host, display_ip, plan->dest_port);
+              msglen, plan->target_host, display_ip, plan->target_port);
 	}
     }
 

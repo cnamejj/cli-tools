@@ -14,13 +14,11 @@ struct task_details *allocate_plan_data()
     if( plan)
     {
         plan->use_ip = 0;
-        plan->dest_port = 0;
-        plan->server_port = 0;
+        plan->target_port = 0;
         plan->found_family = 0;
         plan->logmode = 0;
         plan->debug = 0;
-        plan->dest_host = 0;
-        plan->server_ip = 0;
+        plan->target_host = 0;
         plan->message = 0;
         plan->logfile = 0;
         plan->runuser = 0;

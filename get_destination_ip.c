@@ -32,20 +32,20 @@ int get_destination_ip( struct task_details *plan)
 
     /* --- */
 
-    sysrc = inet_pton( AF_INET, plan->dest_host, &plan->dest4.sin_addr);
+    sysrc = inet_pton( AF_INET, plan->target_host, &plan->dest4.sin_addr);
     if( sysrc == 1)
     {
         plan->found_family = AF_INET;
-        if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V4 IP address.\n", plan->dest_host);
+        if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V4 IP address.\n", plan->target_host);
     }
     else if( sysrc) rc = ERR_OPT_CONFIG;
     else
     {
-        sysrc = inet_pton( AF_INET6, plan->dest_host, &plan->dest6.sin6_addr);
+        sysrc = inet_pton( AF_INET6, plan->target_host, &plan->dest6.sin6_addr);
         if( sysrc == 1)
         {
             plan->found_family = AF_INET6;
-            if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V6 IP address.\n", plan->dest_host);
+            if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Found '%s' is a V6 IP address.\n", plan->target_host);
 	}
         else if( sysrc) rc = ERR_OPT_CONFIG;
         else
@@ -62,7 +62,7 @@ int get_destination_ip( struct task_details *plan)
             hints.ai_canonname = 0;
             hints.ai_next = 0;
 
-            sysrc = getaddrinfo( plan->dest_host, 0, &hints, &host_recs);
+            sysrc = getaddrinfo( plan->target_host, 0, &hints, &host_recs);
             if( !sysrc)
             {
                 if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "...getaddrinfo() call worked, scan the host records to find the one we want...\n");
@@ -102,24 +102,24 @@ int get_destination_ip( struct task_details *plan)
 	}
     }
 
-    if( !strcmp( plan->dest_host, IPV6_LOOPBACK_ADDRESS)) plan->dest6.sin6_scope_id = SCOPE_LOOP;
+    if( !strcmp( plan->target_host, IPV6_LOOPBACK_ADDRESS)) plan->dest6.sin6_scope_id = SCOPE_LOOP;
     else if( IN6_IS_ADDR_LINKLOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_LINK;
     else if( IN6_IS_ADDR_SITELOCAL( &plan->dest6.sin6_addr)) plan->dest6.sin6_scope_id = SCOPE_SITE;
     else plan->dest6.sin6_scope_id = SCOPE_GLOBAL;
 
     if( rc == ERR_GETHOST_FAILED)
     {
-        errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->dest_host);
+        errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->target_host);
         plan->err_msg = (char *) malloc( errlen);
         if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-        else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->dest_host);
+        else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->target_host);
     }
     else if( rc == ERR_OPT_CONFIG)
     {
-        errlen = strlen( ERRMSG_INET_PTON) + strlen( plan->dest_host);
+        errlen = strlen( ERRMSG_INET_PTON) + strlen( plan->target_host);
         plan->err_msg = (char *) malloc( errlen);
         if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-        else snprintf( plan->err_msg, errlen, ERRMSG_INET_PTON, plan->dest_host);
+        else snprintf( plan->err_msg, errlen, ERRMSG_INET_PTON, plan->target_host);
     }
 
     return( rc);
