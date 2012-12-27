@@ -92,6 +92,7 @@ char *cli_strerror( int);
 #define ERRMSG_SENDTO_PARTIAL "Sent only %d of %d bytes requested."
 #define ERRMSG_INET_PTON "Interal error, invalid address family passed to inet_pton() routing, host '%s'."
 #define ERRMSG_BIND_FAILED "Call to bind() failed with rc=%d"
+#define ERRMSG_SYSCALL2_FAILED "Call to %s() tailed with rc=%d"
 
 /* --- */
 

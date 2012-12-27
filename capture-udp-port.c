@@ -179,10 +179,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         else plan->debug = *((int *) co->parsed);
     }
 
-/* ...figure out how to deal with "--no-" options for host, port and destination flags... */
-/* ...also while it's a bit of a hack, if "-ipv6" is specified w/o "-ipv4", then assume
-   we only want IPV6 addresses, meaning don't require "+ipv4 -ipv6".  Alternatively, adding
-   a "-prefer [v6 | v4]" option might be cleaner... */
+/* ...figure out how to deal with "--no-" options for host, port and server flags... */
 
     /* By default both IPV4 and IPV6 are disabled.  If neither option was selected via
      * command line flags, them turn the both on so the code will take whichever one it
@@ -203,6 +200,24 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     *returncode = rc;
 
     return( plan);
+}
+
+/* --- */
+
+char *build_syscall_errmsg( char *syscall, int sysrc)
+
+{
+    int errlen = 0;
+    char *errmsg = 0, *name = 0, *default = "unspecified system call";
+
+    if( !syscall) name = default;
+    else if( !*syscall) name = default;
+
+    errlen = ERRMSG_SYSCALL2_FAILED + strlen( name) + INT_ERR_DISPLAY_LEN;
+    errmsg = (char *) malloc( errlen);
+    if( errmsg) snprintf( errmsg, errlen, ERRMSG_SYSCALL2_FAILED, name, sysrc);
+
+    return( errmsg);
 }
 
 /* --- */
@@ -246,7 +261,9 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
         sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, sender_len);
         if( sysrc == -1)
         {
-...oops, what happened?
+            sysrc = errno;
+            if( sysrc == ENOMEM) rc = ERR_MALLOC_FAILED;
+            else rc = ERR_SYS_CALL;
 	}
         else
         {
@@ -255,6 +272,12 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
     }
 
     /* --- */
+
+    if( rc == ERR_SYS_CALL)
+    {
+        plan->err_msg = build_syscall_errmsg( "recvfrom", sysrc);
+        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+    }
 
     return( rc);
 }
