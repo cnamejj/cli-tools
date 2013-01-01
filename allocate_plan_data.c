@@ -22,6 +22,7 @@ struct task_details *allocate_plan_data()
         plan->message = 0;
         plan->logfile = 0;
         plan->runuser = 0;
+        plan->rungroup = 0;
         plan->err_msg = 0;
         plan->dest4.sin_family = AF_INET;
         plan->dest4.sin_port = 0;

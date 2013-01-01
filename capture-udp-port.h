@@ -13,6 +13,7 @@
 #define OP_LOGFILE 7
 #define OP_MODE 8
 #define OP_DEBUG 9
+#define OP_GROUP 10
 
 #define FL_SERVER "s"
 #define FL_SERVER_2 "server"
@@ -31,6 +32,8 @@
 #define FL_MODE "m"
 #define FL_MODE_2 "mode"
 #define FL_DEBUG "debug"
+#define FL_GROUP "g"
+#define FL_GROUP_2 "group"
 
 #define DEF_SERVER "localhost:48112"
 #define DEF_USER ""
@@ -41,6 +44,17 @@
 #define DEF_LOGFILE "udp-capture.log"
 #define DEF_MODE "0644"
 #define DEF_DEBUG "0"
+#define DEF_GROUP ""
+
+#define NO_SWITCH_NEEDED "run-asis"
+
+#define BUFFER_SIZE 1500
+
+#define SUBSET_READ  0x4
+#define SUBSET_WRITE 0x2
+#define SUBSET_EXEC  0x1
+
+#define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_APPEND
 
 /* --- */
 

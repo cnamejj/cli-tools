@@ -5,10 +5,29 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "parse_opt.h"
 #include "capture-udp-port.h"
 #include "err_ref.h"
 #include "net-task-data.h"
+
+/* --- */
+
+struct task_details *figure_out_what_to_do( int *, int, char **);
+char *build_syscall_errmsg( char *, int);
+int switch_user_and_group( struct task_details *);
+int switch_run_group( struct task_details *);
+int switch_run_user( struct task_details *);
+int open_logfile( int *, struct task_details *);
+int receive_udp_and_log( struct task_details *, int, int);
+mode_t convert_to_mode( int);
 
 /* --- */
 
@@ -35,6 +54,8 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_MODE,    OP_TYPE_INT,  OP_FL_BLANK, FL_MODE,      0, DEF_MODE,    0, 0 },
       { OP_MODE,    OP_TYPE_INT,  OP_FL_BLANK, FL_MODE_2,    0, DEF_MODE,    0, 0 },
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
+      { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,     0, DEF_GROUP,   0, 0 },
+      { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,   0, DEF_GROUP,   0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -128,6 +149,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
 
     if( rc == RC_NORMAL)
     {
+        co = get_matching_option( OP_GROUP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else plan->rungroup = (char *) co->parsed;
+    }
+
+    if( rc == RC_NORMAL)
+    {
         co = get_matching_option( OP_PORT, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
         else if( co->opt_num >= server_set) plan->target_port = *((int *) co->parsed);
@@ -208,12 +236,12 @@ char *build_syscall_errmsg( char *syscall, int sysrc)
 
 {
     int errlen = 0;
-    char *errmsg = 0, *name = 0, *default = "unspecified system call";
+    char *errmsg = 0, *name = 0, *def_name = "unspecified system call";
 
-    if( !syscall) name = default;
-    else if( !*syscall) name = default;
+    if( !syscall) name = def_name;
+    else if( !*syscall) name = def_name;
 
-    errlen = ERRMSG_SYSCALL2_FAILED + strlen( name) + INT_ERR_DISPLAY_LEN;
+    errlen = strlen( ERRMSG_SYSCALL2_FAILED) + strlen( name) + INT_ERR_DISPLAY_LEN;
     errmsg = (char *) malloc( errlen);
     if( errmsg) snprintf( errmsg, errlen, ERRMSG_SYSCALL2_FAILED, name, sysrc);
 
@@ -222,14 +250,104 @@ char *build_syscall_errmsg( char *syscall, int sysrc)
 
 /* --- */
 
-int switch_to_run_user( struct task_details *plan)
+int switch_user_and_group( struct task_details *plan)
 
 {
     int rc = RC_NORMAL;
 
-    if( plan->runuser) if( *plan->runuser) if( strcmp( plan->runuser, ???NO_SWITCH_NEEDED???))
+    rc = switch_run_group( plan);
+    if( rc == RC_NORMAL) rc = switch_run_user( plan);
+
+    return( rc);
+}
+
+/* --- */
+
+int switch_run_group( struct task_details *plan)
+
+{
+    int rc = RC_NORMAL, sysrc, errlen;
+    char *my_group = 0, *my_egroup = 0;
+    struct group *gr = 0;
+    uid_t my_gid, my_egid;
+
+    if( plan->rungroup) if( *plan->rungroup) if( strcmp( plan->rungroup, NO_SWITCH_NEEDED))
     {
-...yeah, do that stuff to switch to the indicated user...
+        my_gid = getgid();
+        my_egid = getegid();
+
+        errno = 0;
+        gr = getgrgid( my_gid);
+        if( !gr)
+        {
+            sysrc = errno;
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_CURR_GRLOOKUP_FAILED) + INT_ERR_DISPLAY_LEN * 2;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_CURR_GRLOOKUP_FAILED, my_gid, sysrc);
+	}
+        else
+        {
+            my_group = strdup( gr->gr_name);
+            if( !my_group) rc = ERR_MALLOC_FAILED;
+	}
+        
+        if( rc == RC_NORMAL)
+        {
+            errno = 0;
+            gr = getgrgid( my_egid);
+            if( !gr)
+            {
+                sysrc = errno;
+                rc = ERR_SYS_CALL;
+                errlen = strlen( ERRMSG_CURR_GRLOOKUP_FAILED) + INT_ERR_DISPLAY_LEN;
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_CURR_GRLOOKUP_FAILED, my_gid, sysrc);
+            }
+            else
+            {
+                my_egroup = strdup( gr->gr_name);
+                if( !my_egroup) rc = ERR_MALLOC_FAILED;
+	    }
+	}
+
+        if( rc == RC_NORMAL) if( plan->debug >= DEBUG_LOW)
+        {
+            printf( "Current group is %s, gid #%d.", my_group, my_gid);
+            if( my_egid != my_gid) printf( " Effective group %s, gid #%d.\n", my_egroup, my_egid);
+            else printf( "\n");
+	}
+
+        if( rc == RC_NORMAL)
+        {
+            errno = 0;
+            gr = getgrnam( plan->rungroup);
+            if( !gr && errno)
+            {
+                plan->err_msg = build_syscall_errmsg( "getgrnam", sysrc);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+	    }
+            else if( !gr)
+            {
+                errlen = strlen( ERRMSG_NO_SUCH_GROUP) + strlen( plan->rungroup);
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_NO_SUCH_GROUP, plan->rungroup);
+	    }
+            else
+            {
+                sysrc = setgid( gr->gr_gid);
+                if( sysrc)
+                {
+                    plan->err_msg = build_syscall_errmsg( "setgid", sysrc);
+                    if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+		}
+                else if( plan->debug >= DEBUG_LOW) printf( "Switched group to %s, gid #%d.\n",
+                  plan->rungroup, gr->gr_gid);
+	    }
+	}
     }
 
     return( rc);
@@ -237,14 +355,157 @@ int switch_to_run_user( struct task_details *plan)
 
 /* --- */
 
+int switch_run_user( struct task_details *plan)
+
+{
+    int rc = RC_NORMAL, sysrc, errlen;
+    char *my_name = 0, *my_ename = 0;
+    struct passwd *pw = 0;
+    uid_t my_uid, my_euid;
+
+    if( plan->runuser) if( *plan->runuser) if( strcmp( plan->runuser, NO_SWITCH_NEEDED))
+    {
+        my_uid = getuid();
+        my_euid = geteuid();
+
+        errno = 0;
+        pw = getpwuid( my_uid);
+        if( !pw)
+        {
+            sysrc = errno;
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_CURR_PWLOOKUP_FAILED) + INT_ERR_DISPLAY_LEN * 2;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_CURR_PWLOOKUP_FAILED, my_uid, sysrc);
+	}
+        else
+        {
+            my_name = strdup( pw->pw_name);
+            if( !my_name) rc = ERR_MALLOC_FAILED;
+	}
+        
+        if( rc == RC_NORMAL)
+        {
+            errno = 0;
+            pw = getpwuid( my_euid);
+            if( !pw)
+            {
+                sysrc = errno;
+                rc = ERR_SYS_CALL;
+                errlen = strlen( ERRMSG_CURR_PWLOOKUP_FAILED) + INT_ERR_DISPLAY_LEN;
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_CURR_PWLOOKUP_FAILED, my_euid, sysrc);
+            }
+            else
+            {
+                my_ename = strdup( pw->pw_name);
+                if( !my_ename) rc = ERR_MALLOC_FAILED;
+	    }
+	}
+
+        if( rc == RC_NORMAL) if( plan->debug >= DEBUG_LOW)
+        {
+            printf( "Currently running as %s, uid #%d.", my_name, my_uid);
+            if( my_euid != my_uid) printf( " Effective id %s, uid #%d.\n", my_ename, my_euid);
+            else printf( "\n");
+	}
+
+        if( rc == RC_NORMAL)
+        {
+            errno = 0;
+            pw = getpwnam( plan->runuser);
+            if( !pw && errno)
+            {
+                plan->err_msg = build_syscall_errmsg( "getpwnam", sysrc);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+	    }
+            else if( !pw)
+            {
+                errlen = strlen( ERRMSG_NO_SUCH_USER) + strlen( plan->runuser);
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_NO_SUCH_USER, plan->runuser);
+	    }
+            else
+            {
+                sysrc = setuid( pw->pw_uid);
+                if( sysrc)
+                {
+                    plan->err_msg = build_syscall_errmsg( "setuid", sysrc);
+                    if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+		}
+                else if( plan->debug >= DEBUG_LOW) printf( "Switched user to %s, uid #%d.\n",
+                  plan->runuser, pw->pw_uid);
+	    }
+	}
+    }
+
+    return( rc);
+}
+
+/* --- */
+
+mode_t convert_to_mode( int dec_mode)
+
+{
+    int subset;
+    mode_t mode;
+
+    mode = 0;
+
+    subset = dec_mode % 10;
+    if( subset & SUBSET_EXEC) mode |= S_IXOTH;
+    if( subset & SUBSET_WRITE) mode |= S_IWOTH;
+    if( subset & SUBSET_READ) mode |= S_IROTH;
+
+    subset = (dec_mode / 10) % 10;
+    if( subset & SUBSET_EXEC) mode |= S_IXGRP;
+    if( subset & SUBSET_WRITE) mode |= S_IWGRP;
+    if( subset & SUBSET_READ) mode |= S_IRGRP;
+    
+    subset = (dec_mode / 100) % 10;
+    if( subset & SUBSET_EXEC) mode |= S_IXUSR;
+    if( subset & SUBSET_WRITE) mode |= S_IWUSR;
+    if( subset & SUBSET_READ) mode |= S_IRUSR;
+    
+    subset = (dec_mode / 1000) % 10;
+    if( subset & SUBSET_EXEC) mode |= S_ISVTX;
+    if( subset & SUBSET_WRITE) mode |= S_ISGID;
+    if( subset & SUBSET_READ) mode |= S_ISUID;
+
+    return( mode);
+}
+
+/* --- */
+
 int open_logfile( int *log_fd, struct task_details *plan)
 
 {
-    int rc = RC_NORMAL;
+    int rc = RC_NORMAL, sysrc, errlen;
+    mode_t mode, save_umask;
+    char *syserrmsg = 0;
 
-...decode the value of "plan->logmode" and set umask...
+    save_umask = umask( 0);
 
-...open the file in "plan->logfile"...
+    mode = convert_to_mode( plan->logmode);
+
+    sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);
+    if( sysrc > 0) *log_fd = sysrc;
+    else
+    {
+        sysrc = errno;
+        syserrmsg = strerror( errno);
+        errlen = strlen( ERRMSG_OPEN_FAILED) + strlen( plan->logfile)
+          + strlen( syserrmsg) + INT_ERR_DISPLAY_LEN;
+        plan->err_msg = (char *) malloc( errlen);
+        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+        else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED,
+          plan->logfile, sysrc, syserrmsg);
+    }
+
+    (void) umask( save_umask);
 
     return( rc);
 }
@@ -255,20 +516,25 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
 {
     int rc = RC_NORMAL, sysrc = 0;
+    char buff[ BUFFER_SIZE];
+    struct sockaddr *sender = 0;
+    socklen_t sender_len;
 
     for(; rc == RC_NORMAL; )
     {
-        sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, sender_len);
+        sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
             if( sysrc == ENOMEM) rc = ERR_MALLOC_FAILED;
             else rc = ERR_SYS_CALL;
 	}
+/*
         else
         {
 ...dump the record...
 	}
+ */
     }
 
     /* --- */
@@ -395,11 +661,11 @@ int main( int narg, char **opts)
         else snprintf( plan->err_msg, errlen, ERRMSG_BIND_FAILED, errno);
     }
 
-    if( rc == RC_NORMAL) rc = switch_to_run_user( plan);
+    if( rc == RC_NORMAL) rc = switch_user_and_group( plan);
 
     if( rc == RC_NORMAL) rc = open_logfile( &log_fd, plan);
 
-    if( rc == RC_NORMAL) rc = receive_udp_and_log( plan, socket, log_fd);
+    if( rc == RC_NORMAL) rc = receive_udp_and_log( plan, sock, log_fd);
 
     /* --- */
 
