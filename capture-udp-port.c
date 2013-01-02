@@ -606,6 +606,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
                 }
                 else if( sysrc != outlen)
                 {
+                    rc = ERR_WRITE_FAILED;
                     errlen = strlen( ERRMSG_WRITE_PARTIAL) + INT_ERR_DISPLAY_LEN * 2;
                     plan->err_msg = (char *) malloc( errlen);
                     if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
