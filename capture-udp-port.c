@@ -515,8 +515,9 @@ int open_logfile( int *log_fd, struct task_details *plan)
 int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
 {
-    int rc = RC_NORMAL, sysrc = 0;
-    char buff[ BUFFER_SIZE];
+    int rc = RC_NORMAL, sysrc = 0, inlen, outlen, errlen;
+    char buff[ BUFFER_SIZE], logbuff[ LOG_BUFFER_SIZE], display_time[ TIME_DISPLAY_SIZE];
+    char *outbuff = 0, *inbuff = 0, *last = 0;
     struct sockaddr *sender = 0;
     socklen_t sender_len;
 
@@ -527,23 +528,62 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
         {
             sysrc = errno;
             if( sysrc == ENOMEM) rc = ERR_MALLOC_FAILED;
-            else rc = ERR_SYS_CALL;
+            else
+            {
+                rc = ERR_SYS_CALL;
+                plan->err_msg = build_syscall_errmsg( "recvfrom", sysrc);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+	    }
 	}
-/*
         else
         {
-...dump the record...
-	}
+/*
+            ...write out meta info and timestamp...
  */
+
+            inlen = sysrc;
+
+            time( &now);
+            localtime_r( &now, &this_time);
+            strftime( display_time, (sizeof display_time), TIME_DISPLAY_FORMAT, &this_time);
+
+            snprintf( display_len, (sizeof display_len), LENGTH_DISPLAY_FORMAT, msglen);
+/*
+            ...convert the sender ip to a string, two ways depending on IP4 or IP6...
+ */
+
+            inbuff = buff;
+            outbuff = logbuff;
+            for( last = inbuff + inlen; inbuff < last; inbuff++)
+            {
+                snprintf( outbuff, 2, "%02x", *inbuff);
+                outbuff += 2;
+	    }
+
+            if( inlen)
+            {
+                outlen = inlen * 2;
+                sysrc = write( log_fd, logbuff, outlen);
+                if( sysrc < 0)
+                {
+                   sysrc = errno;
+                   rc = ERR_WRITE_FAILED;
+                   plan->err_msg = build_syscall_errmsg( "write", sysrc);
+                   if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+		}
+                else if( sysrc != outlen)
+                {
+                   errlen = strlen( ERRMSG_WRITE_PARTIAL) + INT_ERR_DISPLAY_LEN * 2;
+                   plan->err_msg = (char *) malloc( errlen);
+                   if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                   else snprintf( plan->err_msg, errlen, ERRMSG_WRITE_PARTIAL,
+                     outlen, sysrc);
+		}
+	    }
+	}
     }
 
     /* --- */
-
-    if( rc == ERR_SYS_CALL)
-    {
-        plan->err_msg = build_syscall_errmsg( "recvfrom", sysrc);
-        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-    }
 
     return( rc);
 }

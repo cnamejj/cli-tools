@@ -48,7 +48,8 @@
 
 #define NO_SWITCH_NEEDED "run-asis"
 
-#define BUFFER_SIZE 1500
+#define BUFFER_SIZE 4096
+#define LOG_BUFFER_SIZE (BUFFER_SIZE + 1) * 2
 
 #define SUBSET_READ  0x4
 #define SUBSET_WRITE 0x2

@@ -98,6 +98,7 @@ char *cli_strerror( int);
 #define ERRMSG_CURR_PWLOOKUP_FAILED "Can't lookup current uid %d, rc=%d."
 #define ERRMSG_CURR_GRLOOKUP_FAILED "Can't lookup current grouo %d, rc=%d."
 #define ERRMSG_OPEN_FAILED "Can't open log file '%s', rc=%d.\nSystem error: %s"
+#define ERRMSG_WRITE_PARTIAL "Partial write to log file, %d of %d bytes written."
 
 /* --- */
 
