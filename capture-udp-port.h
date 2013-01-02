@@ -57,6 +57,16 @@
 
 #define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_APPEND
 
+#define UNKNOWN_IP "Unknown-IP"
+
+#define IPV6_DISPLAY_SIZE INET6_ADDRSTRLEN
+
+#define TIME_DISPLAY_SIZE 256
+#define TIME_DISPLAY_FORMAT "%y/%m/%d-%H:%M:%S "
+
+#define LENGTH_DISPLAY_SIZE 32
+#define LENGTH_DISPLAY_FORMAT " %d "
+
 /* --- */
 
 #endif

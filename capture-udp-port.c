@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "parse_opt.h"
 #include "capture-udp-port.h"
@@ -515,11 +516,17 @@ int open_logfile( int *log_fd, struct task_details *plan)
 int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
 {
-    int rc = RC_NORMAL, sysrc = 0, inlen, outlen, errlen;
-    char buff[ BUFFER_SIZE], logbuff[ LOG_BUFFER_SIZE], display_time[ TIME_DISPLAY_SIZE];
-    char *outbuff = 0, *inbuff = 0, *last = 0;
+    int rc = RC_NORMAL, sysrc = 0, inlen, outlen, errlen, meta_len, prefix_len;
+    char buff[ BUFFER_SIZE], logbuff[ LOG_BUFFER_SIZE], display_time[ TIME_DISPLAY_SIZE],
+      display_ip[ IP_DISPLAY_SIZE], display_len[ LENGTH_DISPLAY_SIZE];
+    char *outbuff = 0, *inbuff = 0, *last = 0, *prefix_buff = 0, *dis_ip = 0;
+    void *s_addr = 0;
     struct sockaddr *sender = 0;
+    struct sockaddr_in6 *sender6 = 0;
+    struct sockaddr_in *sender4 = 0;
+    struct tm this_time;
     socklen_t sender_len;
+    time_t now;
 
     for(; rc == RC_NORMAL; )
     {
@@ -537,48 +544,74 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 	}
         else
         {
-/*
-            ...write out meta info and timestamp...
- */
-
             inlen = sysrc;
 
             time( &now);
             localtime_r( &now, &this_time);
             strftime( display_time, (sizeof display_time), TIME_DISPLAY_FORMAT, &this_time);
 
-            snprintf( display_len, (sizeof display_len), LENGTH_DISPLAY_FORMAT, msglen);
-/*
-            ...convert the sender ip to a string, two ways depending on IP4 or IP6...
- */
-
-            inbuff = buff;
-            outbuff = logbuff;
-            for( last = inbuff + inlen; inbuff < last; inbuff++)
+            if( plan->found_family == AF_INET6)
             {
-                snprintf( outbuff, 2, "%02x", *inbuff);
-                outbuff += 2;
+                sender6 = (struct sockaddr_in6 *)sender;
+                s_addr = &sender6->sin6_addr;
+	    }
+            else
+            {
+                sender4 = (struct sockaddr_in *)sender;
+                s_addr = &sender4->sin_addr;
 	    }
 
-            if( inlen)
+            dis_ip = (char *) inet_ntop( plan->found_family, s_addr, display_ip, (sizeof display_ip));
+            if( !dis_ip) dis_ip = UNKNOWN_IP;
+            else if( !*dis_ip) dis_ip = UNKNOWN_IP;
+
+            snprintf( display_len, (sizeof display_len), LENGTH_DISPLAY_FORMAT,	inlen);
+
+            meta_len = strlen( display_time) + strlen( dis_ip) + strlen( display_len) + 1;
+            if( meta_len > prefix_len)
             {
-                outlen = inlen * 2;
-                sysrc = write( log_fd, logbuff, outlen);
+                if( prefix_buff) free( prefix_buff);
+                prefix_len = meta_len;
+                prefix_buff = (char *) malloc( prefix_len);
+                if( !prefix_buff) rc = ERR_MALLOC_FAILED;
+ 	    }
+
+            if( rc == RC_NORMAL)
+            {
+                snprintf( prefix_buff, prefix_len, "%s%s%s", display_time, dis_ip, display_len);
+
+                outlen = prefix_len;
+                sysrc = write( log_fd, prefix_buff, outlen);
+
+                if( sysrc == outlen && inlen)
+                {
+                    inbuff = buff;
+                    outbuff = logbuff;
+                    for( last = inbuff + inlen; inbuff < last; inbuff++)
+                    {
+                        snprintf( outbuff, 2, "%02x", *inbuff);
+                        outbuff += 2;
+                    }
+
+                    outlen = inlen * 2;
+                    sysrc = write( log_fd, logbuff, outlen);
+		}
+
                 if( sysrc < 0)
                 {
-                   sysrc = errno;
-                   rc = ERR_WRITE_FAILED;
-                   plan->err_msg = build_syscall_errmsg( "write", sysrc);
-                   if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-		}
+                    sysrc = errno;
+                    rc = ERR_WRITE_FAILED;
+                    plan->err_msg = build_syscall_errmsg( "write", sysrc);
+                    if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                }
                 else if( sysrc != outlen)
                 {
-                   errlen = strlen( ERRMSG_WRITE_PARTIAL) + INT_ERR_DISPLAY_LEN * 2;
-                   plan->err_msg = (char *) malloc( errlen);
-                   if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-                   else snprintf( plan->err_msg, errlen, ERRMSG_WRITE_PARTIAL,
-                     outlen, sysrc);
-		}
+                    errlen = strlen( ERRMSG_WRITE_PARTIAL) + INT_ERR_DISPLAY_LEN * 2;
+                    plan->err_msg = (char *) malloc( errlen);
+                    if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                    else snprintf( plan->err_msg, errlen, ERRMSG_WRITE_PARTIAL,
+                      outlen, sysrc);
+                }
 	    }
 	}
     }
