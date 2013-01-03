@@ -92,12 +92,12 @@ char *cli_strerror( int);
 #define ERRMSG_SENDTO_PARTIAL "Sent only %d of %d bytes requested."
 #define ERRMSG_INET_PTON "Interal error, invalid address family passed to inet_pton() routing, host '%s'."
 #define ERRMSG_BIND_FAILED "Call to bind() failed with rc=%d"
-#define ERRMSG_SYSCALL2_FAILED "Call to %s() tailed with rc=%d"
+#define ERRMSG_SYSCALL2_FAILED "Call to %s() failed with rc=%d"
 #define ERRMSG_NO_SUCH_USER "No such user %s."
 #define ERRMSG_NO_SUCH_GROUP "No such group %s."
 #define ERRMSG_CURR_PWLOOKUP_FAILED "Can't lookup current uid %d, rc=%d."
 #define ERRMSG_CURR_GRLOOKUP_FAILED "Can't lookup current grouo %d, rc=%d."
-#define ERRMSG_OPEN_FAILED "Can't open log file '%s', rc=%d.\nSystem error: %s"
+#define ERRMSG_OPEN_FAILED "Can't open log file '%s', rc=%d."
 #define ERRMSG_WRITE_PARTIAL "Partial write to log file, %d of %d bytes written."
 
 /* --- */

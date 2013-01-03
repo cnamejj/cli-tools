@@ -55,7 +55,7 @@
 #define SUBSET_WRITE 0x2
 #define SUBSET_EXEC  0x1
 
-#define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_APPEND
+#define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_CREAT
 
 #define UNKNOWN_IP "Unknown-IP"
 

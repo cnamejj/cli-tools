@@ -241,6 +241,7 @@ char *build_syscall_errmsg( char *syscall, int sysrc)
 
     if( !syscall) name = def_name;
     else if( !*syscall) name = def_name;
+    else name = syscall;
 
     errlen = strlen( ERRMSG_SYSCALL2_FAILED) + strlen( name) + INT_ERR_DISPLAY_LEN;
     errmsg = (char *) malloc( errlen);
@@ -316,9 +317,9 @@ int switch_run_group( struct task_details *plan)
 
         if( rc == RC_NORMAL) if( plan->debug >= DEBUG_LOW)
         {
-            printf( "Current group is %s, gid #%d.", my_group, my_gid);
-            if( my_egid != my_gid) printf( " Effective group %s, gid #%d.\n", my_egroup, my_egid);
-            else printf( "\n");
+            fprintf( stderr, "Current group is %s, gid #%d.", my_group, my_gid);
+            if( my_egid != my_gid) fprintf( stderr, " Effective group %s, gid #%d.\n", my_egroup, my_egid);
+            else fprintf( stderr, "\n");
 	}
 
         if( rc == RC_NORMAL)
@@ -345,7 +346,7 @@ int switch_run_group( struct task_details *plan)
                     plan->err_msg = build_syscall_errmsg( "setgid", sysrc);
                     if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
 		}
-                else if( plan->debug >= DEBUG_LOW) printf( "Switched group to %s, gid #%d.\n",
+                else if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Switched group to %s, gid #%d.\n",
                   plan->rungroup, gr->gr_gid);
 	    }
 	}
@@ -408,9 +409,9 @@ int switch_run_user( struct task_details *plan)
 
         if( rc == RC_NORMAL) if( plan->debug >= DEBUG_LOW)
         {
-            printf( "Currently running as %s, uid #%d.", my_name, my_uid);
-            if( my_euid != my_uid) printf( " Effective id %s, uid #%d.\n", my_ename, my_euid);
-            else printf( "\n");
+            fprintf( stderr, "Currently running as %s, uid #%d.", my_name, my_uid);
+            if( my_euid != my_uid) fprintf( stderr, " Effective id %s, uid #%d.\n", my_ename, my_euid);
+            else fprintf( stderr, "\n");
 	}
 
         if( rc == RC_NORMAL)
@@ -437,7 +438,7 @@ int switch_run_user( struct task_details *plan)
                     plan->err_msg = build_syscall_errmsg( "setuid", sysrc);
                     if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
 		}
-                else if( plan->debug >= DEBUG_LOW) printf( "Switched user to %s, uid #%d.\n",
+                else if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Switched user to %s, uid #%d.\n",
                   plan->runuser, pw->pw_uid);
 	    }
 	}
@@ -486,7 +487,6 @@ int open_logfile( int *log_fd, struct task_details *plan)
 {
     int rc = RC_NORMAL, sysrc, errlen;
     mode_t mode, save_umask;
-    char *syserrmsg = 0;
 
     save_umask = umask( 0);
 
@@ -497,14 +497,17 @@ int open_logfile( int *log_fd, struct task_details *plan)
     else
     {
         sysrc = errno;
-        syserrmsg = strerror( errno);
+        rc = ERR_OPEN_FAILED;
         errlen = strlen( ERRMSG_OPEN_FAILED) + strlen( plan->logfile)
-          + strlen( syserrmsg) + INT_ERR_DISPLAY_LEN;
+          + INT_ERR_DISPLAY_LEN;
         plan->err_msg = (char *) malloc( errlen);
         if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-        else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED,
-          plan->logfile, sysrc, syserrmsg);
+        else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED, plan->logfile, sysrc);
     }
+
+/* ??? why doesn't this work ??? figure it out ??? */
+    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x, fd=%d, err=%d\n",
+      plan->logfile, mode, sysrc, errno);
 
     (void) umask( save_umask);
 
@@ -521,16 +524,23 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
       display_ip[ IP_DISPLAY_SIZE], display_len[ LENGTH_DISPLAY_SIZE];
     char *outbuff = 0, *inbuff = 0, *last = 0, *prefix_buff = 0, *dis_ip = 0;
     void *s_addr = 0;
-    struct sockaddr *sender = 0;
+    struct sockaddr sender;
     struct sockaddr_in6 *sender6 = 0;
     struct sockaddr_in *sender4 = 0;
     struct tm this_time;
     socklen_t sender_len;
     time_t now;
 
+    sender6 = (struct sockaddr_in6 *) &sender;
+    sender4 = (struct sockaddr_in *) &sender;
+    if( plan->found_family == AF_INET6) s_addr = &sender6->sin6_addr;
+    else s_addr = &sender4->sin_addr;
+
+    sender_len = (sizeof sender);
+
     for(; rc == RC_NORMAL; )
     {
-        sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
+        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, &sender, &sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
@@ -544,22 +554,9 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 	}
         else
         {
-            inlen = sysrc;
-
             time( &now);
             localtime_r( &now, &this_time);
             strftime( display_time, (sizeof display_time), TIME_DISPLAY_FORMAT, &this_time);
-
-            if( plan->found_family == AF_INET6)
-            {
-                sender6 = (struct sockaddr_in6 *)sender;
-                s_addr = &sender6->sin6_addr;
-	    }
-            else
-            {
-                sender4 = (struct sockaddr_in *)sender;
-                s_addr = &sender4->sin_addr;
-	    }
 
             dis_ip = (char *) inet_ntop( plan->found_family, s_addr, display_ip, (sizeof display_ip));
             if( !dis_ip) dis_ip = UNKNOWN_IP;
@@ -580,7 +577,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
             {
                 snprintf( prefix_buff, prefix_len, "%s%s%s", display_time, dis_ip, display_len);
 
-                outlen = prefix_len;
+                outlen = prefix_len - 1;
                 sysrc = write( log_fd, prefix_buff, outlen);
 
                 if( sysrc == outlen && inlen)
@@ -589,11 +586,12 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
                     outbuff = logbuff;
                     for( last = inbuff + inlen; inbuff < last; inbuff++)
                     {
-                        snprintf( outbuff, 2, "%02x", *inbuff);
+                        snprintf( outbuff, 3, "%02x", *inbuff);
                         outbuff += 2;
                     }
+                    *outbuff = '\n';
 
-                    outlen = inlen * 2;
+                    outlen = (inlen * 2) + 1;
                     sysrc = write( log_fd, logbuff, outlen);
 		}
 
@@ -688,7 +686,7 @@ int main( int narg, char **opts)
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
             else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
-        else if( plan->debug > DEBUG_LOW) fprintf( stderr, 
+        else if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "Server(%s) IP(%s)\n", plan->target_host, display_ip);
     }
 
