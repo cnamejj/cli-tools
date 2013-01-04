@@ -1,3 +1,6 @@
+/* ??? need to make sure we don't ignore unrecognized flags, should print an error and exit */
+/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -352,6 +355,9 @@ int switch_run_group( struct task_details *plan)
 	}
     }
 
+    if( my_group) free( my_group);
+    if( my_egroup) free( my_egroup);
+
     return( rc);
 }
 
@@ -444,6 +450,9 @@ int switch_run_user( struct task_details *plan)
 	}
     }
 
+    if( my_name) free( my_name);
+    if( my_ename) free( my_ename);
+
     return( rc);
 }
 
@@ -519,7 +528,7 @@ int open_logfile( int *log_fd, struct task_details *plan)
 int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
 {
-    int rc = RC_NORMAL, sysrc = 0, inlen, outlen, errlen, meta_len, prefix_len;
+    int rc = RC_NORMAL, sysrc = 0, inlen, outlen, errlen, meta_len, prefix_len = 0;
     char buff[ BUFFER_SIZE], logbuff[ LOG_BUFFER_SIZE], display_time[ TIME_DISPLAY_SIZE],
       display_ip[ IP_DISPLAY_SIZE], display_len[ LENGTH_DISPLAY_SIZE];
     char *outbuff = 0, *inbuff = 0, *last = 0, *prefix_buff = 0, *dis_ip = 0;
@@ -580,15 +589,17 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
                 outlen = prefix_len - 1;
                 sysrc = write( log_fd, prefix_buff, outlen);
 
-                if( sysrc == outlen && inlen)
+                if( sysrc == outlen)
                 {
                     inbuff = buff;
                     outbuff = logbuff;
+
                     for( last = inbuff + inlen; inbuff < last; inbuff++)
                     {
                         snprintf( outbuff, 3, "%02x", *inbuff);
                         outbuff += 2;
-                    }
+	            }
+
                     *outbuff = '\n';
 
                     outlen = (inlen * 2) + 1;
