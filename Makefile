@@ -25,7 +25,7 @@ all: $(PROGS) $(SOLOPROGS) $(LIBS)
 
 # ---
 
-%.o : %.c Makefile %.c
+%.o : %.c Makefile %.c $(UBIQ_H)
 	$(CC) -c -o $@ $(CFLAGS) $<
 
 $(SOBJS) : % : Makefile $(UBIQ_H)
