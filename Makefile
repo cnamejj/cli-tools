@@ -20,8 +20,11 @@ default:
 
 # ---
 
-.PHONY: all
-all: $(PROGS) $(SOLOPROGS) $(LIBS)
+.PHONY: all libs
+
+all : $(PROGS) $(SOLOPROGS) $(LIBS)
+
+libs : $(LIBS)
 
 # ---
 
@@ -38,8 +41,6 @@ $(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
 
 libCLISUB.a : $(SOBJS)
 	$(ARCOMM) $@ $(SOBJS)
-
-libs : $(LIBS)
 
 # ---
 
