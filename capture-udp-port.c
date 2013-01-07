@@ -76,6 +76,20 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
 
+        /* Need to pull this one up (most options are parsed later) */
+
+        if( rc == RC_NORMAL)
+        {
+            co = get_matching_option( OP_DEBUG, opset, nflags);
+            if( !co) rc = ERR_OPT_CONFIG;
+            else
+            {
+                plan->debug = *((int *) co->parsed);
+                if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, debug '%d'\n",
+                  co->opt_num, *((int *) co->parsed));
+            }
+        }
+
         /* --- */
 
         if( plan->debug >= DEBUG_HIGH)
@@ -91,6 +105,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
             }
             fprintf( stderr, ")\n");
 
+            /* Print out settings just for options included on the command line */
             fprintf( stderr, "Seq Num Typ Fl Opt\n");
 
             for( off= 0; off < nflags; off++)
@@ -103,14 +118,17 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
                     if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
                     {
                         int_p = (int *) co->parsed;
-                        fprintf( stderr, "%d ", (int) *int_p);
+                        fprintf( stderr, "%d ", *int_p);
                     }
                     else if( co->type == OP_TYPE_CHAR) fprintf( stderr, "(%s) ", (char *) co->parsed);
+                    else if( co->type == OP_TYPE_FLOAT) fprintf( stderr, "%f ", *((float *) co->parsed));
                     else fprintf( stderr, "/?/ ");
                     fprintf( stderr, "(%s) (%s) ", co->name, co->val);
                     fprintf( stderr, "\n");
                 }
             }
+
+            /* Print out all options settings, includes defaults for unspecified options */
             fprintf( stderr, "Seq Num Typ Fl Opt\n");
 
             for( off= 0; off < nflags; off++)
@@ -121,9 +139,10 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
                 if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
                 {
                     int_p = (int *) co->parsed;
-                    fprintf( stderr, "%d ", (int) *int_p);
+                    fprintf( stderr, "%d ", *int_p);
                 }
                 else if( co->type == OP_TYPE_CHAR) fprintf( stderr, "(%s) ", (char *) co->parsed);
+                else if( co->type == OP_TYPE_FLOAT) fprintf( stderr, "%f ", *((float *) co->parsed));
                 else fprintf( stderr, "/?/ ");
                 fprintf( stderr, "(%s) (%s) ", co->name, co->val);
                 fprintf( stderr, "\n");
@@ -139,6 +158,8 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, server '%s'\n",
+              co->opt_num, (char *) co->parsed);
             server_set = co->opt_num;
             rc = parse_destination_value( plan, (char *) co->parsed);
 	}
@@ -148,70 +169,103 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_USER, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->runuser = (char *) co->parsed;
+        else
+        {
+            plan->runuser = (char *) co->parsed;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, run-user '%s'\n",
+              co->opt_num, (char *) co->parsed);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_GROUP, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->rungroup = (char *) co->parsed;
+        else
+        {
+            plan->rungroup = (char *) co->parsed;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, run-group '%s'\n",
+              co->opt_num, (char *) co->parsed);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_PORT, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->opt_num >= server_set) plan->target_port = *((int *) co->parsed);
+        else
+        {
+            if( co->opt_num >= server_set) plan->target_port = *((int *) co->parsed);
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, port '%d'\n",
+              co->opt_num, *((int *) co->parsed));
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_HOST, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->opt_num >= server_set) plan->target_host = (char *) co->parsed;
+        else
+        {
+            if( co->opt_num >= server_set) plan->target_host = (char *) co->parsed;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, host '%s'\n",
+              co->opt_num, (char *) co->parsed);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_IPV4, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
-        else plan->use_ip &= ~DO_IPV4;
-        ipv4 = co;
+        else
+        {
+            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+            else plan->use_ip &= ~DO_IPV4;
+            ipv4 = co;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
+              co->opt_num, co->flags, plan->use_ip);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_IPV6, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
-        else plan->use_ip &= ~DO_IPV6;
-        ipv6 = co;
+        else
+        {
+            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+            else plan->use_ip &= ~DO_IPV6;
+            ipv6 = co;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
+              co->opt_num, co->flags, plan->use_ip);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_LOGFILE, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->logfile = (char *) co->parsed;
+        else
+        {
+            plan->logfile = (char *) co->parsed;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, logfile '%s'\n",
+              co->opt_num, (char *) co->parsed);
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         co = get_matching_option( OP_MODE, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->logmode = *((int *) co->parsed);
+        else
+        {
+            plan->logmode = *((int *) co->parsed);
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, logmode '%d'\n",
+              co->opt_num, *((int *) co->parsed));
+	}
     }
 
-    if( rc == RC_NORMAL)
-    {
-        co = get_matching_option( OP_DEBUG, opset, nflags);
-        if( !co) rc = ERR_OPT_CONFIG;
-        else plan->debug = *((int *) co->parsed);
-    }
-
-/* ...figure out how to deal with "--no-" options for host, port and server flags... */
+/* ??? figure out how to deal with "--no-" options for host, port and server flags. */
 
     /* By default both IPV4 and IPV6 are disabled.  If neither option was selected via
      * command line flags, them turn the both on so the code will take whichever one it
@@ -224,6 +278,9 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         else if( ipv4->opt_num) plan->use_ip |= DO_IPV6;
         else if( ipv6->opt_num) plan->use_ip |= DO_IPV4;
         else plan->use_ip |= (DO_IPV4 | DO_IPV6);
+
+        if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "IP check, ipv4=%d, ipv6=%d, use_ip=%x\n",
+          ipv4->opt_num, ipv6->opt_num, plan->use_ip);
     }
 
     if( rc == ERR_OPT_CONFIG) plan->err_msg = "Unrecoverable internal configuration error, can't continue.";
@@ -514,7 +571,6 @@ int open_logfile( int *log_fd, struct task_details *plan)
         else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED, plan->logfile, sysrc);
     }
 
-/* ??? why doesn't this work ??? figure it out ??? */
     if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x, fd=%d, err=%d\n",
       plan->logfile, mode, sysrc, errno);
 
@@ -570,6 +626,8 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
             dis_ip = (char *) inet_ntop( plan->found_family, s_addr, display_ip, (sizeof display_ip));
             if( !dis_ip) dis_ip = UNKNOWN_IP;
             else if( !*dis_ip) dis_ip = UNKNOWN_IP;
+
+            if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Recv: %s %s %d\n", display_time, dis_ip, inlen);
 
             snprintf( display_len, (sizeof display_len), LENGTH_DISPLAY_FORMAT,	inlen);
 
