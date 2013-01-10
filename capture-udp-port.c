@@ -1,5 +1,8 @@
 /* ??? need to make sure we don't ignore unrecognized flags, should print an error and exit */
-/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally */
+/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally, might be a bug? create a simple program to demonstrate */
+/* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
+/* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -264,8 +267,6 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
               co->opt_num, *((int *) co->parsed));
 	}
     }
-
-/* ??? figure out how to deal with "--no-" options for host, port and server flags. */
 
     /* By default both IPV4 and IPV6 are disabled.  If neither option was selected via
      * command line flags, them turn the both on so the code will take whichever one it
@@ -571,8 +572,8 @@ int open_logfile( int *log_fd, struct task_details *plan)
         else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED, plan->logfile, sysrc);
     }
 
-    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x, fd=%d, err=%d\n",
-      plan->logfile, mode, sysrc, errno);
+    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x (%d), fd=%d, err=%d\n",
+      plan->logfile, mode, plan->logmode, sysrc, errno);
 
     (void) umask( save_umask);
 
@@ -680,6 +681,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
                     else snprintf( plan->err_msg, errlen, ERRMSG_WRITE_PARTIAL,
                       outlen, sysrc);
                 }
+                else if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Wrote all data to log file\n");
 	    }
 	}
     }
