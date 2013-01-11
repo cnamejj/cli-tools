@@ -1,7 +1,11 @@
 /* -----------
- * QuickIPInfo - qipi
+ * QUickIPInfo - quipi
  * ----
- * Do DNS lookups for all the arguments passed on the command line
+ *
+ * Do DNS lookups for the arguments passed on the command line, 
+ * trying to figure out what type of "thing" was given without 
+ * making the user specify.  The appropriate forward or backward
+ * lookup is done, depending on what the code thinks it was given.
  */
 
 #include <stdlib.h>
@@ -13,6 +17,8 @@
 #include <errno.h>
 
 #include "quipi.h"
+#include "parse_opt.h"
+#include "err_ref.h"
 
 /* --- */
 
@@ -84,10 +90,11 @@ struct addrinfo *get_addrinfo_data( int sock_type )
 
 /* --- */
 
-struct addrinfo *convert_from_ip_addr( char *name )
+struct addrinfo *convert_from_ip_addr( char *name, int debug )
 
 {
     int rc = 0, getrc = 0;
+    char display_host[ 256 ], *dho;
     char display_ip[ INET6_ADDRSTRLEN+1 ], *dis;
     struct addrinfo *result = 0;
     struct sockaddr_in *sa4;
@@ -100,17 +107,20 @@ struct addrinfo *convert_from_ip_addr( char *name )
     memset( display_ip, '\0', (sizeof display_ip) );
     dis = display_ip;
 
+    memset( display_host, '\0', (sizeof display_host) );
+    dho = display_host;
+
     if( inet_pton( AF_INET, name, &sa4->sin_addr ) )
     {
         sa4->sin_family = AF_INET;
         sa4->sin_port = 0;
         result->ai_family = AF_INET;
 
-        getrc = getnameinfo( result->ai_addr, result->ai_addrlen, dis, (sizeof display_ip), NULL, 0, NI_NAMEREQD );
+        getrc = getnameinfo( result->ai_addr, result->ai_addrlen, dho, (sizeof display_host), NULL, 0, NI_NAMEREQD );
         if( !getrc)
         {
             if( result->ai_canonname) free( result->ai_canonname );
-            result->ai_canonname = strdup( display_ip );
+            result->ai_canonname = strdup( display_host );
             if( !result->ai_canonname ) rc = errno;
 	}
     }
@@ -156,7 +166,7 @@ struct addrinfo *convert_from_ip_addr( char *name )
         if( getrc == EAI_NONAME ) result->ai_canonname = strdup( LOOKUP_NONAME );
         else result->ai_canonname = strdup( LOOKUP_FAILED );
 
-/* fprintf( stderr, "**Err(%d)** Message is (%s)\n", getrc, gai_strerror(getrc)); */
+        if( debug >= DEBUG_MEDIUM1) fprintf( stderr, "**Err(%d)** Call to getnameinfo() failed, message (%s)\n", getrc, gai_strerror(getrc));
     }
 
     return( result);
@@ -164,7 +174,7 @@ struct addrinfo *convert_from_ip_addr( char *name )
 
 /* --- */
 
-struct addrinfo *convert_from_hostname( char *name )
+struct addrinfo *convert_from_hostname( char *name, int debug )
 
 {
     int chk, lookup = 1, getrc;
@@ -194,12 +204,11 @@ struct addrinfo *convert_from_hostname( char *name )
 	    }
 	}
     }
-/*    else
+    else if( debug >= DEBUG_MEDIUM1)
     {
-        fprintf( stderr, "**Err(%d)** Lookup failed for '%s' (%s).\n", chk,
+        fprintf( stderr, "**Err(%d)** Call to getaddrinfo() failed for '%s', message (%s).\n", chk,
           name, gai_strerror( chk ) );
     }
- */
 
     return( host_recs );
 }
@@ -209,10 +218,8 @@ struct addrinfo *convert_from_hostname( char *name )
 int main( int narg, char **opts )
 
 {
-    int rc = OK, np, seq = 0;
-#ifdef SHOW_DNS_DUMP            
+    int rc = RC_NORMAL, seq = 0, debug_level = 0;
     unsigned int family;
-#endif
     char *st, *name, *canon, *strc;
     char *unknown_name = strdup( NO_HOSTNAME ), *unknown_ip4 = strdup( NO_IP4_ADDR ),
       *unknown_ip6 = strdup( NO_IP6_ADDR );
@@ -220,6 +227,29 @@ int main( int narg, char **opts )
     struct addrinfo *host_recs, *ai;
     struct sockaddr_in *saddr4;
     struct sockaddr_in6 *saddr6;
+    struct option_set opset[] = {
+      { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
+    };
+    struct option_set *co = 0;
+    struct word_chain *extra_opts = 0, *walk = 0;
+    int nflags = (sizeof opset) / (sizeof opset[0]);
+
+    /* --- */
+
+    extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+    if( rc != RC_NORMAL)
+    {
+        fprintf( stderr, "Error parsing command options, rc=%d\n", rc);
+        exit( 1);
+    }
+
+    co = get_matching_option( OP_DEBUG, opset, nflags);
+    if( !co)
+    {
+        fprintf( stderr, "Program error dealing with options, this should never happen.\n");
+        exit( 1);
+    }
+    debug_level = *((int *) co->parsed);
 
     /* --- */
 
@@ -231,17 +261,17 @@ int main( int narg, char **opts )
     {
         st = opts[0];
         if( *st == '.' && *(st+1) == '/') st += 2;
-        printf( "Syntax: %s [ host1 | ip1 ] [ host2 | ip2 ] ...\n", st );
+        printf( "Syntax: %s [ --debug ## ] [ host1 | ip1 ] [ host2 | ip2 ] ...\n", st );
     }
 
     /* --- */
 
-    for( np=1; np<narg; np++ )
+    for( walk = extra_opts; walk; walk = walk->next )
     {
-        name = opts[np];
+        name = walk->opt;
 
-        host_recs = convert_from_ip_addr( name );
-        if( !host_recs ) host_recs = convert_from_hostname( name );
+        host_recs = convert_from_ip_addr( name, debug_level );
+        if( !host_recs ) host_recs = convert_from_hostname( name, debug_level );
 
         if( !host_recs)
         {
@@ -261,9 +291,7 @@ int main( int narg, char **opts )
 
                 if( ai->ai_family == AF_INET)
                 {
-#ifdef SHOW_DNS_DUMP            
                     family = ADDR_IPV4;
-#endif
                     saddr4 = (struct sockaddr_in *) ai->ai_addr;
                     st = display_ip;
                     strc = (char *) inet_ntop( AF_INET, &saddr4->sin_addr, st, (sizeof display_ip) );
@@ -271,9 +299,7 @@ int main( int narg, char **opts )
                 }
                 else if( ai->ai_family == AF_INET6)
                 {
-#ifdef SHOW_DNS_DUMP            
                     family = ADDR_IPV6;
-#endif
                     saddr6 = (struct sockaddr_in6 *) ai->ai_addr;
                     st = display_ip;
                     strc = (char *) inet_ntop( AF_INET6, &saddr6->sin6_addr, st, (sizeof display_ip) );
@@ -281,25 +307,24 @@ int main( int narg, char **opts )
                 }
                 else
                 {
-#ifdef SHOW_DNS_DUMP            
                     family = ADDR_UNRECOG;
-#endif
                     strcat( display_ip, unknown_ip4);
                 }
 
-#ifdef SHOW_DNS_DUMP            
-                printf( "---------: %s #%d\n", name, ++seq );
-                printf( "Flags____: %x\n", ai->ai_flags );
-                printf( "Family___: %d : %d\n", ai->ai_family, family );
-                printf( "SockType_: %d\n", ai->ai_socktype );
-                printf( "Protocol_: %d\n", ai->ai_protocol );
-                printf( "AddrLen__: %d\n", ai->ai_addrlen );
-                printf( "*SockAddr: %lx (%s)\n", (long int) ai->ai_addr, display_ip );
-                printf( "CanonName: %s\n", canon );
-                printf( "Next_____: %lx\n", (long int) ai->ai_next );
-#else
-                printf( "%d. %s %s %s\n", ++seq, name, display_ip, canon );
-#endif
+                seq++;
+                if( debug_level >= DEBUG_HIGH1)
+                {
+                    printf( "---------: %s #%d\n", name, seq );
+                    printf( "Flags____: %x\n", ai->ai_flags );
+                    printf( "Family___: %d : %d\n", ai->ai_family, family );
+                    printf( "SockType_: %d\n", ai->ai_socktype );
+                    printf( "Protocol_: %d\n", ai->ai_protocol );
+                    printf( "AddrLen__: %d\n", ai->ai_addrlen );
+                    printf( "*SockAddr: %lx (%s)\n", (long int) ai->ai_addr, display_ip );
+                    printf( "CanonName: %s\n", canon );
+                    printf( "Next_____: %lx\n", (long int) ai->ai_next );
+		}
+                printf( "%d. %s %s %s\n", seq, name, display_ip, canon );
             }
 
             freeaddrinfo( host_recs );
