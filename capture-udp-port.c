@@ -3,7 +3,6 @@
 /* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
 /* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -394,6 +393,7 @@ int switch_run_group( struct task_details *plan)
 	    }
             else if( !gr)
             {
+                rc = ERR_SYS_CALL;
                 errlen = strlen( ERRMSG_NO_SUCH_GROUP) + strlen( plan->rungroup);
                 plan->err_msg = (char *) malloc( errlen);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
@@ -404,6 +404,7 @@ int switch_run_group( struct task_details *plan)
                 sysrc = setgid( gr->gr_gid);
                 if( sysrc)
                 {
+                    rc = ERR_SYS_CALL;
                     plan->err_msg = build_syscall_errmsg( "setgid", sysrc);
                     if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
 		}
@@ -484,11 +485,13 @@ int switch_run_user( struct task_details *plan)
             pw = getpwnam( plan->runuser);
             if( !pw && errno)
             {
+                rc = ERR_SYS_CALL;
                 plan->err_msg = build_syscall_errmsg( "getpwnam", sysrc);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
 	    }
             else if( !pw)
             {
+                rc = ERR_SYS_CALL;
                 errlen = strlen( ERRMSG_NO_SUCH_USER) + strlen( plan->runuser);
                 plan->err_msg = (char *) malloc( errlen);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
@@ -499,6 +502,7 @@ int switch_run_user( struct task_details *plan)
                 sysrc = setuid( pw->pw_uid);
                 if( sysrc)
                 {
+                    rc = ERR_SYS_CALL;
                     plan->err_msg = build_syscall_errmsg( "setuid", sysrc);
                     if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
 		}
