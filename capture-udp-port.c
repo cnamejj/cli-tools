@@ -1,4 +1,3 @@
-/* ??? need to make sure we don't ignore unrecognized flags, should print an error and exit */
 /* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally, might be a bug? create a simple program to demonstrate */
 /* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
 /* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
@@ -40,7 +39,8 @@ mode_t convert_to_mode( int);
 struct task_details *figure_out_what_to_do( int *returncode, int narg, char **opts)
 
 {
-    int rc = RC_NORMAL, off, *int_p = 0, server_set = 0;
+    int rc = RC_NORMAL, off, *int_p = 0, server_set = 0, errlen;
+    char *unrecognized = 0;
     struct task_details *plan = 0;
     struct option_set opset[] = {
       { OP_SERVER,  OP_TYPE_CHAR, OP_FL_BLANK, FL_SERVER,    0, DEF_SERVER,  0, 0 },
@@ -78,7 +78,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
 
-        /* Need to pull this one up (most options are parsed later) */
+        /* Need to pull this one up to enable debug logging (other options are parsed later) */
 
         if( rc == RC_NORMAL)
         {
@@ -91,6 +91,36 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
                   co->opt_num, *((int *) co->parsed));
             }
         }
+
+        /* --- */
+
+        for( walk = extra_opts, errlen = 0; walk; walk = walk->next)
+          if( walk->opt) if( *walk->opt) errlen += strlen( walk->opt) + 1;
+
+        if( errlen)
+        {
+            rc = ERR_SYNTAX;
+            unrecognized = (char *) malloc( errlen + 1);
+            if( !unrecognized) rc = ERR_MALLOC_FAILED;
+            else
+            {
+                *unrecognized = '\0';
+                for( walk = extra_opts; walk; )
+                {
+                    if( walk->opt) strcat( unrecognized, walk->opt);
+                    walk = walk->next;
+                    if( walk) if( walk->opt) strcat( unrecognized, " ");
+		}
+
+                errlen += strlen( ERRMSG_UNRECOG_OPTIONS);
+                plan->err_msg = (char *) malloc( errlen);
+                if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+                else snprintf( plan->err_msg, errlen, ERRMSG_UNRECOG_OPTIONS, unrecognized);
+
+                free( unrecognized);
+	    }
+
+	}
 
         /* --- */
 
@@ -272,7 +302,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
      * finds.
      */
 
-    if( !(plan->use_ip & (DO_IPV4 | DO_IPV6)))
+    if( rc == RC_NORMAL) if( !(plan->use_ip & (DO_IPV4 | DO_IPV6)))
     {
         if( ipv4->opt_num && ipv6->opt_num) rc = ERR_INVALID_DATA;
         else if( ipv4->opt_num) plan->use_ip |= DO_IPV6;
@@ -287,6 +317,8 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     else if( rc == ERR_INVALID_DATA) plan->err_msg = "Both --no-ipv4 and --no-ipv6 specified, at least one needs to be allowed.";
 
     *returncode = rc;
+
+    if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "End figure-it-out() call, rc=%d\n", *returncode);
 
     return( plan);
 }
@@ -798,14 +830,17 @@ int main( int narg, char **opts)
 	}
     }
 
-    sysrc = bind( sock, listen, listen_len);
-    if( sysrc == -1)
+    if( rc == RC_NORMAL)
     {
-        rc = ERR_SYS_CALL;
-        errlen = strlen( ERRMSG_BIND_FAILED) + INT_ERR_DISPLAY_LEN;
-        plan->err_msg = (char *) malloc( errlen);
-        if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-        else snprintf( plan->err_msg, errlen, ERRMSG_BIND_FAILED, errno);
+        sysrc = bind( sock, listen, listen_len);
+        if( sysrc == -1)
+        {
+            rc = ERR_SYS_CALL;
+            errlen = strlen( ERRMSG_BIND_FAILED) + INT_ERR_DISPLAY_LEN;
+            plan->err_msg = (char *) malloc( errlen);
+            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
+            else snprintf( plan->err_msg, errlen, ERRMSG_BIND_FAILED, errno);
+        }
     }
 
     if( rc == RC_NORMAL) rc = switch_user_and_group( plan);
