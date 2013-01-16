@@ -1,3 +1,5 @@
+/* ??? probably should copy the data from the host records returned by getaddrinfo() and free them instead of just using the in place. */
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
