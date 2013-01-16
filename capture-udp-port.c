@@ -626,23 +626,29 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
       display_ip[ IP_DISPLAY_SIZE], display_len[ LENGTH_DISPLAY_SIZE];
     char *outbuff = 0, *inbuff = 0, *last = 0, *prefix_buff = 0, *dis_ip = 0;
     void *s_addr = 0;
-    struct sockaddr sender;
-    struct sockaddr_in6 *sender6 = 0;
-    struct sockaddr_in *sender4 = 0;
+    struct sockaddr *sender = 0;
+    struct sockaddr_in6 sender6;
+    struct sockaddr_in sender4;
     struct tm this_time;
     socklen_t sender_len;
     time_t now;
 
-    sender6 = (struct sockaddr_in6 *) &sender;
-    sender4 = (struct sockaddr_in *) &sender;
-    if( plan->found_family == AF_INET6) s_addr = &sender6->sin6_addr;
-    else s_addr = &sender4->sin_addr;
-
-    sender_len = (sizeof sender);
+    if( plan->found_family == AF_INET6)
+    {
+        s_addr = &sender6.sin6_addr;
+        sender = (struct sockaddr *) &sender6;
+        sender_len = (sizeof sender6);
+    }
+    else
+    {
+        s_addr = &sender4.sin_addr;
+        sender = (struct sockaddr *) &sender4;
+        sender_len = (sizeof sender4);
+    }
 
     for(; rc == RC_NORMAL; )
     {
-        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, &sender, &sender_len);
+        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
