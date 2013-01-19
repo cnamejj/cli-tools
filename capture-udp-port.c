@@ -1,4 +1,3 @@
-/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally, might be a bug? create a simple program to demonstrate */
 /* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
 /* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
 
