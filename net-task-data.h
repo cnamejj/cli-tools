@@ -2,6 +2,10 @@
 
 #define ___CNAMEjj_NET_TASK_DATA_H__
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 /* --- */
 
 struct task_details *allocate_plan_data();
@@ -36,10 +40,12 @@ int parse_destination_value( struct task_details *plan, char *destination);
 #define DEBUG_HIGH 3
 #define DEBUG_NOISY 4
 
+#define LOG_OPEN_FLAGS O_WRONLY | O_CREAT
+
 /* --- */
 
 struct task_details {
-    unsigned int use_ip, target_port, found_family, logmode, debug;
+    unsigned int use_ip, target_port, found_family, logmode, debug, openflags;
     char *target_host, *message, *logfile, *runuser, *rungroup, *err_msg;
     struct sockaddr_in dest4;
     struct sockaddr_in6 dest6;
