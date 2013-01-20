@@ -629,7 +629,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
     struct sockaddr_in6 sender6;
     struct sockaddr_in sender4;
     struct tm this_time;
-    socklen_t sender_len;
+    socklen_t sender_len, rc_sender_len;
     time_t now;
 
     if( plan->found_family == AF_INET6)
@@ -645,9 +645,11 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
         sender_len = (sizeof sender4);
     }
 
-    for(; rc == RC_NORMAL; )
+   for(; rc == RC_NORMAL; )
     {
-        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
+        /* -- The recvfrom() call may change the value of the last parameter, need to reset it each time */
+        rc_sender_len = sender_len;
+        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &rc_sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
@@ -686,7 +688,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
             {
                 snprintf( prefix_buff, prefix_len, "%s%s%s", display_time, dis_ip, display_len);
 
-                outlen = prefix_len - 1;
+                outlen = strlen( prefix_buff);
                 sysrc = write( log_fd, prefix_buff, outlen);
 
                 if( sysrc == outlen)
