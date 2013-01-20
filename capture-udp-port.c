@@ -645,7 +645,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
         sender_len = (sizeof sender4);
     }
 
-   for(; rc == RC_NORMAL; )
+    for(; rc == RC_NORMAL; )
     {
         /* -- The recvfrom() call may change the value of the last parameter, need to reset it each time */
         rc_sender_len = sender_len;
