@@ -1,9 +1,9 @@
-PROGS = quipi send-udp-message capture-udp-port
-SOLOPROGS = dumb lock-n-run
+PROGS = quipi send-udp-message capture-udp-port lock-n-run
+SOLOPROGS = dumb
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
 	parse_destination_value.o
 LIBS = libCLISUB.a
-UBIQ_H = parse_opt.h err_ref.h net-task-data.h
+UBIQ_H = parse_opt.h err_ref.h net-task-data.h 
 
 # ---
 
@@ -28,7 +28,7 @@ libs : $(LIBS)
 
 # ---
 
-%.o : %.c Makefile %.c $(UBIQ_H)
+%.o : %.c Makefile %.c $(UBIQ_H) %.h
 	$(CC) -c -o $@ $(CFLAGS) $<
 
 $(SOBJS) : % : Makefile $(UBIQ_H)
