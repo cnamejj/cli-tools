@@ -1,5 +1,5 @@
 PROGS = quipi send-udp-message capture-udp-port
-SOLOPROGS = dumb
+SOLOPROGS = dumb lock-n-run
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
 	parse_destination_value.o
 LIBS = libCLISUB.a
