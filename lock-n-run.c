@@ -1,9 +1,11 @@
+/* ??? Should stash away more useful error messages, in addition to RC settings */
+
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "lock-n-run.h"
-#include "parse_opt.h"
 #include "err_ref.h"
+#include "cli-sub.h"
 
 /* --- */
 
@@ -132,8 +134,105 @@ int main( int narg, char **opts)
 
     /* --- */
     
+    if( rc == RC_NORMAL && debug_level >= DEBUG_MEDIUM) print_parse_summary( extra_opts, opset, nflags);
 
-    if( debug_level >= DEBUG_MEDIUM) print_parse_summary( extra_opts, opset, nflags);
+    /* --- */
+
+    /* ---
+     * - Now that we have the options stashed away neatly, check the settings
+     * - for any that are set to "use the default" and resolve those
+     * - references to usable values.  Also, apply some sanity checks to avoid
+     * - unexpected and/or unpleasant side effects.
+     */
+
+    /* If the strings variables were set to an emtpy value, which has to be done explicitly, then
+     * set an error and bail.
+     */
+
+    if( !*lockfile || !*psname || !*run_user || !*run_group) rc = ERR_OPT_CONFIG;
+
+    if( rc == RC_NORMAL)
+    {
+        if( max_wait < 0) max_wait = 0;
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( strcmp( run_user, USE_DEFAULT))
+        {
+            for( st = run_user; *st && rc == RC_NORMAL; st++)
+              if( !isgraph( *st)) rc = ERR_INVALID_DATA;
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( strcmp( run_group, USE_DEFAULT))
+        {
+            for( st = run_group; *st && rc == RC_NORMAL; st++)
+              if( !isgraph( *st)) rc = ERR_INVALID_DATA;
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( lockmode_dec >= 800 || lockmode_dec % 100 >= 80 || lockmode_dec % 10 >= 8)
+        {
+            rc = ERR_OPT_CONFIG;
+	}
+        else
+        {
+            lockmode = convert_to_mode( lockmode_dec);
+            if( lockmode & (S_ISVTX | S_ISGID | S_ISUID))
+            {
+                rc = ERR_OPT_CONFIG;
+	    }
+	}
+    }
+
+    /* The lockfile check needs to be done after the "-user" and "-group" check in case they are used in the name */
+    if( rc == RC_NORMAL)
+    {
+        if( !strcmp( lockfile, USE_DEFAULT))
+        {
+            ...set the lockfile to the default template with the appropriate username sub'd, use the run-user if diff...
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        ...what's to check with the command list?...
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( !strcmp( psname, USE_DEFAULT))
+        {
+            ...copy the first word in the command line...
+	}
+        else
+        {
+            if( strlen( psname) > MAX_PROCESS_NAME_LEN)
+            {
+                *(psname + MAX_PROCESS_NAME_LEN - 1) = '\0';
+                fprintf( stderr, "**Warning** Truncating displayed process name to %d characters, '%s'\n", 
+                  MAX_PROCESS_NAME_LEN, psname);
+	    }
+            
+            for( st = psname; *st && rc == RC_NORMAL; st++)
+              if( !isprint( *st)) rc = ERR_INVALID_DATA;
+	}
+    }
+
+    /* --- */
+
+
+    if( rc != RC_NORMAL)
+    {
+        fprintf( stderr, "**Error(%d)** There will be a better error message here soon, rc=%d\n", rc, errno);
+    }
+
+    /* --- */
 
     exit( rc);
 }

@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #include "quipi.h"
-#include "parse_opt.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 
 /* --- */

@@ -7,12 +7,15 @@
 #endif
 #include <errno.h>
 #include <stdlib.h>
-#include "parse_opt.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 
 /*
  * Revision history
  * ----------------
+ * 1/21/13 -jj
+ * -- Allocation an extra string pointer, which is set to '0', when making
+ * --   the "struct word_list" for a OP_TYPE_LAST flag.
  * 1/19/13 -jj
  * -- Add a new option type OP_TYPE_LAST for options that mean everything 
  * --   else on the command line should be aggregated together.
@@ -191,7 +194,7 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
             else nwords = 1;
 
             dup_opts->count = nwords;
-            dup_opts->words = (char **) malloc( nwords * (sizeof *dup_opts->words));
+            dup_opts->words = (char **) malloc( (nwords + 1) * (sizeof *dup_opts->words));
 
             if( curr->flags & OP_FL_FOUND)
             {
@@ -201,11 +204,16 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
                   if( copy) dup_opts->words[ off] = copy;
                   else *rc = ERR_MALLOC_FAILED;
                }
+               if( !*rc) dup_opts->words[ nwords] = 0;
 	    }
             else
             {
                copy = strdup( curr->def);
-               if( copy) dup_opts->words[ 0] = copy;
+               if( copy)
+               {
+                   dup_opts->words[ 0] = copy;
+                   dup_opts->words[ 1] = 0;
+	       }
                else *rc = ERR_MALLOC_FAILED;
 	    }
 	 }

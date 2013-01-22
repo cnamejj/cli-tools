@@ -1,10 +1,12 @@
-#ifndef ___jj_PARSE_COMM_OPT_H__
+#ifndef ___CNAMEjj_CLI_SUB_H__
 
-#define ___jj_PARSE_COMM_OPT_H__
+#define ___CNAMEjj_CLI_SUB_H__
 
 /*
  * Revision history
  * ----------------
+ * 1/21/13 -jj
+ * -- Combine with other header files for "libCLI" routines, and rename...
  * 12/11/12
  * -- Copied from "junction-ac" code and tweaked to add in error value constants
  *
@@ -12,7 +14,13 @@
  * ----
  */
   
+#include <sys/stat.h>
+
 /* --- */
+
+#define SUBSET_READ  0x4
+#define SUBSET_WRITE 0x2
+#define SUBSET_EXEC  0x1
 
 #define OP_TYPE_CHAR  1
 #define OP_TYPE_FLAG  2
@@ -48,6 +56,11 @@ struct word_list {
    char **words;
 };
 
+struct sub_list {
+   char *from, *to;
+   struct sub_list *next;
+};
+
 /* --- */
 
 struct word_chain *parse_command_options( int *rc, struct option_set *plist, int nopt, int narg, char **opts);
@@ -55,6 +68,10 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist, int
 struct option_set *get_matching_option( int flag_num, struct option_set *opset, int nflags);
 
 void print_parse_summary( struct word_chain *, struct option_set *, int);
+
+mode_t convert_to_mode( int);
+
+char *gsub_string( int *rc, char *template, struct sub_list *patts);
 
 /* --- */
 

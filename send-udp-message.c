@@ -5,8 +5,9 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include "parse_opt.h"
+
 #include "send-udp-message.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 #include "net-task-data.h"
 
