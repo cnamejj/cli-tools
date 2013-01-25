@@ -73,6 +73,10 @@ mode_t convert_to_mode( int);
 
 char *gsub_string( int *rc, char *template, struct sub_list *patts);
 
+char *get_groupname( int *rc, uid_t gid);
+
+char *get_username( int *rc, uid_t uid);
+
 /* --- */
 
 #endif

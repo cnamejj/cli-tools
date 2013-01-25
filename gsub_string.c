@@ -12,7 +12,6 @@ char *gsub_string( int *rc, char *template, struct sub_list *patts)
     int final_len = 0, delta = 0, backlen = 0;
     char *next_sub = 0, *remaining = 0, *end_of_template = 0, *eos = 0, *result = 0,
       *check_sub;
-/*      *backlog = 0, *check_sub; */
     struct sub_list *walk = 0, *curr_patt = 0;
 
     end_of_template = template + strlen( template);
@@ -51,7 +50,6 @@ char *gsub_string( int *rc, char *template, struct sub_list *patts)
     {
         eos = result;
         *eos = '\0';
-/*        backlog = template; */
 
         for( remaining = template; remaining; )
         {
@@ -69,10 +67,6 @@ char *gsub_string( int *rc, char *template, struct sub_list *patts)
 
             if( next_sub != end_of_template)
             {
-/*
-                backlen = next_sub - backlog;
-                strncpy( eos, backlog, backlen);
- */
                 backlen = next_sub - remaining;
                 strncpy( eos, remaining, backlen);
                 eos += backlen;
@@ -81,11 +75,9 @@ char *gsub_string( int *rc, char *template, struct sub_list *patts)
                 eos += strlen( curr_patt->to);
 
                 remaining = next_sub + strlen( curr_patt->from);
-/*                backlog = remaining; */
             }
             else
             {
-/*                strcpy( eos, backlog); */
                 strcpy( eos, remaining);
                 remaining = 0;
             }

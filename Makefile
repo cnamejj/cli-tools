@@ -1,7 +1,8 @@
 PROGS = quipi send-udp-message capture-udp-port lock-n-run
 SOLOPROGS = dumb test-gsub_string
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
-	parse_destination_value.o convert_to_mode.o gsub_string.o
+	parse_destination_value.o convert_to_mode.o gsub_string.o get_groupname.o \
+	get_username.o
 LIBS = libCLISUB.a
 UBIQ_H = err_ref.h net-task-data.h cli-sub.h
 

@@ -27,7 +27,8 @@
 #define USE_DEFAULT "-"
 #define NO_SWITCH_NEEDED USE_DEFAULT
 #define SUB_UNAME "%{uname}"
-#define PER_UID_LOCKFILE "/var/tmp/%{uname}.__lockfile__"
+#define DEFAULT_LOCKFILE "/var/tmp/%{psname}.__lockfile__"
+#define TIME_FORMAT "%y-%m-%d"
 
 #define OP_LOCKFILE 1
 #define OP_PSNAME 2

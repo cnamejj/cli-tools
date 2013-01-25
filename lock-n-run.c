@@ -2,6 +2,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
+#include <string.h>
+#include <ctype.h>
+#include <sys/param.h>
+#include <limits.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "lock-n-run.h"
 #include "err_ref.h"
@@ -9,11 +17,88 @@
 
 /* --- */
 
+char *build_filename_from_template( int *rc, char *template, char *comm, char *run_user, char *run_group)
+
+{
+    char time_buff[ 32], *result = 0;
+    struct sub_list *patts = 0, *walk = 0;
+    struct tm *local_now = 0;
+    time_t now;
+
+    /* --- */
+
+    walk = patts = (struct sub_list *) malloc( sizeof *walk);
+    if( !walk) *rc = ERR_MALLOC_FAILED;
+    else
+    {
+        walk->from = "%{comm}";
+        walk->to = comm;
+        walk->next = (struct sub_list *) malloc( sizeof *walk);
+        if( !walk->next) *rc = ERR_MALLOC_FAILED;
+        else walk = walk->next;
+    }
+
+    if( *rc == RC_NORMAL)
+    {
+        walk->from = "%{user}";
+        walk->to = run_user;
+        walk->next = (struct sub_list *) malloc( sizeof *walk);
+        if( !walk->next) *rc = ERR_MALLOC_FAILED;
+        else walk = walk->next;
+    }
+
+    if( *rc == RC_NORMAL)
+    {
+        walk->from = "%{group}";
+        walk->to = run_group;
+        walk->next = (struct sub_list *) malloc( sizeof *walk);
+        if( !walk->next) *rc = ERR_MALLOC_FAILED;
+        else walk = walk->next;
+    }
+
+    if( *rc == RC_NORMAL)
+    {
+        time( &now);
+        local_now = localtime( &now);
+        if( !local_now) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            time_buff[ 0] = '\0';
+            if( !strftime( time_buff, (sizeof time_buff), TIME_FORMAT, local_now))
+              *rc = ERR_SYS_CALL;
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            walk->from = "%{today}";
+            walk->to = time_buff;
+            walk->next = (struct sub_list *) malloc( sizeof *walk);
+            if( !walk->next) *rc = ERR_MALLOC_FAILED;
+            else walk = walk->next;
+	}
+    }
+
+    if( *rc == RC_NORMAL)
+    {
+        walk->from = "%{date}";
+        walk->to = time_buff;
+        walk->next = 0;
+    }
+
+    if( *rc == RC_NORMAL) result = gsub_string( rc, template, patts);
+
+    /* --- */
+
+    return( result);
+}
+
+/* --- */
+
 int main( int narg, char **opts)
 
 {
-    int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0;
-    char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0;
+    int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0, off;
+    char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0, *comm_name;
     struct option_set opset[] = {
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE,   0, DEF_LOCKFILE, 0, 0 },
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE_2, 0, DEF_LOCKFILE, 0, 0 },
@@ -36,6 +121,7 @@ int main( int narg, char **opts)
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0;
     struct word_list *comm_list = 0;
+    mode_t lockmode;
     int nflags = (sizeof opset) / (sizeof opset[0]);
 
     /* --- */
@@ -149,7 +235,7 @@ int main( int narg, char **opts)
      * set an error and bail.
      */
 
-    if( !*lockfile || !*psname || !*run_user || !*run_group) rc = ERR_OPT_CONFIG;
+    if( !*lockfile || !*psname || !*run_user || !*run_group) rc = ERR_INVALID_DATA;
 
     if( rc == RC_NORMAL)
     {
@@ -178,50 +264,115 @@ int main( int narg, char **opts)
     {
         if( lockmode_dec >= 800 || lockmode_dec % 100 >= 80 || lockmode_dec % 10 >= 8)
         {
-            rc = ERR_OPT_CONFIG;
+            rc = ERR_INVALID_DATA;
 	}
         else
         {
             lockmode = convert_to_mode( lockmode_dec);
             if( lockmode & (S_ISVTX | S_ISGID | S_ISUID))
             {
-                rc = ERR_OPT_CONFIG;
+                rc = ERR_INVALID_DATA;
 	    }
 	}
     }
 
-    /* The lockfile check needs to be done after the "-user" and "-group" check in case they are used in the name */
     if( rc == RC_NORMAL)
     {
         if( !strcmp( lockfile, USE_DEFAULT))
         {
-            ...set the lockfile to the default template with the appropriate username sub'd, use the run-user if diff...
+            lockfile = strdup( DEFAULT_LOCKFILE);
+            if( !lockfile) rc = ERR_MALLOC_FAILED;
+	}
+        else if( strlen( lockfile) > MAXPATHLEN) rc = ERR_INVALID_DATA;
+        else
+        {
+            for( st = lockfile; *st && rc == RC_NORMAL; st++)
+              if( !isprint( *st)) rc = ERR_INVALID_DATA;
 	}
     }
 
     if( rc == RC_NORMAL)
     {
-        ...what's to check with the command list?...
+        if( comm_list->count < 1) rc = ERR_INVALID_DATA;
+        else
+        {
+            comm_name = strdup( comm_list->words[ 0]);
+            if( !comm_name) rc = ERR_MALLOC_FAILED;
+            else if( !strcmp( comm_name, USE_DEFAULT))
+            {
+                free( comm_name);
+                free( comm_list->words[ 0]);
+                comm_name = strdup( DEF_COMM);
+                st = comm_list->words[ 0] = strdup( DEF_COMM);
+                if( !comm_name || !st) rc = ERR_MALLOC_FAILED;
+	    }
+	}
     }
 
+    /* Clean-up for "psname" has to come after clean-up for the command to be run */
     if( rc == RC_NORMAL)
     {
         if( !strcmp( psname, USE_DEFAULT))
         {
-            ...copy the first word in the command line...
+            psname = strdup( comm_name);
+            if( !psname) rc = ERR_MALLOC_FAILED;
 	}
-        else
+
+        if( rc == RC_NORMAL)
         {
-            if( strlen( psname) > MAX_PROCESS_NAME_LEN)
+            if( strlen( psname) > NAME_MAX)
             {
-                *(psname + MAX_PROCESS_NAME_LEN - 1) = '\0';
+                *(psname + NAME_MAX - 1) = '\0';
                 fprintf( stderr, "**Warning** Truncating displayed process name to %d characters, '%s'\n", 
-                  MAX_PROCESS_NAME_LEN, psname);
-	    }
+                  NAME_MAX, psname);
+            }
             
             for( st = psname; *st && rc == RC_NORMAL; st++)
               if( !isprint( *st)) rc = ERR_INVALID_DATA;
 	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( !strcmp( run_user, USE_DEFAULT))
+        {
+            free( run_user);
+            run_user = get_username( &rc, getuid());
+	}
+
+        if( rc == RC_NORMAL) if( !strcmp( run_group, USE_DEFAULT))
+        {
+            free( run_group);
+            run_group = get_groupname( &rc, getgid());
+	}
+    }
+
+    /* ---
+     * - The lockfile given might include placeholders like "%{user}" that need to be swapped
+     * - for the real values.
+     */
+
+    if( rc == RC_NORMAL)
+    {
+        st = lockfile;
+        lockfile = build_filename_from_template( &rc, st, comm_name, run_user, run_group);
+        if( rc == RC_NORMAL) free( st);
+    }
+
+    /* --- */
+
+    if( debug_level >= DEBUG_MEDIUM)
+    {
+        fprintf( stderr, "Here's what's to do...\n");
+        fprintf( stderr, "Run-user.: '%s'\n", run_user);
+        fprintf( stderr, "Run-group: '%s'\n", run_group);
+        fprintf( stderr, "Command..:");
+        for( off= 0; off <comm_list->count; off++) fprintf( stderr, " '%s'", comm_list->words[ off]);
+        fprintf( stderr, "\n");
+        fprintf( stderr, "Max-wait.: %d\n", max_wait);
+        fprintf( stderr, "LockFile.: '%s'\n", lockfile);
+        fprintf( stderr, "LockMode.: %x\n", lockmode);
+        fprintf( stderr, "ProcName.: '%s'\n", psname);
     }
 
     /* --- */
