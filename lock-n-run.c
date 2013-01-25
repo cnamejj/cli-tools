@@ -10,10 +10,28 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #include "lock-n-run.h"
 #include "err_ref.h"
 #include "cli-sub.h"
+
+/* --- */
+
+#define LOCK_DATA_LEN 128
+
+/* --- */
+
+void bail_on_timeout( int sig, siginfo_t *info, void *context)
+
+{
+    fprintf( stderr, "**Error** Timeout trying to establish lock.\n");
+
+    exit( ERR_ALARMCLOCK);
+}
+
 
 /* --- */
 
@@ -92,13 +110,16 @@ char *build_filename_from_template( int *rc, char *template, char *comm, char *r
     return( result);
 }
 
+
 /* --- */
 
 int main( int narg, char **opts)
 
 {
-    int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0, off;
-    char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0, *comm_name;
+    int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0, off, lf,
+      sysrc, lock_data_len, flags = O_WRONLY | O_CREAT;
+    char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0, *comm_name,
+      *this_user = 0, *this_group = 0, lock_data[ LOCK_DATA_LEN];
     struct option_set opset[] = {
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE,   0, DEF_LOCKFILE, 0, 0 },
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE_2, 0, DEF_LOCKFILE, 0, 0 },
@@ -121,7 +142,11 @@ int main( int narg, char **opts)
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0;
     struct word_list *comm_list = 0;
-    mode_t lockmode;
+    struct sigaction sig, hold_sig;
+    struct flock lock;
+    mode_t lockmode, this_umask;
+    pid_t pid, ppid;
+    time_t now;
     int nflags = (sizeof opset) / (sizeof opset[0]);
 
     /* --- */
@@ -135,6 +160,17 @@ int main( int narg, char **opts)
     }
 
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+
+    /* --- */
+
+    if( rc == RC_NORMAL) this_user = get_username( &rc, geteuid());
+    if( rc == RC_NORMAL) this_group = get_groupname( &rc, getegid());
+
+    if( rc == RC_NORMAL)
+    {
+        if( !this_user || !this_group) rc = ERR_MALLOC_FAILED;
+        else if( !*this_user || !*this_group) rc = ERR_MALLOC_FAILED;
+    }
 
     /* --- */
     
@@ -337,13 +373,13 @@ int main( int narg, char **opts)
         if( !strcmp( run_user, USE_DEFAULT))
         {
             free( run_user);
-            run_user = get_username( &rc, getuid());
+            run_user = this_user;
 	}
 
         if( rc == RC_NORMAL) if( !strcmp( run_group, USE_DEFAULT))
         {
             free( run_group);
-            run_group = get_groupname( &rc, getgid());
+            run_group = this_group;
 	}
     }
 
@@ -361,7 +397,7 @@ int main( int narg, char **opts)
 
     /* --- */
 
-    if( debug_level >= DEBUG_MEDIUM)
+    if( rc == RC_NORMAL) if( debug_level >= DEBUG_MEDIUM)
     {
         fprintf( stderr, "Here's what's to do...\n");
         fprintf( stderr, "Run-user.: '%s'\n", run_user);
@@ -373,6 +409,67 @@ int main( int narg, char **opts)
         fprintf( stderr, "LockFile.: '%s'\n", lockfile);
         fprintf( stderr, "LockMode.: %x\n", lockmode);
         fprintf( stderr, "ProcName.: '%s'\n", psname);
+    }
+
+    /* --- */
+
+    if( rc == RC_NORMAL) if( strcmp( run_group, this_group)) rc = switch_run_group( run_group);
+    if( rc == RC_NORMAL) if( strcmp( run_user, this_user)) rc = switch_run_user( run_user);
+
+    if( rc == RC_NORMAL)
+    {
+        this_umask = umask( 0);
+
+        lf = open( lockfile, flags, lockmode);
+        if( lf == -1) rc = ERR_OPEN_FAILED;
+        else
+        {
+            lock.l_type = F_WRLCK;
+            lock.l_whence = 0;
+            lock.l_start = 0;
+
+            if( max_wait)
+            {
+                sig.sa_flags = SA_SIGINFO;
+                sigemptyset( &sig.sa_mask);
+                sig.sa_handler = 0;
+                sig.sa_sigaction = bail_on_timeout;
+
+                sysrc = sigaction( SIGALRM, &sig, &hold_sig);
+                if( sysrc == -1) rc = ERR_SIGACTION_FAILED;
+
+                if( rc == RC_NORMAL) (void) alarm( max_wait);
+	    }
+
+            if( rc == RC_NORMAL)
+            {
+                sysrc = fcntl( lf, F_SETLKW, &lock);
+                if( max_wait)
+                {
+                    (void) alarm( 0);
+                    (void) sigaction( SIGALRM, &hold_sig, 0);
+		}
+
+                if( sysrc == -1) rc = ERR_CANT_LOCK;
+	    }
+	}
+
+        (void) umask( this_umask);
+
+        pid = getpid();
+        ppid = getppid();
+        (void) time( &now);
+        snprintf( lock_data, LOCK_DATA_LEN, "%d %d %ld\n", pid, ppid, now);
+
+        lock_data_len = strlen( lock_data) + 1;
+        sysrc = write( lf, lock_data, lock_data_len);
+        if( sysrc != lock_data_len) rc = ERR_WRITE_FAILED;
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        (void) execv( psname, comm_list->words);
+        rc = ERR_SYS_CALL;
     }
 
     /* --- */

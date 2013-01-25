@@ -28,8 +28,8 @@
 struct task_details *figure_out_what_to_do( int *, int, char **);
 char *build_syscall_errmsg( char *, int);
 int switch_user_and_group( struct task_details *);
-int switch_run_group( struct task_details *);
-int switch_run_user( struct task_details *);
+int cup_switch_run_group( struct task_details *);
+int cup_switch_run_user( struct task_details *);
 int open_logfile( int *, struct task_details *);
 int receive_udp_and_log( struct task_details *, int, int);
 
@@ -348,15 +348,15 @@ int switch_user_and_group( struct task_details *plan)
 {
     int rc = RC_NORMAL;
 
-    rc = switch_run_group( plan);
-    if( rc == RC_NORMAL) rc = switch_run_user( plan);
+    rc = cup_switch_run_group( plan);
+    if( rc == RC_NORMAL) rc = cup_switch_run_user( plan);
 
     return( rc);
 }
 
 /* --- */
 
-int switch_run_group( struct task_details *plan)
+int cup_switch_run_group( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
@@ -453,7 +453,7 @@ int switch_run_group( struct task_details *plan)
 
 /* --- */
 
-int switch_run_user( struct task_details *plan)
+int cup_switch_run_user( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;

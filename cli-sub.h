@@ -77,6 +77,10 @@ char *get_groupname( int *rc, uid_t gid);
 
 char *get_username( int *rc, uid_t uid);
 
+int switch_run_user( char *user);
+
+int switch_run_group( char *group);
+
 /* --- */
 
 #endif
