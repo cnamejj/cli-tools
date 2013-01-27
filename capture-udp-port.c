@@ -1,6 +1,4 @@
-/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally, might be a bug? create a simple program to demonstrate */
 /* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
-/* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -61,9 +59,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,     0, DEF_GROUP,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,   0, DEF_GROUP,   0, 0 },
+      { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC,     0, DEF_TRUNC,   0, 0 },
+      { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC_2,   0, DEF_TRUNC,   0, 0 },
+      { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND,    0, DEF_APPEND,  0, 0 },
+      { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND_2,  0, DEF_APPEND,  0, 0 },
       { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
     };
-    struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
+    struct option_set *co = 0, *co_ap = 0, *co_tr = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
     int nflags = (sizeof opset) / (sizeof opset[0]);
     
@@ -306,6 +308,36 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
             if( co->flags && OP_FL_SET) plan->show_help = 1;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, help '%d'\n",
               co->opt_num, plan->show_help);
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co_tr = get_matching_option( OP_TRUNC, opset, nflags);
+        co_ap = get_matching_option( OP_APPEND, opset, nflags);
+        if( !co_tr || !co_ap) rc = ERR_OPT_CONFIG;
+        else
+        {
+            if( co_tr->opt_num && co_ap->opt_num)
+            {
+                if( co_ap->flags == OP_FL_SET)
+                {
+                    if( co_tr->flags == OP_FL_SET) plan->openflags |= O_APPEND | O_TRUNC;
+                    else plan->openflags |= O_APPEND;
+		}
+                else if( co_tr->flags == OP_FL_SET) plan->openflags |= O_TRUNC;
+	    }
+            else if( co_tr->opt_num)
+            {
+                if( co_tr->flags == OP_FL_SET) plan->openflags |= O_APPEND | O_TRUNC;
+                else plan->openflags |= O_APPEND;
+	    }
+            else if( co_ap->opt_num)
+            {
+                if( co_ap->flags == OP_FL_SET) plan->openflags |= O_APPEND;
+                else plan->openflags |= O_TRUNC;
+	    }
+            else plan->openflags |= O_APPEND;
 	}
     }
 
@@ -574,7 +606,8 @@ int open_logfile( int *log_fd, struct task_details *plan)
 
     mode = convert_to_mode( plan->logmode);
 
-    sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);
+    if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Flags for open %x\n", plan->openflags);
+    sysrc = open( plan->logfile, plan->openflags, mode);
     if( sysrc > 0) *log_fd = sysrc;
     else
     {
@@ -587,8 +620,8 @@ int open_logfile( int *log_fd, struct task_details *plan)
         else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED, plan->logfile, sysrc);
     }
 
-    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x (%d), fd=%d, err=%d\n",
-      plan->logfile, mode, plan->logmode, sysrc, errno);
+    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x (%d), flags (%x), fd=%d, err=%d\n",
+      plan->logfile, mode, plan->logmode, plan->openflags, sysrc, errno);
 
     (void) umask( save_umask);
 
@@ -609,7 +642,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
     struct sockaddr_in6 sender6;
     struct sockaddr_in sender4;
     struct tm this_time;
-    socklen_t sender_len;
+    socklen_t sender_len, rc_sender_len;
     time_t now;
 
     if( plan->found_family == AF_INET6)
@@ -627,7 +660,9 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
     for(; rc == RC_NORMAL; )
     {
-        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
+        /* -- The recvfrom() call may change the value of the last parameter, need to reset it each time */
+        rc_sender_len = sender_len;
+        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &rc_sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
@@ -666,7 +701,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
             {
                 snprintf( prefix_buff, prefix_len, "%s%s%s", display_time, dis_ip, display_len);
 
-                outlen = prefix_len - 1;
+                outlen = strlen( prefix_buff);
                 sysrc = write( log_fd, prefix_buff, outlen);
 
                 if( sysrc == outlen)

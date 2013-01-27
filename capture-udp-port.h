@@ -14,7 +14,9 @@
 #define OP_MODE 8
 #define OP_DEBUG 9
 #define OP_GROUP 10
-#define OP_HELP 11
+#define OP_TRUNC 11
+#define OP_APPEND 12
+#define OP_HELP 13
 
 #define FL_SERVER "s"
 #define FL_SERVER_2 "server"
@@ -35,6 +37,10 @@
 #define FL_DEBUG "debug"
 #define FL_GROUP "g"
 #define FL_GROUP_2 "group"
+#define FL_TRUNC "truncate"
+#define FL_TRUNC_2 "t"
+#define FL_APPEND "append"
+#define FL_APPEND_2 "a"
 #define FL_HELP "help"
 
 #define DEF_SERVER "localhost:48112"
@@ -47,18 +53,20 @@
 #define DEF_MODE "0644"
 #define DEF_DEBUG "0"
 #define DEF_GROUP ""
+#define DEF_TRUNC "0"
+#define DEF_APPEND "1"
 #define DEF_HELP "0"
 
 #define NO_SWITCH_NEEDED "run-asis"
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 65535
 #define LOG_BUFFER_SIZE (BUFFER_SIZE + 1) * 2
 
 #define SUBSET_READ  0x4
 #define SUBSET_WRITE 0x2
 #define SUBSET_EXEC  0x1
 
-#define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_CREAT
+/* #define LOG_OPEN_FLAGS O_WRONLY | O_APPEND | O_CREAT */
 
 #define UNKNOWN_IP "Unknown-IP"
 
@@ -82,6 +90,8 @@ Options are:\n\
   <--group name> | <-g name>\n\
   <--log logfile> | <-l logfile>\n\
   <--mode mode> | <-m mode> \n\
+  <--truncate> | <-t>\n\
+  <--append> | <-a>\n\
   <--ipv4> | <-4>\n\
   <--ipv6> | <-6>\n\
   <--help>\n\
