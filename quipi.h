@@ -16,9 +16,18 @@
 #define ADDR_IPV4 1
 #define ADDR_IPV6 2
 
+/* --- */
+
 #define OP_DEBUG 1
+#define OP_HELP 2
+
 #define FL_DEBUG "debug"
+#define FL_HELP "help"
+
 #define DEF_DEBUG "0"
+#define DEF_HELP "0"
+
+/* --- */
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -36,4 +45,14 @@
 
 /* --- */
 
+#define MSG_SHOW_SYNTAX "\n\
+Syntax is: %s <options> host-or-ip1 host-or-ip2 ...\n\
+Options are:\n\
+  <--help>\n\
+  <--debug level>\n\
+"
+
+/* --- */
+
 #endif
+

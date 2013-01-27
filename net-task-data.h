@@ -45,7 +45,8 @@ int parse_destination_value( struct task_details *plan, char *destination);
 /* --- */
 
 struct task_details {
-    unsigned int use_ip, target_port, found_family, logmode, debug, openflags;
+    unsigned int use_ip, target_port, found_family, logmode, debug, openflags,
+      show_help;
     char *target_host, *message, *logfile, *runuser, *rungroup, *err_msg;
     struct sockaddr_in dest4;
     struct sockaddr_in6 dest6;

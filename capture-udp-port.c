@@ -16,21 +16,20 @@
 #include <fcntl.h>
 #include <time.h>
 
-#include "parse_opt.h"
 #include "capture-udp-port.h"
 #include "err_ref.h"
 #include "net-task-data.h"
+#include "cli-sub.h"
 
 /* --- */
 
 struct task_details *figure_out_what_to_do( int *, int, char **);
 char *build_syscall_errmsg( char *, int);
 int switch_user_and_group( struct task_details *);
-int switch_run_group( struct task_details *);
-int switch_run_user( struct task_details *);
+int cup_switch_run_group( struct task_details *);
+int cup_switch_run_user( struct task_details *);
 int open_logfile( int *, struct task_details *);
 int receive_udp_and_log( struct task_details *, int, int);
-mode_t convert_to_mode( int);
 
 /* --- */
 
@@ -61,7 +60,10 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,     0, DEF_GROUP,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,   0, DEF_GROUP,   0, 0 },
       { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC,     0, DEF_TRUNC,   0, 0 },
+      { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC_2,   0, DEF_TRUNC,   0, 0 },
       { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND,    0, DEF_APPEND,  0, 0 },
+      { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND_2,  0, DEF_APPEND,  0, 0 },
+      { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
     };
     struct option_set *co = 0, *co_ap = 0, *co_tr = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -251,7 +253,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV4;
             else plan->use_ip &= ~DO_IPV4;
             ipv4 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -265,7 +267,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV6;
             else plan->use_ip &= ~DO_IPV6;
             ipv6 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -294,6 +296,18 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
             plan->logmode = *((int *) co->parsed);
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, logmode '%d'\n",
               co->opt_num, *((int *) co->parsed));
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HELP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else
+        {
+            if( co->flags && OP_FL_SET) plan->show_help = 1;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, help '%d'\n",
+              co->opt_num, plan->show_help);
 	}
     }
 
@@ -379,15 +393,15 @@ int switch_user_and_group( struct task_details *plan)
 {
     int rc = RC_NORMAL;
 
-    rc = switch_run_group( plan);
-    if( rc == RC_NORMAL) rc = switch_run_user( plan);
+    rc = cup_switch_run_group( plan);
+    if( rc == RC_NORMAL) rc = cup_switch_run_user( plan);
 
     return( rc);
 }
 
 /* --- */
 
-int switch_run_group( struct task_details *plan)
+int cup_switch_run_group( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
@@ -484,7 +498,7 @@ int switch_run_group( struct task_details *plan)
 
 /* --- */
 
-int switch_run_user( struct task_details *plan)
+int cup_switch_run_user( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
@@ -578,39 +592,6 @@ int switch_run_user( struct task_details *plan)
     if( my_ename) free( my_ename);
 
     return( rc);
-}
-
-/* --- */
-
-mode_t convert_to_mode( int dec_mode)
-
-{
-    int subset;
-    mode_t mode;
-
-    mode = 0;
-
-    subset = dec_mode % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXOTH;
-    if( subset & SUBSET_WRITE) mode |= S_IWOTH;
-    if( subset & SUBSET_READ) mode |= S_IROTH;
-
-    subset = (dec_mode / 10) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXGRP;
-    if( subset & SUBSET_WRITE) mode |= S_IWGRP;
-    if( subset & SUBSET_READ) mode |= S_IRGRP;
-    
-    subset = (dec_mode / 100) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXUSR;
-    if( subset & SUBSET_WRITE) mode |= S_IWUSR;
-    if( subset & SUBSET_READ) mode |= S_IRUSR;
-    
-    subset = (dec_mode / 1000) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_ISVTX;
-    if( subset & SUBSET_WRITE) mode |= S_ISGID;
-    if( subset & SUBSET_READ) mode |= S_ISUID;
-
-    return( mode);
 }
 
 /* --- */
@@ -773,7 +754,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, errlen, listen_len, log_fd;
     struct sockaddr *listen = 0;
-    char *chrc = 0, *err_msg = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -782,12 +763,24 @@ int main( int narg, char **opts)
 
     plan = figure_out_what_to_do( &rc, narg, opts);
 
+    if( narg < 2) plan->show_help = 1;
+
+    /* --- */
+
     if( rc == RC_NORMAL)
     {
         if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "\nPlan: server(%s) port(%d) ipv4(%d) ipv6(%d) user(%s) log(%s) mode(%d)\n",
           plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6,
           plan->runuser, plan->logfile, plan->logmode);
+    }
+
+    if( plan->show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
     }
 
     /* --- */

@@ -18,6 +18,7 @@ struct task_details *allocate_plan_data()
         plan->found_family = 0;
         plan->logmode = 0;
         plan->debug = 0;
+        plan->show_help = 0;
         plan->openflags = LOG_OPEN_FLAGS;
         plan->target_host = 0;
         plan->message = 0;

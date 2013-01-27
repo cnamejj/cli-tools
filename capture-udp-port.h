@@ -16,6 +16,7 @@
 #define OP_GROUP 10
 #define OP_TRUNC 11
 #define OP_APPEND 12
+#define OP_HELP 13
 
 #define FL_SERVER "s"
 #define FL_SERVER_2 "server"
@@ -37,7 +38,10 @@
 #define FL_GROUP "g"
 #define FL_GROUP_2 "group"
 #define FL_TRUNC "truncate"
+#define FL_TRUNC_2 "t"
 #define FL_APPEND "append"
+#define FL_APPEND_2 "a"
+#define FL_HELP "help"
 
 #define DEF_SERVER "localhost:48112"
 #define DEF_USER ""
@@ -51,6 +55,7 @@
 #define DEF_GROUP ""
 #define DEF_TRUNC "0"
 #define DEF_APPEND "1"
+#define DEF_HELP "0"
 
 #define NO_SWITCH_NEEDED "run-asis"
 
@@ -75,4 +80,25 @@
 
 /* --- */
 
+#define MSG_SHOW_SYNTAX "\n\
+Syntax is: %s <options>\n\
+Options are:\n\
+  <--server hostname:port> | <-s hostname:port>\n\
+  <--host hostname> | <-h hostname>\n\
+  <--port port> | <-p port>\n\
+  <--user name> | <-u name>\n\
+  <--group name> | <-g name>\n\
+  <--log logfile> | <-l logfile>\n\
+  <--mode mode> | <-m mode> \n\
+  <--truncate> | <-t>\n\
+  <--append> | <-a>\n\
+  <--ipv4> | <-4>\n\
+  <--ipv6> | <-6>\n\
+  <--help>\n\
+  <--debug level>\n\
+"
+
+/* --- */
+
 #endif
+
