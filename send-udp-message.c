@@ -5,8 +5,9 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include "parse_opt.h"
+
 #include "send-udp-message.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 #include "net-task-data.h"
 
@@ -33,6 +34,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6, 0, DEF_IPV6, 0, 0 },
       { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
       { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
+      { OP_HELP, OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP, 0, DEF_HELP, 0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -142,7 +144,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV4, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+        else if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV4;
         else plan->use_ip &= ~DO_IPV4;
         ipv4 = co;
     }
@@ -151,7 +153,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV6, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+        else if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV6;
         else plan->use_ip &= ~DO_IPV6;
         ipv6 = co;
     }
@@ -161,6 +163,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         co = get_matching_option( OP_DEBUG, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
         else plan->debug = *((int *) co->parsed);
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HELP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else if( co->flags && OP_FL_SET) plan->show_help = 1;
     }
 
 /* ...figure out how to deal with "--no-" options for host, port and destination flags... */
@@ -196,7 +205,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen, errlen;
     struct sockaddr *dest = 0;
-    char *chrc = 0, *err_msg = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -205,10 +214,22 @@ int main( int narg, char **opts)
 
     plan = figure_out_what_to_do( &rc, narg, opts);
 
+    if( narg < 2) plan->show_help = 1;
+
+    /* --- */
+
     if( rc == RC_NORMAL)
     {
         if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n",
           plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
+    }
+
+    if( plan->show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+	exit( 1);
     }
 
     /* --- */
