@@ -38,6 +38,7 @@
 #define OP_DEBUG 6
 #define OP_USER 7
 #define OP_GROUP 8
+#define OP_HELP 9
 
 #define FL_LOCKFILE "lockfile"
 #define FL_LOCKFILE_2 "l"
@@ -56,6 +57,7 @@
 #define FL_USER_2 "u"
 #define FL_GROUP "group"
 #define FL_GROUP_2 "g"
+#define FL_HELP "help"
 
 #define DEF_LOCKFILE USE_DEFAULT
 #define DEF_PSNAME USE_DEFAULT
@@ -65,18 +67,21 @@
 #define DEF_DEBUG "0"
 #define DEF_USER NO_SWITCH_NEEDED
 #define DEF_GROUP NO_SWITCH_NEEDED
+#define DEF_HELP "0"
 
 /* --- */
 
-#define MSG_SHOW_SYNTAX "\
-Syntax is: %s \
-| <-lockfile name> \
-| <-psname name> \
-| <-mode mode> \
-| <-wait secs> \
-| <-user name> \
-| <-group name> \
-| -comm command...\n\
+#define MSG_SHOW_SYNTAX "\n\
+Syntax is: %s <options> --comm command...\n\
+Options are:\n\
+  <--lockfile name> | <--file name> | <-l name> | <-f name>\n\
+  <--mode mode> | <-m mode> \n\
+  <--user name> | <-u name>\n\
+  <--group name> | <-g name>\n\
+  <--wait secs> | <-w secs> \n\
+  <--psname name> | <-p name>\n\
+  <--help>\n\
+  <--debug level>\n\
 "
 
 /* --- */

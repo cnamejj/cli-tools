@@ -117,7 +117,7 @@ int main( int narg, char **opts)
 
 {
     int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0, off, lf,
-      sysrc, lock_data_len, flags = O_WRONLY | O_CREAT;
+      sysrc, lock_data_len, show_help = 0, flags = O_WRONLY | O_CREAT;
     char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0, *comm_name,
       *this_user = 0, *this_group = 0, lock_data[ LOCK_DATA_LEN];
     struct option_set opset[] = {
@@ -138,6 +138,7 @@ int main( int narg, char **opts)
       { OP_GROUP,    OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,      0, DEF_GROUP,    0, 0 },
       { OP_GROUP,    OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,    0, DEF_GROUP,    0, 0 },
       { OP_DEBUG,    OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,      0, DEF_DEBUG,    0, 0 },
+      { OP_HELP,     OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,       0, DEF_HELP,     0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0;
@@ -151,13 +152,7 @@ int main( int narg, char **opts)
 
     /* --- */
 
-    if( narg < 2)
-    {
-        st = opts[ 0];
-        if( *st == '.' && *(st + 1) == '/') st += 2;
-        printf( MSG_SHOW_SYNTAX, st);
-        exit( 1);
-    }
+    if( narg < 2) show_help = 1;
 
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
 
@@ -254,9 +249,24 @@ int main( int narg, char **opts)
 	}
     }
 
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HELP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else if( co->flags && OP_FL_SET) show_help = 1;
+    }
+
     /* --- */
     
     if( rc == RC_NORMAL && debug_level >= DEBUG_MEDIUM) print_parse_summary( extra_opts, opset, nflags);
+
+    if( show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
+    }
 
     /* --- */
 

@@ -14,6 +14,7 @@
 #define OP_MODE 8
 #define OP_DEBUG 9
 #define OP_GROUP 10
+#define OP_HELP 11
 
 #define FL_SERVER "s"
 #define FL_SERVER_2 "server"
@@ -34,6 +35,7 @@
 #define FL_DEBUG "debug"
 #define FL_GROUP "g"
 #define FL_GROUP_2 "group"
+#define FL_HELP "help"
 
 #define DEF_SERVER "localhost:48112"
 #define DEF_USER ""
@@ -45,6 +47,7 @@
 #define DEF_MODE "0644"
 #define DEF_DEBUG "0"
 #define DEF_GROUP ""
+#define DEF_HELP "0"
 
 #define NO_SWITCH_NEEDED "run-asis"
 
@@ -69,4 +72,23 @@
 
 /* --- */
 
+#define MSG_SHOW_SYNTAX "\n\
+Syntax is: %s <options>\n\
+Options are:\n\
+  <--server hostname:port> | <-s hostname:port>\n\
+  <--host hostname> | <-h hostname>\n\
+  <--port port> | <-p port>\n\
+  <--user name> | <-u name>\n\
+  <--group name> | <-g name>\n\
+  <--log logfile> | <-l logfile>\n\
+  <--mode mode> | <-m mode> \n\
+  <--ipv4> | <-4>\n\
+  <--ipv6> | <-6>\n\
+  <--help>\n\
+  <--debug level>\n\
+"
+
+/* --- */
+
 #endif
+

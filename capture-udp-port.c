@@ -61,6 +61,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,     0, DEF_GROUP,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,   0, DEF_GROUP,   0, 0 },
+      { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -250,7 +251,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV4;
             else plan->use_ip &= ~DO_IPV4;
             ipv4 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -264,7 +265,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV6;
             else plan->use_ip &= ~DO_IPV6;
             ipv6 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -293,6 +294,18 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
             plan->logmode = *((int *) co->parsed);
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, logmode '%d'\n",
               co->opt_num, *((int *) co->parsed));
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HELP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else
+        {
+            if( co->flags && OP_FL_SET) plan->show_help = 1;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, help '%d'\n",
+              co->opt_num, plan->show_help);
 	}
     }
 
@@ -706,7 +719,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, errlen, listen_len, log_fd;
     struct sockaddr *listen = 0;
-    char *chrc = 0, *err_msg = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -715,12 +728,24 @@ int main( int narg, char **opts)
 
     plan = figure_out_what_to_do( &rc, narg, opts);
 
+    if( narg < 2) plan->show_help = 1;
+
+    /* --- */
+
     if( rc == RC_NORMAL)
     {
         if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "\nPlan: server(%s) port(%d) ipv4(%d) ipv6(%d) user(%s) log(%s) mode(%d)\n",
           plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6,
           plan->runuser, plan->logfile, plan->logmode);
+    }
+
+    if( plan->show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
     }
 
     /* --- */
