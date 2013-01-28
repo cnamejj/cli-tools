@@ -44,22 +44,24 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     int rc = RC_NORMAL, off, *int_p = 0, dest_set = 0;
     struct task_details *plan = 0;
     struct option_set opset[] = {
-      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH, 0, DEF_DEST_BOTH, 0, 0 },
+      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH,   0, DEF_DEST_BOTH, 0, 0 },
       { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_2, 0, DEF_DEST_BOTH, 0, 0 },
       { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_3, 0, DEF_DEST_BOTH, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_2, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_3, 0, DEF_MESSAGE, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT, 0, DEF_PORT, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT_2, 0, DEF_PORT, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST, 0, DEF_HOST, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2, 0, DEF_HOST, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6, 0, DEF_IPV6, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
-      { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
-      { OP_HELP, OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP, 0, DEF_HELP, 0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE,     0, DEF_MESSAGE,   0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_2,   0, DEF_MESSAGE,   0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_3,   0, DEF_MESSAGE,   0, 0 },
+      { OP_PORT,      OP_TYPE_INT,  OP_FL_BLANK, FL_PORT,        0, DEF_PORT,      0, 0 },
+      { OP_PORT,      OP_TYPE_INT,  OP_FL_BLANK, FL_PORT_2,      0, DEF_PORT,      0, 0 },
+      { OP_HOST,      OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST,        0, DEF_HOST,      0, 0 },
+      { OP_HOST,      OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2,      0, DEF_HOST,      0, 0 },
+      { OP_IPV4,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4,        0, DEF_IPV4,      0, 0 },
+      { OP_IPV4,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2,      0, DEF_IPV4,      0, 0 },
+      { OP_IPV6,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6,        0, DEF_IPV6,      0, 0 },
+      { OP_IPV6,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2,      0, DEF_IPV6,      0, 0 },
+      { OP_DEBUG,     OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,     0, 0 },
+      { OP_HELP,      OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,      0, 0 },
+      { OP_HEX,       OP_TYPE_FLAG, OP_FL_BLANK, FL_HEX,         0, DEF_HEX,       0, 0 },
+      { OP_HEX,       OP_TYPE_FLAG, OP_FL_BLANK, FL_HEX_2,       0, DEF_HEX,       0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -75,6 +77,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     if( rc == RC_NORMAL)
     {
         extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+
+        if( rc == RC_NORMAL)
+        {
+            co = get_matching_option( OP_DEBUG, opset, nflags);
+            if( !co) rc = ERR_OPT_CONFIG;
+            else plan->debug = *((int *) co->parsed);
+        }
 
         /* --- */
 
@@ -169,7 +178,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV4, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV4;
+        else if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV4;
         else plan->use_ip &= ~DO_IPV4;
         ipv4 = co;
     }
@@ -178,23 +187,25 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV6, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV6;
+        else if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV6;
         else plan->use_ip &= ~DO_IPV6;
         ipv6 = co;
     }
 
     if( rc == RC_NORMAL)
     {
-        co = get_matching_option( OP_DEBUG, opset, nflags);
+        co = get_matching_option( OP_HELP, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->debug = *((int *) co->parsed);
+        else if( co->flags & OP_FL_SET) plan->show_help = 1;
     }
 
     if( rc == RC_NORMAL)
     {
-        co = get_matching_option( OP_HELP, opset, nflags);
+        co = get_matching_option( OP_HEX, opset, nflags);
+printf( "dbg:: hex option %d. %d %d %x/%x '%s' '%s' '%s'\n", co->opt_num, co->num, co->type, co->flags,
+  OP_FL_SET, co->name, co->val, co->def);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags && OP_FL_SET) plan->show_help = 1;
+        else if( co->flags & OP_FL_SET) plan->msg_in_hex = 1;
     }
 
 /* ...figure out how to deal with "--no-" options for host, port and destination flags... */
@@ -245,8 +256,9 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n",
-          plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
+        if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s) hex(%d)\n",
+          plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message,
+          plan->msg_in_hex);
     }
 
     if( plan->show_help)

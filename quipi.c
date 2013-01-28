@@ -262,7 +262,7 @@ int main( int narg, char **opts )
         fprintf( stderr, "Program error dealing with options, this should never happen.\n");
         exit( 1);
     }
-    if( co->flags && OP_FL_SET) show_help = 1;
+    if( co->flags & OP_FL_SET) show_help = 1;
 
     /* --- */
 

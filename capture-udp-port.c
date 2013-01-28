@@ -252,7 +252,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV4;
+            if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV4;
             else plan->use_ip &= ~DO_IPV4;
             ipv4 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -266,7 +266,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags && OP_FL_SET) plan->use_ip |= DO_IPV6;
+            if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV6;
             else plan->use_ip &= ~DO_IPV6;
             ipv6 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -304,7 +304,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags && OP_FL_SET) plan->show_help = 1;
+            if( co->flags & OP_FL_SET) plan->show_help = 1;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, help '%d'\n",
               co->opt_num, plan->show_help);
 	}

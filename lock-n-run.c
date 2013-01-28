@@ -253,7 +253,7 @@ int main( int narg, char **opts)
     {
         co = get_matching_option( OP_HELP, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags && OP_FL_SET) show_help = 1;
+        else if( co->flags & OP_FL_SET) show_help = 1;
     }
 
     /* --- */
