@@ -37,6 +37,8 @@
 #define EXT_FLAG_PREFIX "--"
 #define EXT_FLAG_NEGATE "--no-"
 
+#define INT_DISPLAY_LEN 11
+
 /* --- */
 
 struct option_set {
@@ -81,6 +83,12 @@ int switch_run_user( char *user);
 
 int switch_run_group( char *group);
 
+char *int_to_str( char *buff, int buff_len, int source, char *format);
+
+char *build_syscall_errmsg( char *syscall, int sysrc);
+
 /* --- */
 
 #endif
+
+

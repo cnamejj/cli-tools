@@ -24,7 +24,6 @@
 /* --- */
 
 struct task_details *figure_out_what_to_do( int *, int, char **);
-char *build_syscall_errmsg( char *, int);
 int switch_user_and_group( struct task_details *);
 int cup_switch_run_group( struct task_details *);
 int cup_switch_run_user( struct task_details *);
@@ -365,25 +364,6 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "End figure-it-out() call, rc=%d\n", *returncode);
 
     return( plan);
-}
-
-/* --- */
-
-char *build_syscall_errmsg( char *syscall, int sysrc)
-
-{
-    int errlen = 0;
-    char *errmsg = 0, *name = 0, *def_name = "unspecified system call";
-
-    if( !syscall) name = def_name;
-    else if( !*syscall) name = def_name;
-    else name = syscall;
-
-    errlen = strlen( ERRMSG_SYSCALL2_FAILED) + strlen( name) + INT_ERR_DISPLAY_LEN;
-    errmsg = (char *) malloc( errlen);
-    if( errmsg) snprintf( errmsg, errlen, ERRMSG_SYSCALL2_FAILED, name, sysrc);
-
-    return( errmsg);
 }
 
 /* --- */
@@ -820,10 +800,8 @@ int main( int narg, char **opts)
         if( !chrc)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_INET_NTOP) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "inet_ntop", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
         else if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "Server(%s) IP(%s)\n", plan->target_host, display_ip);
@@ -837,10 +815,8 @@ int main( int narg, char **opts)
         if( sock == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SOCKET_CALL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "socket", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SOCKET_CALL, errno);
 	}
         else if( plan->found_family == AF_INET6)
         {
@@ -854,10 +830,8 @@ int main( int narg, char **opts)
             if( sysrc)
             {
                 rc = ERR_SYS_CALL;
-                errlen = strlen( ERRMSG_SETSOCKOPT_CALL) + INT_ERR_DISPLAY_LEN;
-                plan->err_msg = (char *) malloc( errlen);
+                plan->err_msg = build_syscall_errmsg( "setsockopt", errno);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-                else snprintf( plan->err_msg, errlen, ERRMSG_SETSOCKOPT_CALL, errno);
             }
 	}
     }
@@ -868,10 +842,8 @@ int main( int narg, char **opts)
         if( sysrc == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_BIND_FAILED) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "bind", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_BIND_FAILED, errno);
         }
     }
 

@@ -13,6 +13,31 @@
 
 /* --- */
 
+int build_err_msg( struct task_details *plan, int err_code, char *err_template, char *err_component)
+
+{
+    int result, err_msg_len = 0;
+    char *msg = 0;
+
+    result = err_code;
+
+    if( plan && err_template && err_component) if( *err_template)
+    {
+        err_msg_len = strlen( err_template) + strlen( err_component);
+        msg = (char *) malloc( err_msg_len);
+        if( !msg) result = ERR_MALLOC_FAILED;
+        else
+        {
+            snprintf( msg, err_msg_len, err_template, err_code, err_component);
+            plan->err_msg = msg;
+	}
+    }
+
+    return( result);
+}
+
+/* --- */
+
 struct task_details *figure_out_what_to_do( int *returncode, int narg, char **opts)
 
 {
@@ -238,14 +263,8 @@ int main( int narg, char **opts)
     {
         rc = get_destination_ip( plan);
 
-        if( rc == RC_NORMAL && !plan->found_family)
-        {
-            rc = ERR_GETHOST_FAILED;
-            errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->target_host);
-            plan->err_msg = (char *) malloc( errlen);
-            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->target_host);
-	}
+        if( rc == RC_NORMAL && !plan->found_family) rc = build_err_msg( plan, ERR_GETHOST_FAILED,
+          ERRMSG_GETHOST_FAILED, plan->target_host);
     }
 
     if( rc == RC_NORMAL)
@@ -269,10 +288,8 @@ int main( int narg, char **opts)
         if( !chrc)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_INET_NTOP) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "inet_ntop", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
         else if( plan->debug > DEBUG_LOW) fprintf( stderr, "Dest(%s) IP(%s)\n", plan->target_host,
           display_ip);
@@ -286,10 +303,8 @@ int main( int narg, char **opts)
         if( sock == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SOCKET_CALL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "socket", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SOCKET_CALL, errno);
 	}
         else if( plan->found_family == AF_INET6)
         {
@@ -297,11 +312,9 @@ int main( int narg, char **opts)
             if( sysrc)
             {
                 rc = ERR_SYS_CALL;
-                errlen = strlen( ERRMSG_SETSOCKOPT_CALL) + INT_ERR_DISPLAY_LEN;
-                plan->err_msg = (char *) malloc( errlen);
+                plan->err_msg = build_syscall_errmsg( "socket", errno);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-                else snprintf( plan->err_msg, errlen, ERRMSG_SETSOCKOPT_CALL, errno);
-            }
+	    }
 	}
     }
 
@@ -316,10 +329,8 @@ int main( int narg, char **opts)
         if( sysrc == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SENDTO_FAIL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "sendto", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SENDTO_FAIL, errno);
 	}
         else if( sysrc != msglen)
         {
