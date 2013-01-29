@@ -260,14 +260,6 @@ int main( int narg, char **opts)
     
     if( rc == RC_NORMAL && debug_level >= DEBUG_MEDIUM) print_parse_summary( extra_opts, opset, nflags);
 
-    if( show_help)
-    {
-        st = opts[ 0];
-        if( *st == '.' && *(st + 1) == '/') st += 2;
-        printf( MSG_SHOW_SYNTAX, st);
-        exit( 1);
-    }
-
     /* --- */
 
     /* ---
@@ -423,7 +415,19 @@ int main( int narg, char **opts)
 
     /* --- */
 
+    if( show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
+    }
+
+
+    /* --- */
+
     if( rc == RC_NORMAL) if( strcmp( run_group, this_group)) rc = switch_run_group( run_group);
+
     if( rc == RC_NORMAL) if( strcmp( run_user, this_user)) rc = switch_run_user( run_user);
 
     if( rc == RC_NORMAL)

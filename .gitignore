@@ -15,3 +15,10 @@
 *.exe
 *.out
 *.app
+
+# Binaries for programs built in this repo
+lock-n-run
+capture-udp-port
+send-udp-message
+quipi
+dumb
