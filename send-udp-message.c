@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "send-udp-message.h"
 #include "cli-sub.h"
@@ -241,7 +242,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen, errlen;
     struct sockaddr *dest = 0;
-    char *chrc = 0, *err_msg = 0, *st = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0, *out = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -332,12 +333,38 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        msglen = strlen( plan->message);
-        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n",
+        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d hex:%d msg(%s)\n",
           sock, msglen, destlen, ((struct sockaddr_in *)dest)->sin_family, 
-          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
+          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->msg_in_hex, plan->message);
 
-        sysrc = sendto( sock, plan->message, msglen, 0, dest, destlen);
+        if( plan->msg_in_hex)
+        {
+            out = hexdigits_to_string( &rc, &msglen, plan->message);
+            if( plan->debug >= DEBUG_NOISY)
+            {
+                int dbg_off;
+                char dbg_st;
+
+                fprintf( stderr, "Convert %ld hex bytes to %d chars:\n   (", strlen( plan->message), msglen);
+                for( dbg_off=0; dbg_off<msglen; dbg_off++)
+                {
+                    dbg_st = *(out + dbg_off);
+                    if( isprint( dbg_st)) fprintf( stderr, "%c", dbg_st);
+                    else fprintf( stderr, "?");
+		}
+                fprintf( stderr, ")\n");
+	    }
+	}
+        else
+        {
+            out = plan->message;
+            msglen = strlen( plan->message);
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        sysrc = sendto( sock, out, msglen, 0, dest, destlen);
         if( sysrc == -1)
         {
             rc = ERR_SYS_CALL;

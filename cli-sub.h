@@ -39,6 +39,8 @@
 
 #define INT_DISPLAY_LEN 11
 
+#define HEX_BASE 16
+
 /* --- */
 
 struct option_set {
@@ -86,6 +88,8 @@ int switch_run_group( char *group);
 char *int_to_str( char *buff, int buff_len, int source, char *format);
 
 char *build_syscall_errmsg( char *syscall, int sysrc);
+
+char *hexdigits_to_string( int *rc, int *msglen, char *hex);
 
 /* --- */
 
