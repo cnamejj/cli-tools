@@ -22,3 +22,4 @@ capture-udp-port
 send-udp-message
 quipi
 dumb
+iso8859-collapse

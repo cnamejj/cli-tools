@@ -277,11 +277,6 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        if( max_wait < 0) max_wait = 0;
-    }
-
-    if( rc == RC_NORMAL)
-    {
         if( strcmp( run_user, USE_DEFAULT))
         {
             for( st = run_user; *st && rc == RC_NORMAL; st++)
@@ -442,7 +437,7 @@ int main( int narg, char **opts)
             lock.l_whence = 0;
             lock.l_start = 0;
 
-            if( max_wait)
+            if( max_wait > 0)
             {
                 sig.sa_flags = SA_SIGINFO;
                 sigemptyset( &sig.sa_mask);
@@ -457,11 +452,15 @@ int main( int narg, char **opts)
 
             if( rc == RC_NORMAL)
             {
-                sysrc = fcntl( lf, F_SETLKW, &lock);
-                if( max_wait)
+                if( max_wait == 0) sysrc = fcntl( lf, F_SETLK, &lock);
+                else
                 {
-                    (void) alarm( 0);
-                    (void) sigaction( SIGALRM, &hold_sig, 0);
+                    sysrc = fcntl( lf, F_SETLKW, &lock);
+                    if( max_wait > 0)
+                    {
+                        (void) alarm( 0);
+                        (void) sigaction( SIGALRM, &hold_sig, 0);
+		    }
 		}
 
                 if( sysrc == -1) rc = ERR_CANT_LOCK;
