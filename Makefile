@@ -1,5 +1,5 @@
 PROGS = quipi send-udp-message capture-udp-port lock-n-run
-SOLOPROGS = iso8859-collapse
+SOLOPROGS = iso8859-collapse extended-letters-collapse
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
 	parse_destination_value.o convert_to_mode.o gsub_string.o get_groupname.o \
 	get_username.o switch_run_user.o switch_run_group.o int_to_str.o \
