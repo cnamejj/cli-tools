@@ -350,6 +350,7 @@ int main( int narg, char **opts)
             psname = strdup( comm_name);
             if( !psname) rc = ERR_MALLOC_FAILED;
 	}
+        
 
         if( rc == RC_NORMAL)
         {
@@ -363,6 +364,14 @@ int main( int narg, char **opts)
             for( st = psname; *st && rc == RC_NORMAL; st++)
               if( !isprint( *st)) rc = ERR_INVALID_DATA;
 	}
+
+        /* If the psname isn't the same as the command, need to flip them */
+	if( rc == RC_NORMAL && strcmp( psname, comm_name))
+        {
+            st = psname;
+	    psname = comm_list->words[ 0];
+            comm_list->words[ 0] = st;
+        }
     }
 
     if( rc == RC_NORMAL)
