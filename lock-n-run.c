@@ -119,7 +119,7 @@ int main( int narg, char **opts)
     int rc = RC_NORMAL, max_wait = 0, lockmode_dec = 0, debug_level = 0, off, lf,
       sysrc, lock_data_len, show_help = 0, flags = O_WRONLY | O_CREAT;
     char *lockfile = 0, *run_user = 0, *run_group = 0, *psname = 0, *st = 0, *comm_name,
-      *this_user = 0, *this_group = 0, lock_data[ LOCK_DATA_LEN];
+      *this_user = 0, *this_group = 0, lock_data[ LOCK_DATA_LEN], *errmsg = 0;
     struct option_set opset[] = {
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE,   0, DEF_LOCKFILE, 0, 0 },
       { OP_LOCKFILE, OP_TYPE_CHAR, OP_FL_BLANK, FL_LOCKFILE_2, 0, DEF_LOCKFILE, 0, 0 },
@@ -159,7 +159,10 @@ int main( int narg, char **opts)
     /* --- */
 
     if( rc == RC_NORMAL) this_user = get_username( &rc, geteuid());
+    if( rc != RC_NORMAL) errmsg = ERR_GETUSERNAME_FAIL;
+
     if( rc == RC_NORMAL) this_group = get_groupname( &rc, getegid());
+    if( rc != RC_NORMAL) errmsg = ERR_GETGROUPNAME_FAIL;
 
     if( rc == RC_NORMAL)
     {
@@ -269,18 +272,28 @@ int main( int narg, char **opts)
      * - unexpected and/or unpleasant side effects.
      */
 
-    /* If the strings variables were set to an emtpy value, which has to be done explicitly, then
+    /* If the strings variables were set to an empty value, which has to be done explicitly, then
      * set an error and bail.
      */
 
-    if( !*lockfile || !*psname || !*run_user || !*run_group) rc = ERR_INVALID_DATA;
+    if( !*lockfile || !*psname || !*run_user || !*run_group)
+    {
+        rc = ERR_INVALID_DATA;
+        if( !*psname) errmsg = ERR_NULL_PSNAME;
+        else if( !*run_user) errmsg = ERR_NULL_RUNUSER;
+        else if( !*run_group) errmsg = ERR_NULL_RUNGROUP;
+        else if( !*lockfile) errmsg = ERR_NULL_LOCKFILE;
+    }
 
     if( rc == RC_NORMAL)
     {
         if( strcmp( run_user, USE_DEFAULT))
         {
-            for( st = run_user; *st && rc == RC_NORMAL; st++)
-              if( !isgraph( *st)) rc = ERR_INVALID_DATA;
+            for( st = run_user; *st && rc == RC_NORMAL; st++) if( !isgraph( *st))
+            {
+                rc = ERR_INVALID_DATA;
+                errmsg = ERR_INVALID_RUN_USER;
+            }
 	}
     }
 
@@ -288,8 +301,11 @@ int main( int narg, char **opts)
     {
         if( strcmp( run_group, USE_DEFAULT))
         {
-            for( st = run_group; *st && rc == RC_NORMAL; st++)
-              if( !isgraph( *st)) rc = ERR_INVALID_DATA;
+            for( st = run_group; *st && rc == RC_NORMAL; st++) if( !isgraph( *st))
+            {
+                rc = ERR_INVALID_DATA;
+                errmsg = ERR_INVALID_RUN_GROUP;
+	    }
 	}
     }
 
@@ -298,6 +314,7 @@ int main( int narg, char **opts)
         if( lockmode_dec >= 800 || lockmode_dec % 100 >= 80 || lockmode_dec % 10 >= 8)
         {
             rc = ERR_INVALID_DATA;
+            errmsg = ERR_INVALID_LOCK_MODE;
 	}
         else
         {
@@ -305,6 +322,7 @@ int main( int narg, char **opts)
             if( lockmode & (S_ISVTX | S_ISGID | S_ISUID))
             {
                 rc = ERR_INVALID_DATA;
+                errmsg = ERR_SETX_LOCK_MODE;
 	    }
 	}
     }
@@ -316,17 +334,28 @@ int main( int narg, char **opts)
             lockfile = strdup( DEFAULT_LOCKFILE);
             if( !lockfile) rc = ERR_MALLOC_FAILED;
 	}
-        else if( strlen( lockfile) > MAXPATHLEN) rc = ERR_INVALID_DATA;
+        else if( strlen( lockfile) > MAXPATHLEN)
+        {
+            rc = ERR_INVALID_DATA;
+            errmsg = ERR_MAX_PATH_LEN;
+	}
         else
         {
-            for( st = lockfile; *st && rc == RC_NORMAL; st++)
-              if( !isprint( *st)) rc = ERR_INVALID_DATA;
+            for( st = lockfile; *st && rc == RC_NORMAL; st++) if( !isprint( *st))
+            {
+                rc = ERR_INVALID_DATA;
+                errmsg = ERR_INVALID_FILENAME;
+	    }
 	}
     }
 
     if( rc == RC_NORMAL)
     {
-        if( comm_list->count < 1) rc = ERR_INVALID_DATA;
+        if( comm_list->count < 1)
+        {
+            rc = ERR_INVALID_DATA;
+            errmsg = ERR_NULL_COMMAND;
+	}
         else
         {
             comm_name = strdup( comm_list->words[ 0]);
@@ -361,8 +390,11 @@ int main( int narg, char **opts)
                   NAME_MAX, psname);
             }
             
-            for( st = psname; *st && rc == RC_NORMAL; st++)
-              if( !isprint( *st)) rc = ERR_INVALID_DATA;
+            for( st = psname; *st && rc == RC_NORMAL; st++) if( !isprint( *st))
+            {
+                rc = ERR_INVALID_DATA;
+                errmsg = ERR_INVALID_PSNAME;
+	    }
 	}
 
         /* If the psname isn't the same as the command, need to flip them */
@@ -430,52 +462,74 @@ int main( int narg, char **opts)
 
     /* --- */
 
-    if( rc == RC_NORMAL) if( strcmp( run_group, this_group)) rc = switch_run_group( run_group);
+    if( rc == RC_NORMAL) if( strcmp( run_group, this_group))
+    {
+        rc = switch_run_group( run_group);
+        if( rc != RC_NORMAL) errmsg = ERR_SETGID_FAIL;
+    }
 
-    if( rc == RC_NORMAL) if( strcmp( run_user, this_user)) rc = switch_run_user( run_user);
+    if( rc == RC_NORMAL) if( strcmp( run_user, this_user))
+    {
+        rc = switch_run_user( run_user);
+        if( rc != RC_NORMAL) errmsg = ERR_SETUID_FAIL;
+    }
 
     if( rc == RC_NORMAL)
     {
         this_umask = umask( 0);
 
         lf = open( lockfile, flags, lockmode);
-        if( lf == -1) rc = ERR_OPEN_FAILED;
+        if( lf == -1)
+        {
+            rc = ERR_OPEN_FAILED;
+            errmsg = ERR_LOCK_OPEN_FAIL;
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        lock.l_type = F_WRLCK;
+        lock.l_whence = 0;
+        lock.l_start = 0;
+
+        if( max_wait > 0)
+        {
+            sig.sa_flags = SA_SIGINFO;
+            sigemptyset( &sig.sa_mask);
+            sig.sa_handler = 0;
+            sig.sa_sigaction = bail_on_timeout;
+
+            sysrc = sigaction( SIGALRM, &sig, &hold_sig);
+            if( sysrc == -1) rc = ERR_SIGACTION_FAILED;
+
+            if( rc == RC_NORMAL) (void) alarm( max_wait);
+        }
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        if( max_wait == 0) sysrc = fcntl( lf, F_SETLK, &lock);
         else
         {
-            lock.l_type = F_WRLCK;
-            lock.l_whence = 0;
-            lock.l_start = 0;
-
+            sysrc = fcntl( lf, F_SETLKW, &lock);
             if( max_wait > 0)
             {
-                sig.sa_flags = SA_SIGINFO;
-                sigemptyset( &sig.sa_mask);
-                sig.sa_handler = 0;
-                sig.sa_sigaction = bail_on_timeout;
+                (void) alarm( 0);
+                (void) sigaction( SIGALRM, &hold_sig, 0);
+            }
+        }
 
-                sysrc = sigaction( SIGALRM, &sig, &hold_sig);
-                if( sysrc == -1) rc = ERR_SIGACTION_FAILED;
+        if( sysrc == -1)
+        {
+            rc = ERR_CANT_LOCK;
+            if( errno == EACCES || errno == EAGAIN) errmsg = ERR_LOCK_UNAVAILABLE;
+            else if( errno == EINTR && max_wait > 0) errmsg = ERR_LOCK_TIMEOUT;
+            else errmsg = ERR_LOCK_FAIL;
+        }
+    }
 
-                if( rc == RC_NORMAL) (void) alarm( max_wait);
-	    }
-
-            if( rc == RC_NORMAL)
-            {
-                if( max_wait == 0) sysrc = fcntl( lf, F_SETLK, &lock);
-                else
-                {
-                    sysrc = fcntl( lf, F_SETLKW, &lock);
-                    if( max_wait > 0)
-                    {
-                        (void) alarm( 0);
-                        (void) sigaction( SIGALRM, &hold_sig, 0);
-		    }
-		}
-
-                if( sysrc == -1) rc = ERR_CANT_LOCK;
-	    }
-	}
-
+    if( rc == RC_NORMAL)
+    {
         (void) umask( this_umask);
 
         pid = getpid();
@@ -485,13 +539,20 @@ int main( int narg, char **opts)
 
         lock_data_len = strlen( lock_data) + 1;
         sysrc = write( lf, lock_data, lock_data_len);
-        if( sysrc != lock_data_len) rc = ERR_WRITE_FAILED;
+        if( sysrc != lock_data_len)
+        {
+            rc = ERR_WRITE_FAILED;
+            errmsg = ERR_LOCK_WRITE_FAIL;
+	}
     }
 
     if( rc == RC_NORMAL)
     {
         (void) execv( psname, comm_list->words);
         rc = ERR_SYS_CALL;
+        if( errno == EACCES || errno == ENOENT || errno == ENOEXEC || errno == ENOTDIR
+          || errno == EPERM) errmsg = ERR_EXEC_BAD_COMMAND;
+        else errmsg = ERR_EXEC_FAIL;
     }
 
     /* --- */
@@ -499,7 +560,12 @@ int main( int narg, char **opts)
 
     if( rc != RC_NORMAL)
     {
-        fprintf( stderr, "**Error(%d)** There will be a better error message here soon, rc=%d\n", rc, errno);
+        if( !errmsg) errmsg = cli_strerror( rc);
+
+        if( !errmsg) errmsg = DEF_ERRMSG;
+        else if( !*errmsg) errmsg = DEF_ERRMSG;
+
+        fprintf( stderr, "**Error(%d)** %s, rc=%d\n", rc, errmsg, errno);
     }
 
     /* --- */

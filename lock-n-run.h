@@ -68,6 +68,31 @@
 #define DEF_USER NO_SWITCH_NEEDED
 #define DEF_GROUP NO_SWITCH_NEEDED
 #define DEF_HELP "0"
+#define DEF_ERRMSG "There will be a better error message here soon"
+
+#define ERR_NULL_PSNAME "The process name to be shown in 'ps' was an empty string"
+#define ERR_NULL_RUNUSER "The run user cannot be an empty string"
+#define ERR_NULL_RUNGROUP "The run group cannot be an empty string"
+#define ERR_NULL_LOCKFILE "Lockfile requested was an empty string"
+#define ERR_NULL_COMMAND "The command to run can't be an empty string"
+#define ERR_INVALID_RUN_USER "Invalid characters found in requested run user"
+#define ERR_INVALID_RUN_GROUP "Invalid characters found in requested run group"
+#define ERR_INVALID_LOCK_MODE "File permissions requested for lockfile are invalid"
+#define ERR_SETX_LOCK_MODE "Lockfile file permissions can't include set UID, set GID or sticky bits"
+#define ERR_MAX_PATH_LEN "Filename too long"
+#define ERR_INVALID_FILENAME "Invalid character(s) in filename"
+#define ERR_INVALID_PSNAME "Invalid characters found in visible 'ps' name"
+#define ERR_SETUID_FAIL "Unable to switch process UID to the requested user"
+#define ERR_SETGID_FAIL "Unable to switch process GID to the requested group"
+#define ERR_LOCK_OPEN_FAIL "Unable to open the requested lockfile"
+#define ERR_LOCK_UNAVAILABLE "Another process has lock already"
+#define ERR_LOCK_TIMEOUT "Timed out waiting for lock"
+#define ERR_LOCK_FAIL "System call to establish lock failed with an unrecoverable error"
+#define ERR_LOCK_WRITE_FAIL "Unable to record process information in lockfile"
+#define ERR_EXEC_BAD_COMMAND "Command/Path requested invalid, missing, or permission denied"
+#define ERR_EXEC_FAIL "Attempt to execute the command caused an unrecoverable error"
+#define ERR_GETUSERNAME_FAIL "Unable to get the username associated with the current UID"
+#define ERR_GETGROUPNAME_FAIL "Unable to get the group name associated with the current GID"
 
 /* --- */
 

@@ -143,7 +143,7 @@ static struct err_info err_msg_list[] = {
    { ERR_LIMIT_EXCEEDED, "<<obsolete error code#2>>"},
    { ERR_BAD_DIR, "Invalid/Unusable directory name"},
    { ERR_MKDIR_FAILED, "Can't create directory"},
-   { ERR_FILE_EXISTS, "FIle already exists"},
+   { ERR_FILE_EXISTS, "File already exists"},
    { ERR_POPEN_FAILED, "Call to popen() failed"},
    { ERR_SEEK_FAILED, "Call to seek() failed"},
    { ERR_GETHOST_FAILED, "DNS lookup failed"},
