@@ -1,5 +1,3 @@
-/* ??? Should stash away more useful error messages, in addition to RC settings */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
