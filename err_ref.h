@@ -85,8 +85,8 @@ char *cli_strerror( int);
 
 #define ERRMSG_BAD_DEST "Destination '%s' invalid, expected 'host:port'."
 #define ERRMSG_GETHOST_FAILED "Hostname '%s' could not be resolved to an acceptable IP address."
-#define ERRMSG_INET_NTOP "Call to inet_ntop() failed with rc=%d."
-#define ERRMSG_SOCKET_CALL "A socket() system call failed with rc=%d."
+#define ERRMSG_INET_NTOP "Call to inet_ntop() failed with rc=%d"
+#define ERRMSG_SOCKET_CALL "A socket() system call failed with rc=%d"
 #define ERRMSG_SETSOCKOPT_CALL "Call to setsockopt() failed with rc=%d"
 #define ERRMSG_SENDTO_FAIL "Call to sendto() failed with rc=%d"
 #define ERRMSG_SENDTO_PARTIAL "Sent only %d of %d bytes requested."
@@ -96,7 +96,7 @@ char *cli_strerror( int);
 #define ERRMSG_NO_SUCH_USER "No such user %s."
 #define ERRMSG_NO_SUCH_GROUP "No such group %s."
 #define ERRMSG_CURR_PWLOOKUP_FAILED "Can't lookup current uid %d, rc=%d."
-#define ERRMSG_CURR_GRLOOKUP_FAILED "Can't lookup current grouo %d, rc=%d."
+#define ERRMSG_CURR_GRLOOKUP_FAILED "Can't lookup current group %d, rc=%d."
 #define ERRMSG_OPEN_FAILED "Can't open log file '%s', rc=%d."
 #define ERRMSG_WRITE_PARTIAL "Partial write to log file, %d of %d bytes written."
 #define ERRMSG_UNRECOG_OPTIONS "Unrecognized options '%s' specified."
@@ -143,7 +143,7 @@ static struct err_info err_msg_list[] = {
    { ERR_LIMIT_EXCEEDED, "<<obsolete error code#2>>"},
    { ERR_BAD_DIR, "Invalid/Unusable directory name"},
    { ERR_MKDIR_FAILED, "Can't create directory"},
-   { ERR_FILE_EXISTS, "FIle already exists"},
+   { ERR_FILE_EXISTS, "File already exists"},
    { ERR_POPEN_FAILED, "Call to popen() failed"},
    { ERR_SEEK_FAILED, "Call to seek() failed"},
    { ERR_GETHOST_FAILED, "DNS lookup failed"},

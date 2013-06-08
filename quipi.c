@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #include "quipi.h"
-#include "parse_opt.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 
 /* --- */
@@ -218,7 +218,7 @@ struct addrinfo *convert_from_hostname( char *name, int debug )
 int main( int narg, char **opts )
 
 {
-    int rc = RC_NORMAL, seq = 0, debug_level = 0;
+    int rc = RC_NORMAL, seq = 0, debug_level = 0, show_help = 0;
     unsigned int family;
     char *st, *name, *canon, *strc;
     char *unknown_name = strdup( NO_HOSTNAME ), *unknown_ip4 = strdup( NO_IP4_ADDR ),
@@ -229,12 +229,15 @@ int main( int narg, char **opts )
     struct sockaddr_in6 *saddr6;
     struct option_set opset[] = {
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
+      { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
     int nflags = (sizeof opset) / (sizeof opset[0]);
 
     /* --- */
+
+    if( narg < 2) show_help = 1;
 
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
     if( rc != RC_NORMAL)
@@ -243,6 +246,8 @@ int main( int narg, char **opts )
         exit( 1);
     }
 
+    /* --- */
+
     co = get_matching_option( OP_DEBUG, opset, nflags);
     if( !co)
     {
@@ -250,6 +255,24 @@ int main( int narg, char **opts )
         exit( 1);
     }
     debug_level = *((int *) co->parsed);
+
+    co = get_matching_option( OP_HELP, opset, nflags);
+    if( !co)
+    {
+        fprintf( stderr, "Program error dealing with options, this should never happen.\n");
+        exit( 1);
+    }
+    if( co->flags & OP_FL_SET) show_help = 1;
+
+    /* --- */
+
+    if( show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
+    }
 
     /* --- */
 

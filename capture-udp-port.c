@@ -1,6 +1,4 @@
-/* ??? also, the first IP logged when listening on an ivp6 address appears to be wrong, subsequent recvfrom() calls work normally, might be a bug? create a simple program to demonstrate */
 /* ??? figure out how to deal with "--no-" options for host, port and server flags, not sure what those would mean? */
-/* ??? right now,  sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);   has hardcoded LOG_OPEN_FLAGS but that should be configurable via command line options */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,21 +16,19 @@
 #include <fcntl.h>
 #include <time.h>
 
-#include "parse_opt.h"
 #include "capture-udp-port.h"
 #include "err_ref.h"
 #include "net-task-data.h"
+#include "cli-sub.h"
 
 /* --- */
 
 struct task_details *figure_out_what_to_do( int *, int, char **);
-char *build_syscall_errmsg( char *, int);
 int switch_user_and_group( struct task_details *);
-int switch_run_group( struct task_details *);
-int switch_run_user( struct task_details *);
+int cup_switch_run_group( struct task_details *);
+int cup_switch_run_user( struct task_details *);
 int open_logfile( int *, struct task_details *);
 int receive_udp_and_log( struct task_details *, int, int);
-mode_t convert_to_mode( int);
 
 /* --- */
 
@@ -62,8 +58,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP,     0, DEF_GROUP,   0, 0 },
       { OP_GROUP,   OP_TYPE_CHAR, OP_FL_BLANK, FL_GROUP_2,   0, DEF_GROUP,   0, 0 },
+      { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC,     0, DEF_TRUNC,   0, 0 },
+      { OP_TRUNC,   OP_TYPE_FLAG, OP_FL_BLANK, FL_TRUNC_2,   0, DEF_TRUNC,   0, 0 },
+      { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND,    0, DEF_APPEND,  0, 0 },
+      { OP_APPEND,  OP_TYPE_FLAG, OP_FL_BLANK, FL_APPEND_2,  0, DEF_APPEND,  0, 0 },
+      { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
     };
-    struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
+    struct option_set *co = 0, *co_ap = 0, *co_tr = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
     int nflags = (sizeof opset) / (sizeof opset[0]);
     
@@ -251,7 +252,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+            if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV4;
             else plan->use_ip &= ~DO_IPV4;
             ipv4 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -265,7 +266,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
         if( !co) rc = ERR_OPT_CONFIG;
         else
         {
-            if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+            if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV6;
             else plan->use_ip &= ~DO_IPV6;
             ipv6 = co;
             if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, ipv6=%x, use-ip=%x\n",
@@ -297,6 +298,48 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
 	}
     }
 
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HELP, opset, nflags);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else
+        {
+            if( co->flags & OP_FL_SET) plan->show_help = 1;
+            if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "Opt #%d, help '%d'\n",
+              co->opt_num, plan->show_help);
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co_tr = get_matching_option( OP_TRUNC, opset, nflags);
+        co_ap = get_matching_option( OP_APPEND, opset, nflags);
+        if( !co_tr || !co_ap) rc = ERR_OPT_CONFIG;
+        else
+        {
+            if( co_tr->opt_num && co_ap->opt_num)
+            {
+                if( co_ap->flags == OP_FL_SET)
+                {
+                    if( co_tr->flags == OP_FL_SET) plan->openflags |= O_APPEND | O_TRUNC;
+                    else plan->openflags |= O_APPEND;
+		}
+                else if( co_tr->flags == OP_FL_SET) plan->openflags |= O_TRUNC;
+	    }
+            else if( co_tr->opt_num)
+            {
+                if( co_tr->flags == OP_FL_SET) plan->openflags |= O_APPEND | O_TRUNC;
+                else plan->openflags |= O_APPEND;
+	    }
+            else if( co_ap->opt_num)
+            {
+                if( co_ap->flags == OP_FL_SET) plan->openflags |= O_APPEND;
+                else plan->openflags |= O_TRUNC;
+	    }
+            else plan->openflags |= O_APPEND;
+	}
+    }
+
     /* By default both IPV4 and IPV6 are disabled.  If neither option was selected via
      * command line flags, them turn the both on so the code will take whichever one it
      * finds.
@@ -325,39 +368,20 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
 
 /* --- */
 
-char *build_syscall_errmsg( char *syscall, int sysrc)
-
-{
-    int errlen = 0;
-    char *errmsg = 0, *name = 0, *def_name = "unspecified system call";
-
-    if( !syscall) name = def_name;
-    else if( !*syscall) name = def_name;
-    else name = syscall;
-
-    errlen = strlen( ERRMSG_SYSCALL2_FAILED) + strlen( name) + INT_ERR_DISPLAY_LEN;
-    errmsg = (char *) malloc( errlen);
-    if( errmsg) snprintf( errmsg, errlen, ERRMSG_SYSCALL2_FAILED, name, sysrc);
-
-    return( errmsg);
-}
-
-/* --- */
-
 int switch_user_and_group( struct task_details *plan)
 
 {
     int rc = RC_NORMAL;
 
-    rc = switch_run_group( plan);
-    if( rc == RC_NORMAL) rc = switch_run_user( plan);
+    rc = cup_switch_run_group( plan);
+    if( rc == RC_NORMAL) rc = cup_switch_run_user( plan);
 
     return( rc);
 }
 
 /* --- */
 
-int switch_run_group( struct task_details *plan)
+int cup_switch_run_group( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
@@ -454,7 +478,7 @@ int switch_run_group( struct task_details *plan)
 
 /* --- */
 
-int switch_run_user( struct task_details *plan)
+int cup_switch_run_user( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
@@ -552,39 +576,6 @@ int switch_run_user( struct task_details *plan)
 
 /* --- */
 
-mode_t convert_to_mode( int dec_mode)
-
-{
-    int subset;
-    mode_t mode;
-
-    mode = 0;
-
-    subset = dec_mode % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXOTH;
-    if( subset & SUBSET_WRITE) mode |= S_IWOTH;
-    if( subset & SUBSET_READ) mode |= S_IROTH;
-
-    subset = (dec_mode / 10) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXGRP;
-    if( subset & SUBSET_WRITE) mode |= S_IWGRP;
-    if( subset & SUBSET_READ) mode |= S_IRGRP;
-    
-    subset = (dec_mode / 100) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_IXUSR;
-    if( subset & SUBSET_WRITE) mode |= S_IWUSR;
-    if( subset & SUBSET_READ) mode |= S_IRUSR;
-    
-    subset = (dec_mode / 1000) % 10;
-    if( subset & SUBSET_EXEC) mode |= S_ISVTX;
-    if( subset & SUBSET_WRITE) mode |= S_ISGID;
-    if( subset & SUBSET_READ) mode |= S_ISUID;
-
-    return( mode);
-}
-
-/* --- */
-
 int open_logfile( int *log_fd, struct task_details *plan)
 
 {
@@ -595,7 +586,8 @@ int open_logfile( int *log_fd, struct task_details *plan)
 
     mode = convert_to_mode( plan->logmode);
 
-    sysrc = open( plan->logfile, LOG_OPEN_FLAGS, mode);
+    if( plan->debug >= DEBUG_MEDIUM) fprintf( stderr, "Flags for open %x\n", plan->openflags);
+    sysrc = open( plan->logfile, plan->openflags, mode);
     if( sysrc > 0) *log_fd = sysrc;
     else
     {
@@ -608,8 +600,8 @@ int open_logfile( int *log_fd, struct task_details *plan)
         else snprintf( plan->err_msg, errlen, ERRMSG_OPEN_FAILED, plan->logfile, sysrc);
     }
 
-    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x (%d), fd=%d, err=%d\n",
-      plan->logfile, mode, plan->logmode, sysrc, errno);
+    if( plan->debug >= DEBUG_LOW) fprintf( stderr, "Opened log file '%s', mode=%x (%d), flags (%x), fd=%d, err=%d\n",
+      plan->logfile, mode, plan->logmode, plan->openflags, sysrc, errno);
 
     (void) umask( save_umask);
 
@@ -630,7 +622,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
     struct sockaddr_in6 sender6;
     struct sockaddr_in sender4;
     struct tm this_time;
-    socklen_t sender_len;
+    socklen_t sender_len, rc_sender_len;
     time_t now;
 
     if( plan->found_family == AF_INET6)
@@ -648,7 +640,9 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
 
     for(; rc == RC_NORMAL; )
     {
-        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &sender_len);
+        /* -- The recvfrom() call may change the value of the last parameter, need to reset it each time */
+        rc_sender_len = sender_len;
+        inlen = sysrc = recvfrom( sock, buff, BUFFER_SIZE, 0, sender, &rc_sender_len);
         if( sysrc == -1)
         {
             sysrc = errno;
@@ -687,7 +681,7 @@ int receive_udp_and_log( struct task_details *plan, int sock, int log_fd)
             {
                 snprintf( prefix_buff, prefix_len, "%s%s%s", display_time, dis_ip, display_len);
 
-                outlen = prefix_len - 1;
+                outlen = strlen( prefix_buff);
                 sysrc = write( log_fd, prefix_buff, outlen);
 
                 if( sysrc == outlen)
@@ -740,7 +734,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, errlen, listen_len, log_fd;
     struct sockaddr *listen = 0;
-    char *chrc = 0, *err_msg = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -749,12 +743,24 @@ int main( int narg, char **opts)
 
     plan = figure_out_what_to_do( &rc, narg, opts);
 
+    if( narg < 2) plan->show_help = 1;
+
+    /* --- */
+
     if( rc == RC_NORMAL)
     {
         if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "\nPlan: server(%s) port(%d) ipv4(%d) ipv6(%d) user(%s) log(%s) mode(%d)\n",
           plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6,
           plan->runuser, plan->logfile, plan->logmode);
+    }
+
+    if( plan->show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+        exit( 1);
     }
 
     /* --- */
@@ -794,10 +800,8 @@ int main( int narg, char **opts)
         if( !chrc)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_INET_NTOP) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "inet_ntop", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
         else if( plan->debug >= DEBUG_LOW) fprintf( stderr, 
           "Server(%s) IP(%s)\n", plan->target_host, display_ip);
@@ -811,10 +815,8 @@ int main( int narg, char **opts)
         if( sock == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SOCKET_CALL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "socket", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SOCKET_CALL, errno);
 	}
         else if( plan->found_family == AF_INET6)
         {
@@ -828,10 +830,8 @@ int main( int narg, char **opts)
             if( sysrc)
             {
                 rc = ERR_SYS_CALL;
-                errlen = strlen( ERRMSG_SETSOCKOPT_CALL) + INT_ERR_DISPLAY_LEN;
-                plan->err_msg = (char *) malloc( errlen);
+                plan->err_msg = build_syscall_errmsg( "setsockopt", errno);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-                else snprintf( plan->err_msg, errlen, ERRMSG_SETSOCKOPT_CALL, errno);
             }
 	}
     }
@@ -842,10 +842,8 @@ int main( int narg, char **opts)
         if( sysrc == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_BIND_FAILED) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "bind", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_BIND_FAILED, errno);
         }
     }
 

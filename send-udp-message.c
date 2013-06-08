@@ -5,10 +5,37 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include "parse_opt.h"
+#include <ctype.h>
+
 #include "send-udp-message.h"
+#include "cli-sub.h"
 #include "err_ref.h"
 #include "net-task-data.h"
+
+/* --- */
+
+int build_err_msg( struct task_details *plan, int err_code, char *err_template, char *err_component)
+
+{
+    int result, err_msg_len = 0;
+    char *msg = 0;
+
+    result = err_code;
+
+    if( plan && err_template && err_component) if( *err_template)
+    {
+        err_msg_len = strlen( err_template) + strlen( err_component);
+        msg = (char *) malloc( err_msg_len);
+        if( !msg) result = ERR_MALLOC_FAILED;
+        else
+        {
+            snprintf( msg, err_msg_len, err_template, err_code, err_component);
+            plan->err_msg = msg;
+	}
+    }
+
+    return( result);
+}
 
 /* --- */
 
@@ -18,21 +45,24 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     int rc = RC_NORMAL, off, *int_p = 0, dest_set = 0;
     struct task_details *plan = 0;
     struct option_set opset[] = {
-      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH, 0, DEF_DEST_BOTH, 0, 0 },
+      { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH,   0, DEF_DEST_BOTH, 0, 0 },
       { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_2, 0, DEF_DEST_BOTH, 0, 0 },
       { OP_DEST_BOTH, OP_TYPE_CHAR, OP_FL_BLANK, FL_DEST_BOTH_3, 0, DEF_DEST_BOTH, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_2, 0, DEF_MESSAGE, 0, 0 },
-      { OP_MESSAGE, OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_3, 0, DEF_MESSAGE, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT, 0, DEF_PORT, 0, 0 },
-      { OP_PORT, OP_TYPE_INT, OP_FL_BLANK, FL_PORT_2, 0, DEF_PORT, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST, 0, DEF_HOST, 0, 0 },
-      { OP_HOST, OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2, 0, DEF_HOST, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV4, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2, 0, DEF_IPV4, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6, 0, DEF_IPV6, 0, 0 },
-      { OP_IPV6, OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2, 0, DEF_IPV6, 0, 0 },
-      { OP_DEBUG, OP_TYPE_INT, OP_FL_BLANK, FL_DEBUG, 0, DEF_DEBUG, 0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE,     0, DEF_MESSAGE,   0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_2,   0, DEF_MESSAGE,   0, 0 },
+      { OP_MESSAGE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_MESSAGE_3,   0, DEF_MESSAGE,   0, 0 },
+      { OP_PORT,      OP_TYPE_INT,  OP_FL_BLANK, FL_PORT,        0, DEF_PORT,      0, 0 },
+      { OP_PORT,      OP_TYPE_INT,  OP_FL_BLANK, FL_PORT_2,      0, DEF_PORT,      0, 0 },
+      { OP_HOST,      OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST,        0, DEF_HOST,      0, 0 },
+      { OP_HOST,      OP_TYPE_CHAR, OP_FL_BLANK, FL_HOST_2,      0, DEF_HOST,      0, 0 },
+      { OP_IPV4,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4,        0, DEF_IPV4,      0, 0 },
+      { OP_IPV4,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV4_2,      0, DEF_IPV4,      0, 0 },
+      { OP_IPV6,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6,        0, DEF_IPV6,      0, 0 },
+      { OP_IPV6,      OP_TYPE_FLAG, OP_FL_BLANK, FL_IPV6_2,      0, DEF_IPV6,      0, 0 },
+      { OP_DEBUG,     OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,     0, 0 },
+      { OP_HELP,      OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,      0, 0 },
+      { OP_HEX,       OP_TYPE_FLAG, OP_FL_BLANK, FL_HEX,         0, DEF_HEX,       0, 0 },
+      { OP_HEX,       OP_TYPE_FLAG, OP_FL_BLANK, FL_HEX_2,       0, DEF_HEX,       0, 0 },
     };
     struct option_set *co = 0, *ipv4 = 0, *ipv6 = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -48,6 +78,13 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     if( rc == RC_NORMAL)
     {
         extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+
+        if( rc == RC_NORMAL)
+        {
+            co = get_matching_option( OP_DEBUG, opset, nflags);
+            if( !co) rc = ERR_OPT_CONFIG;
+            else plan->debug = *((int *) co->parsed);
+        }
 
         /* --- */
 
@@ -142,7 +179,7 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV4, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV4;
+        else if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV4;
         else plan->use_ip &= ~DO_IPV4;
         ipv4 = co;
     }
@@ -151,16 +188,25 @@ struct task_details *figure_out_what_to_do( int *returncode, int narg, char **op
     {
         co = get_matching_option( OP_IPV6, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else if( co->flags == OP_FL_SET) plan->use_ip |= DO_IPV6;
+        else if( co->flags & OP_FL_SET) plan->use_ip |= DO_IPV6;
         else plan->use_ip &= ~DO_IPV6;
         ipv6 = co;
     }
 
     if( rc == RC_NORMAL)
     {
-        co = get_matching_option( OP_DEBUG, opset, nflags);
+        co = get_matching_option( OP_HELP, opset, nflags);
         if( !co) rc = ERR_OPT_CONFIG;
-        else plan->debug = *((int *) co->parsed);
+        else if( co->flags & OP_FL_SET) plan->show_help = 1;
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        co = get_matching_option( OP_HEX, opset, nflags);
+printf( "dbg:: hex option %d. %d %d %x/%x '%s' '%s' '%s'\n", co->opt_num, co->num, co->type, co->flags,
+  OP_FL_SET, co->name, co->val, co->def);
+        if( !co) rc = ERR_OPT_CONFIG;
+        else if( co->flags & OP_FL_SET) plan->msg_in_hex = 1;
     }
 
 /* ...figure out how to deal with "--no-" options for host, port and destination flags... */
@@ -196,7 +242,7 @@ int main( int narg, char **opts)
 {
     int rc = RC_NORMAL, opt_on = 1, sysrc, sock, destlen, msglen, errlen;
     struct sockaddr *dest = 0;
-    char *chrc = 0, *err_msg = 0;
+    char *chrc = 0, *err_msg = 0, *st = 0, *out = 0;
     char display_ip[ IP_DISPLAY_SIZE];
     struct task_details *plan = 0;
     void *s_addr;
@@ -205,10 +251,23 @@ int main( int narg, char **opts)
 
     plan = figure_out_what_to_do( &rc, narg, opts);
 
+    if( narg < 2) plan->show_help = 1;
+
+    /* --- */
+
     if( rc == RC_NORMAL)
     {
-        if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s)\n",
-          plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message);
+        if( plan->debug >= DEBUG_LOW) fprintf( stderr, "\nPlan: host(%s) port(%d) ipv4(%d) ipv6(%d) msg(%s) hex(%d)\n",
+          plan->target_host, plan->target_port, plan->use_ip & DO_IPV4, plan->use_ip & DO_IPV6, plan->message,
+          plan->msg_in_hex);
+    }
+
+    if( plan->show_help)
+    {
+        st = opts[ 0];
+        if( *st == '.' && *(st + 1) == '/') st += 2;
+        printf( MSG_SHOW_SYNTAX, st);
+	exit( 1);
     }
 
     /* --- */
@@ -217,14 +276,8 @@ int main( int narg, char **opts)
     {
         rc = get_destination_ip( plan);
 
-        if( rc == RC_NORMAL && !plan->found_family)
-        {
-            rc = ERR_GETHOST_FAILED;
-            errlen = strlen( ERRMSG_GETHOST_FAILED) + strlen( plan->target_host);
-            plan->err_msg = (char *) malloc( errlen);
-            if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_GETHOST_FAILED, plan->target_host);
-	}
+        if( rc == RC_NORMAL && !plan->found_family) rc = build_err_msg( plan, ERR_GETHOST_FAILED,
+          ERRMSG_GETHOST_FAILED, plan->target_host);
     }
 
     if( rc == RC_NORMAL)
@@ -248,10 +301,8 @@ int main( int narg, char **opts)
         if( !chrc)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_INET_NTOP) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "inet_ntop", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_INET_NTOP, errno);
 	}
         else if( plan->debug > DEBUG_LOW) fprintf( stderr, "Dest(%s) IP(%s)\n", plan->target_host,
           display_ip);
@@ -265,10 +316,8 @@ int main( int narg, char **opts)
         if( sock == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SOCKET_CALL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "socket", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SOCKET_CALL, errno);
 	}
         else if( plan->found_family == AF_INET6)
         {
@@ -276,29 +325,51 @@ int main( int narg, char **opts)
             if( sysrc)
             {
                 rc = ERR_SYS_CALL;
-                errlen = strlen( ERRMSG_SETSOCKOPT_CALL) + INT_ERR_DISPLAY_LEN;
-                plan->err_msg = (char *) malloc( errlen);
+                plan->err_msg = build_syscall_errmsg( "socket", errno);
                 if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-                else snprintf( plan->err_msg, errlen, ERRMSG_SETSOCKOPT_CALL, errno);
-            }
+	    }
 	}
     }
 
     if( rc == RC_NORMAL)
     {
-        msglen = strlen( plan->message);
-        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d msg(%s)\n",
+        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d hex:%d msg(%s)\n",
           sock, msglen, destlen, ((struct sockaddr_in *)dest)->sin_family, 
-          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->message);
+          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->msg_in_hex, plan->message);
 
-        sysrc = sendto( sock, plan->message, msglen, 0, dest, destlen);
+        if( plan->msg_in_hex)
+        {
+            out = hexdigits_to_string( &rc, &msglen, plan->message);
+            if( plan->debug >= DEBUG_NOISY)
+            {
+                int dbg_off;
+                char dbg_st;
+
+                fprintf( stderr, "Convert %ld hex bytes to %d chars:\n   (", strlen( plan->message), msglen);
+                for( dbg_off=0; dbg_off<msglen; dbg_off++)
+                {
+                    dbg_st = *(out + dbg_off);
+                    if( isprint( dbg_st)) fprintf( stderr, "%c", dbg_st);
+                    else fprintf( stderr, "?");
+		}
+                fprintf( stderr, ")\n");
+	    }
+	}
+        else
+        {
+            out = plan->message;
+            msglen = strlen( plan->message);
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        sysrc = sendto( sock, out, msglen, 0, dest, destlen);
         if( sysrc == -1)
         {
             rc = ERR_SYS_CALL;
-            errlen = strlen( ERRMSG_SENDTO_FAIL) + INT_ERR_DISPLAY_LEN;
-            plan->err_msg = (char *) malloc( errlen);
+            plan->err_msg = build_syscall_errmsg( "sendto", errno);
             if( !plan->err_msg) rc = ERR_MALLOC_FAILED;
-            else snprintf( plan->err_msg, errlen, ERRMSG_SENDTO_FAIL, errno);
 	}
         else if( sysrc != msglen)
         {

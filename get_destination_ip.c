@@ -1,5 +1,3 @@
-/* ??? probably should copy the data from the host records returned by getaddrinfo() and free them instead of just using the in place. */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -16,7 +14,7 @@ int get_destination_ip( struct task_details *plan)
 
 {
     int rc = RC_NORMAL, sysrc, errlen;
-    struct addrinfo hints, *host_recs = 0, *walk, *match4 = 0, *match6 = 0;
+    struct addrinfo hints, *host_recs = 0, *walk, *match4 = 0, *match6 = 0, *next_host_rec = 0, *dup_list = 0;
     struct sockaddr_in *sa4 = 0;
     struct sockaddr_in6 *sa6 = 0;
 
@@ -69,38 +67,71 @@ int get_destination_ip( struct task_details *plan)
             {
                 if( plan->debug >= DEBUG_HIGH) fprintf( stderr, "...getaddrinfo() call worked, scan the host records to find the one we want...\n");
                 match4 = match6 = 0;
-                for( walk = host_recs; walk; )
-                {
-                    if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "hr --> %x %x/%x/%x %x %x %d %s\n",
-                      walk->ai_flags, walk->ai_family, AF_INET, AF_INET6, walk->ai_socktype, 
-                      walk->ai_protocol, walk->ai_addrlen, walk->ai_canonname);
 
-                    if( !match4 && walk->ai_family == AF_INET) match4 = walk;
-                    if( !match6 && walk->ai_family == AF_INET6) match6 = walk;
-                    if( match4 && match6) walk = 0;
-                    else walk = walk->ai_next;
+                for( walk = host_recs; rc == RC_NORMAL && walk; walk = walk->ai_next)
+                {
+                    next_host_rec = (struct addrinfo *) malloc( sizeof *next_host_rec);
+
+                    if( !next_host_rec) rc = ERR_MALLOC_FAILED;
+                    else
+                    {
+                        if( !dup_list) dup_list = next_host_rec;
+                        else dup_list->ai_next = next_host_rec;
+
+                        next_host_rec->ai_flags = walk->ai_flags;
+                        next_host_rec->ai_family = walk->ai_family;
+                        next_host_rec->ai_socktype = walk->ai_socktype;
+                        next_host_rec->ai_protocol = walk->ai_protocol;
+                        next_host_rec->ai_addrlen = walk->ai_addrlen;
+                        next_host_rec->ai_addr = (struct sockaddr *) malloc( next_host_rec->ai_addrlen);
+                        if( next_host_rec->ai_addr) memcpy( walk->ai_addr, next_host_rec->ai_addr,
+                          next_host_rec->ai_addrlen);
+                        next_host_rec->ai_canonname = strdup( walk->ai_canonname);
+                        next_host_rec->ai_next = 0;
+
+                        if( !next_host_rec->ai_canonname || !next_host_rec->ai_addr)
+                          rc = ERR_MALLOC_FAILED;
+		    }
 		}
 
-                if( plan->use_ip & DO_IPV4 && match4)
+                if( rc == RC_NORMAL)
                 {
-                    sa4 = (struct sockaddr_in *) match4->ai_addr;
-                    plan->dest4.sin_addr = sa4->sin_addr;
-                    plan->found_family = AF_INET;
-		}
-                else if( plan->use_ip & DO_IPV6 && match6)
+                    freeaddrinfo( host_recs);
+                    host_recs = dup_list;
+
+                    for( walk = host_recs; walk; )
+                    {
+                        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "hr --> %x %x/%x/%x %x %x %d %s\n",
+                          walk->ai_flags, walk->ai_family, AF_INET, AF_INET6, walk->ai_socktype, 
+                          walk->ai_protocol, walk->ai_addrlen, walk->ai_canonname);
+
+                        if( !match4 && walk->ai_family == AF_INET) match4 = walk;
+                        if( !match6 && walk->ai_family == AF_INET6) match6 = walk;
+                        if( match4 && match6) walk = 0;
+                        else walk = walk->ai_next;
+                    }
+
+                    if( plan->use_ip & DO_IPV4 && match4)
+                    {
+                        sa4 = (struct sockaddr_in *) match4->ai_addr;
+                        plan->dest4.sin_addr = sa4->sin_addr;
+                        plan->found_family = AF_INET;
+                    }
+                    else if( plan->use_ip & DO_IPV6 && match6)
+                    {
+                        sa6 = (struct sockaddr_in6 *) match6->ai_addr;
+                        plan->dest6.sin6_addr = sa6->sin6_addr;
+                        plan->found_family = AF_INET6;
+                        plan->dest6.sin6_scope_id = sa6->sin6_scope_id;
+                    }
+                    if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
+                }
+                else
                 {
-                    sa6 = (struct sockaddr_in6 *) match6->ai_addr;
-                    plan->dest6.sin6_addr = sa6->sin6_addr;
-                    plan->found_family = AF_INET6;
-                    plan->dest6.sin6_scope_id = sa6->sin6_scope_id;
-		}
-                if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "match4:%d/%d match6:%d/%d\n", !!match4, !!sa4, !!match6, !!sa6);
-	    }
-            else
-            {
-                if( sysrc == EAI_MEMORY) rc = ERR_MALLOC_FAILED;
-                else rc = ERR_GETHOST_FAILED;
-	    }
+                    if( sysrc == EAI_MEMORY) rc = ERR_MALLOC_FAILED;
+                    else rc = ERR_GETHOST_FAILED;
+                }
+            }
 	}
     }
 
