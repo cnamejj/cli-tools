@@ -1,3 +1,10 @@
+/*
+ *
+ * Todo
+ * ----
+ * - Scrub the environment variables in general if you want to be paranoid
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -398,9 +405,7 @@ int main( int narg, char **opts)
         /* If the psname isn't the same as the command, need to flip them */
 	if( rc == RC_NORMAL && strcmp( psname, comm_name))
         {
-            st = psname;
-	    psname = comm_list->words[ 0];
-            comm_list->words[ 0] = st;
+            comm_list->words[ 0] = psname;
         }
     }
 
@@ -546,7 +551,17 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        (void) execv( psname, comm_list->words);
+        sysrc = setenv( ENV_IFS_VAR, ENV_IFS_VAL, DO_OVERWRITE);
+        if( sysrc)
+        {
+            rc = ERR_SYS_CALL;
+            errmsg = ERR_SETENV_FAIL;
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        (void) execv( comm_name, comm_list->words);
         rc = ERR_SYS_CALL;
         if( errno == EACCES || errno == ENOENT || errno == ENOEXEC || errno == ENOTDIR
           || errno == EPERM) errmsg = ERR_EXEC_BAD_COMMAND;

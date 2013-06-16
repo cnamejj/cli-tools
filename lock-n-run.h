@@ -30,6 +30,10 @@
 #define DEFAULT_LOCKFILE "/var/tmp/%{psname}.__lockfile__"
 #define TIME_FORMAT "%y-%m-%d"
 
+#define ENV_IFS_VAR "IFS"
+#define ENV_IFS_VAL " \t\n"
+#define DO_OVERWRITE 1
+
 #define OP_LOCKFILE 1
 #define OP_PSNAME 2
 #define OP_LOCKMODE 3
@@ -93,6 +97,7 @@
 #define ERR_EXEC_FAIL "Attempt to execute the command caused an unrecoverable error"
 #define ERR_GETUSERNAME_FAIL "Unable to get the username associated with the current UID"
 #define ERR_GETGROUPNAME_FAIL "Unable to get the group name associated with the current GID"
+#define ERR_SETENV_FAIL "Unable to setup environment before running the requested command"
 
 /* --- */
 
