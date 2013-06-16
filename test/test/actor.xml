@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<aliaslist>
+
+<!-- level is one of: none, debug, info, notice, warning, err/error, crit/critical, alert, emerg/emergency -->
+<!-- facility is one of: auth/authpriv, local[0-7], user -->
+<!-- default level should be error, default facility should be user -->
+
+<syslog level="warning" facility="local0" />
+
+<command alias="h-f" exec="/usr/local/bin/http-fetch" runuser="nobody" rungroup="nogroup">
+  <allow user="jimj" psname="jimj-hf" rungroup="jimj" runuser="jimj" />
+  <allow user="jjones" runuser="jjones" rungroup="jjones" psname="jj-hf" />
+</command>
+
+<!-- /usr/local/bin/summ-ufw-log(syslog,syslog) jimj jjones -->
+
+<command alias="ufw-log" exec="/usr/local/bin/summ-ufw-log" runuser="syslog" rungroup="syslog">
+  <allow user="jimj" />
+  <allow user="jjones" />
+</command>
+
+<!-- /usr/local/bin/start-snort(root,root) jimj jjones -->
+
+<command alias="start-snort" exec="/usr/local/bin/start-snort" psname="start-snort" runuser="root" rungroup="root">
+  <allow user="jimj" />
+  <allow user="jjones" />
+</command>
+
+<!-- /usr/local/bin/start-junction(root,root) jimj jjones -->
+
+<command alias="start-junction" exec="/usr/local/bin/start-junction" psname="start-junction" runuser="root" rungroup="root">
+  <allow user="jimj" />
+  <allow user="jjones" />
+</command>
+
+<!-- /usr/local/bin/parse-syslog-as-asus-router-log(syslog,syslog) jimj jjones -->
+
+<command alias="asus-router-log" exec="/usr/local/bin/parse-syslog-as-asus-router-log" psname="asus-router-log"
+        runuser="syslog" rungroup="syslog">
+  <allow user="jimj" />
+  <allow user="jjones" />
+</command>
+
+</aliaslist>
+
