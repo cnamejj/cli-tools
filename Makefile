@@ -1,9 +1,9 @@
-PROGS = quipi send-udp-message capture-udp-port lock-n-run
+PROGS = quipi send-udp-message capture-udp-port lock-n-run actor
 SOLOPROGS = iso8859-collapse extended-letters-collapse
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
 	parse_destination_value.o convert_to_mode.o gsub_string.o get_groupname.o \
 	get_username.o switch_run_user.o switch_run_group.o int_to_str.o \
-	build_syscall_errmsg.o hexdigits_to_string.o
+	build_syscall_errmsg.o hexdigits_to_string.o xml2-util.o
 LIBS = libCLISUB.a
 UBIQ_H = err_ref.h net-task-data.h cli-sub.h
 
@@ -11,8 +11,8 @@ UBIQ_H = err_ref.h net-task-data.h cli-sub.h
 
 CC = gcc
 LD = gcc
-CFLAGS = -g -Wall -pedantic
-LDFLAGS = -L . -lCLISUB
+CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2
+LDFLAGS = -L . -lCLISUB -L/usr/lib/x86_64-linux-gnu -lxml2
 ARCOMM = ar rlc
 
 # ---

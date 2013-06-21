@@ -5,6 +5,8 @@
 /*
  * Revision history
  * ----------------
+ * 6/10/13 -jj
+ # -- Include bits needed for "xml2-util" routines.
  * 1/21/13 -jj
  * -- Combine with other header files for "libCLI" routines, and rename...
  * 12/11/12
@@ -15,6 +17,8 @@
  */
   
 #include <sys/stat.h>
+#include <libxml/xmlmemory.h>
+#include <libxml/parser.h>
 
 /* --- */
 
@@ -41,6 +45,23 @@
 
 #define HEX_BASE 16
 
+#define ALIAS_TAG "command"
+#define ALLOW_TAG "allow"
+
+#define IS_ALIAS "alias"
+#define IS_USER "user"
+#define IS_RUN_USER "runuser"
+#define IS_RUN_GROUP "rungroup"
+#define IS_COMMAND "exec"
+#define IS_PS_NAME "psname"
+
+#define BLANK ' '
+#define EOS '\0';
+
+#define GNM_FIRST 0
+#define GNM_NEXT 1
+#define GNM_LAST 2
+
 /* --- */
 
 struct option_set {
@@ -63,6 +84,11 @@ struct word_list {
 struct sub_list {
    char *from, *to;
    struct sub_list *next;
+};
+
+struct comm_alias
+{
+   char *runuser, *rungroup, *psname, *command;
 };
 
 /* --- */
@@ -90,6 +116,18 @@ char *int_to_str( char *buff, int buff_len, int source, char *format);
 char *build_syscall_errmsg( char *syscall, int sysrc);
 
 char *hexdigits_to_string( int *rc, int *msglen, char *hex);
+
+xmlNodePtr search_node_list( xmlNodePtr head, char *node_name, char *attrib_name, char *attrib_val);
+
+char *dup_attrib_value( int *rc, xmlNodePtr curr, char *attrib_name);
+
+char *get_attrib_value( int *rc, xmlNodePtr curr, char *attrib_name);
+
+xmlAttr *search_attrib_list( xmlAttr *head, char *attrib_name, char *attrib_val);
+
+xmlNodePtr get_node_match( xmlNodePtr head, char *node_name, int match_type);
+
+xmlNodePtr source_config_file( int *rc, char *config);
 
 /* --- */
 

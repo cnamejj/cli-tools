@@ -1,7 +1,0 @@
-#!/bin/bash
-
-rehash=( $(git ls-remote $(git config --get remote.origin.url) HEAD) )
-lohash="$(git rev-parse HEAD)"
-
-[ "${rehash%?HEAD}" = "${lohash}" ] && echo "up to date, both ${rehash%?HEAD}" || echo "version mismatch, local ${lohash} remote ${rehash%?HEAD}"
-
