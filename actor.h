@@ -10,6 +10,9 @@
 
 /* --- */
 
+#define BLANK ' '
+#define EOS '\0';
+
 #define ACTOR_CONFIG "/usr/local/etc/actor.xml"
 
 #define ACTOR_HELP_MSG "Syntax is: actor command-alias\n"
@@ -39,6 +42,16 @@
 
 #define DEF_LOG_LEVEL LOG_ERR
 #define DEF_LOG_FACILITY LOG_USER
+
+#define ALIAS_TAG "command"
+#define ALLOW_TAG "allow"
+
+#define IS_ALIAS "alias"
+#define IS_USER "user"
+#define IS_RUN_USER "runuser"
+#define IS_RUN_GROUP "rungroup"
+#define IS_COMMAND "exec"
+#define IS_PS_NAME "psname"
 
 #define SYSLOG_TAG "syslog"
 
@@ -74,6 +87,11 @@
 struct syslog_opts {
     int log_level, log_facility;
     char *val_level, *val_facility;
+};
+
+struct comm_alias
+{
+   char *runuser, *rungroup, *psname, *command;
 };
 
 /* --- */

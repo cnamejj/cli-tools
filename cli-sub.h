@@ -45,19 +45,6 @@
 
 #define HEX_BASE 16
 
-#define ALIAS_TAG "command"
-#define ALLOW_TAG "allow"
-
-#define IS_ALIAS "alias"
-#define IS_USER "user"
-#define IS_RUN_USER "runuser"
-#define IS_RUN_GROUP "rungroup"
-#define IS_COMMAND "exec"
-#define IS_PS_NAME "psname"
-
-#define BLANK ' '
-#define EOS '\0';
-
 #define GNM_FIRST 0
 #define GNM_NEXT 1
 #define GNM_LAST 2
@@ -84,11 +71,6 @@ struct word_list {
 struct sub_list {
    char *from, *to;
    struct sub_list *next;
-};
-
-struct comm_alias
-{
-   char *runuser, *rungroup, *psname, *command;
 };
 
 /* --- */
