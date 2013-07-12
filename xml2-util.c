@@ -1,3 +1,5 @@
+/* Note...  Need to make sure GNM_FIRST does the right thing */
+
 #include <string.h>
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
@@ -76,12 +78,11 @@ xmlAttr *search_attrib_list( xmlAttr *head, char *attrib_name, char *attrib_val)
     xmlAttr *result = 0, *walk = 0;
 
     for( walk = head; walk && !result; walk = walk->next)
-      if( walk->name)
+      if( walk->name && walk->children)
         if( !strcmp( (char *) walk->name, attrib_name))
-          if( walk->children && walk->name)
-            if( walk->children->type == XML_TEXT_NODE && walk->children->content)
-              if( !strcmp( (char *) walk->children->content, attrib_val))
-                result = walk;
+          if( walk->children->type == XML_TEXT_NODE && walk->children->content)
+            if( !strcmp( (char *) walk->children->content, attrib_val))
+              result = walk;
 
     return result;
 }
