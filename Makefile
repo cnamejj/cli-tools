@@ -17,10 +17,11 @@ DEBUG_DEFS = -D INCLUDE_REPEATING_SUPPORT
 OS=$(shell uname)
 
 LD_OPTS_Linux = -lrt
+CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
 CC = gcc $(DEBUG_DEFS)
 LD = gcc
-CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2
+CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
 LDFLAGS = -L . -lCLISUB -L/usr/lib/x86_64-linux-gnu -lxml2 $(LD_OPTS_$(OS))
 ARCOMM = ar rlc
 

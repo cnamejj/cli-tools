@@ -7,12 +7,11 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <time.h>
 
 /* --- */
 
-#ifdef CLOCK_MONOTONIC
-#  define USE_CLOCK_GETTIME
+#ifdef USE_CLOCK_GETTIME
+#  include <time.h>
 #  define FRAC_RESOLUTION 0.000000001
 #else
 #  include <sys/time.h>

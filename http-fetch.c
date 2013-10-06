@@ -864,7 +864,7 @@ void display_output( int *rc, struct plan_data *plan)
     int seq = 0, packlen = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
-    float elap = 0.0;
+    float elap = 0.0, trans_rate = 0.0;
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct ckpt_chain *walk = 0, *start = 0;
@@ -925,9 +925,12 @@ void display_output( int *rc, struct plan_data *plan)
 	}
     }
 
-    fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld\n",
+    if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
+    else trans_rate = 0.0;
+
+    fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld K/sec: %.4f\n",
       stats.lookup_time, stats.connect_time, stats.request_time, stats.response_time,
-      stats.complete_time, status->response_len);
+      stats.complete_time, status->response_len, trans_rate);
 
     return;
 }
