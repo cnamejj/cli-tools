@@ -29,7 +29,11 @@ int switch_run_group( char *new_group)
 
         if( my_gid != new_gid || my_egid != new_gid)
         {
+#ifdef __APPLE__
+            sysrc = setgid( new_gid);
+#else
             sysrc = setresgid( new_gid, new_gid, new_gid);
+#endif
             if( sysrc) rc = ERR_SYS_CALL;
         }
     }

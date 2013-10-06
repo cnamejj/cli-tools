@@ -3,7 +3,89 @@
 #include <libxml/parser.h>
 #include "../err_ref.h"
 #include "../cli-sub.h"
+#include "../actor.h"
 #include "test-pull-actor-rule.h"
+
+
+/* --- */
+
+struct comm_alias *get_alias_rule( int *rc, xmlNodePtr node, char *user, char *alias)
+
+{
+    int psname_len;
+    char *st = 0;
+    struct comm_alias *comm_info = 0;
+    xmlNodePtr curr, allow;
+
+    *rc = RC_NORMAL;
+
+    comm_info = (struct comm_alias *) malloc( (sizeof *comm_info));
+    if( !comm_info) *rc = ERR_MALLOC_FAILED;
+    else
+    {
+        comm_info->runuser = comm_info->rungroup = comm_info->command = comm_info->psname = 0;
+
+        curr = search_node_list( node->children, ALIAS_TAG, IS_ALIAS, alias);
+        if( !curr) *rc = ERR_NO_MATCH;
+        else
+        {
+            allow = search_node_list( curr->children, ALLOW_TAG, IS_USER, user);
+            if( !allow) *rc = ERR_DISALLOW;
+            else
+            {
+                comm_info->runuser = dup_attrib_value( rc, allow, IS_RUN_USER);
+                comm_info->rungroup = dup_attrib_value( rc, allow, IS_RUN_GROUP);
+                comm_info->psname = dup_attrib_value( rc, allow, IS_PS_NAME);
+                comm_info->command = dup_attrib_value( rc, allow, IS_COMMAND);
+                if( !comm_info->runuser) comm_info->runuser = dup_attrib_value( rc, curr, IS_RUN_USER);
+                if( !comm_info->rungroup) comm_info->rungroup = dup_attrib_value( rc, curr, IS_RUN_GROUP);
+                if( !comm_info->psname) comm_info->psname = dup_attrib_value( rc, curr, IS_PS_NAME);
+                if( !comm_info->command) comm_info->command = dup_attrib_value( rc, curr, IS_COMMAND);
+
+                /* Aside from a malloc() failure, none of the other possible errors from the
+                 * dup_attrib_value() call matter in this section of the program.
+                 */
+                if( *rc != ERR_MALLOC_FAILED)
+                {
+                    *rc = RC_NORMAL;
+
+                    if( comm_info->command)
+                    {
+                        if( comm_info->psname) if( !*comm_info->psname) comm_info->psname = 0;
+                        if( !comm_info->psname)
+                        {
+                            st = index( comm_info->command, BLANK);
+                            if( !st) psname_len = strlen( comm_info->command) + 1;
+                            else psname_len = st - comm_info->command + 1;
+
+                            if( psname_len)
+                            {
+                                st = (char *) malloc( psname_len);
+                                if( !st) *rc = ERR_MALLOC_FAILED;
+                                else
+                                {
+                                    memcpy( st, comm_info->command, psname_len - 1);
+                                    *(st + psname_len - 1) = EOS;
+                                    comm_info->psname = st;
+				}
+			    }
+			}
+                    }
+		}
+
+                if( *rc == RC_NORMAL)
+                {
+                    if( !comm_info->runuser || !comm_info->rungroup || !comm_info->command 
+                      || !comm_info->psname) *rc = ERR_OPT_CONFIG;
+                    else if( !*comm_info->runuser || !*comm_info->rungroup || !*comm_info->command
+                      || !*comm_info->psname) *rc = ERR_OPT_CONFIG;
+		}
+	    }
+	}
+    }
+
+    return comm_info;
+}
 
 /* --- */
 

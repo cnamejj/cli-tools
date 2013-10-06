@@ -5,8 +5,10 @@
 /*
  * Revision history
  * ----------------
+ * 8/16/13
+ * -- Parts added for CGI support routines
  * 6/10/13 -jj
- # -- Include bits needed for "xml2-util" routines.
+ * -- Include bits needed for "xml2-util" routines.
  * 1/21/13 -jj
  * -- Combine with other header files for "libCLI" routines, and rename...
  * 12/11/12
@@ -37,6 +39,7 @@
 #define OP_FL_FOUND   0x01
 #define OP_FL_SET     0x02
 #define OP_FL_INVALID 0x04
+#define OP_FL_REPEATS 0x08
 
 #define EXT_FLAG_PREFIX "--"
 #define EXT_FLAG_NEGATE "--no-"
@@ -49,7 +52,64 @@
 #define GNM_NEXT 1
 #define GNM_LAST 2
 
+#define ENV_QUERY_STRING "QUERY_STRING"
+#define ENV_SCRIPT_NAME "SCRIPT_NAME"
+#define ENV_SERVER_NAME "SERVER_NAME"
+#define ENV_SERVER_PORT "SERVER_PORT"
+
+#define CHUNK_MAX 4096
+#define BYTE_SIZE 1
+
+#define EOS_CH '\0'
+#define PERCENT_CH '%'
+#define BLANK_CH ' '
+#define PLUS_CH '+'
+#define TAB_CH '\t'
+#define LF_CH '\n'
+#define CR_CH '\r'
+#define COLON_CH ':'
+
+#define CGI_OPT_DELIM '&'
+#define CGI_OPT_EQUAL '='
+
+#define IS_SET_TRUE 1
+#define IS_SET_FALSE 0
+#define IS_SET_INVALID -1
+
+#define OP_IS_SET_TRUE1 "1"
+#define OP_IS_SET_TRUE2 "ON"
+#define OP_IS_SET_TRUE3 "YES"
+#define OP_IS_SET_FALSE1 "0"
+#define OP_IS_SET_FALSE2 "OFF"
+#define OP_IS_SET_FALSE3 "NO"
+
+#define COLON_ST ":"
+#define EMPTY_ST ""
+
+#define DEFAULT_HTTP_PORT "80"
+
+#define NO_PORT -1
+
+#define URL_VALID 1
+#define URL_ERROR 0
+
+#define PROTOCOL_DELIM "://"
+#define DOMAIN_DELIM "/"
+#define PORT_DELIM ":"
+#define QUERY_DELIM "?"
+#define USER_DELIM "@"
+#define IPV6_PORT_DELIM "#"
+
+#define BASE10 10
+
 /* --- */
+
+struct value_chain {
+    unsigned int opt_num, flags;
+    char *val;
+    void *parsed;
+    struct value_chain *next;
+};
 
 struct option_set {
    unsigned int num, type, flags;
@@ -72,6 +132,18 @@ struct sub_list {
    char *from, *to;
    struct sub_list *next;
 };
+
+struct data_chunk {
+   char *data;
+   int size;
+   struct data_chunk *next;
+};
+
+struct url_breakout {
+    int status, port;
+    char *protocol, *target, *user, *host, *ip4, *ip6, *uri, *query;
+};
+
 
 /* --- */
 
@@ -110,6 +182,40 @@ xmlAttr *search_attrib_list( xmlAttr *head, char *attrib_name, char *attrib_val)
 xmlNodePtr get_node_match( xmlNodePtr head, char *node_name, int match_type);
 
 xmlNodePtr source_config_file( int *rc, char *config);
+
+int called_as_cgi();
+
+struct data_chunk *allocate_one_chunk( struct data_chunk *current, int max_chunk_length);
+
+void free_chunk_chain( struct data_chunk *current);
+
+char *get_cgi_data( int *rc);
+
+char *decode_url_str( char *encoded);
+
+int process_parsed_command_options( struct option_set *plist, int nopt, int narg, char **opts);
+
+struct word_chain *add_to_word_chain( struct word_chain *anchor, char *data);
+
+int is_option_set( char *setting);
+
+struct word_chain *parse_cgi_options( int *rc, struct option_set *plist,
+  int nopt, char *cgi_data);
+
+struct value_chain *add_option_to_chain( struct value_chain *spot, int opt_num, unsigned int flag,
+  char *val, void *parsed);
+
+struct option_set *cond_get_matching_option( int *rc, int which_flag, struct option_set *opset, int nflags);
+
+struct url_breakout *alloc_url_breakout();
+
+void free_url_breakout( struct url_breakout *plan);
+
+struct url_breakout *parse_url_string( char *url);
+
+int is_ipv4_address( char *ip);
+
+int is_ipv6_address( char *ip);
 
 /* --- */
 

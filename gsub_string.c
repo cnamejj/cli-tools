@@ -2,7 +2,7 @@
  *
  * Todo
  * ----
- * - Test to make sure the code handles cases where one sub-pattern creates *
+ * - Test to make sure the code handles cases where one sub-pattern creates
  * - output that matches another sub-pattern, possibly causing a double substition
  * - (and blowing up the final length assumptions).
  */

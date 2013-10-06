@@ -20,12 +20,15 @@
 
 #define OP_DEBUG 1
 #define OP_HELP 2
+#define OP_LOOKUP 3
 
 #define FL_DEBUG "debug"
 #define FL_HELP "help"
+#define FL_LOOKUP "lookup"
 
 #define DEF_DEBUG "0"
 #define DEF_HELP "0"
+#define DEF_LOOKUP ""
 
 /* --- */
 
@@ -42,6 +45,42 @@
 #define DEBUG_NOISY1 10
 #define DEBUG_NOISY2 11
 #define DEBUG_NOISY3 12
+
+/* --- */
+
+#define HTML_RESP_HEADER "\
+Content-Type: text/html\n\
+\n\
+<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"\n\
+\"http://www.w3.org/TR/html4/loose.dtd\">\n\
+<html><head><title>QUick IP Info</title>\n\
+</head>\n\
+<body bgcolor=\"#ffffff\">\n\
+"
+
+#define HTML_RESP_START "\
+<pre>\n\
+"
+
+#define HTML_RESP_CLOSE "\
+</pre>\n\
+</body>\n\
+</html>\n\
+"
+
+#define HTTP_FORM_TEMPLATE "\
+</pre>\n\
+<form action=\"http://%s%s%s%s\" method=\"GET\">\n\
+<br>List of hostnames and/or IP's\n\
+<br><textarea name=\"lookup\" rows=\"10\" cols=\"80\">\n\
+</textarea>\n\
+<br>Show debug info: <input name=\"debug\" type=\"checkbox\" value=\"15\">\n\
+<br><input type=\"submit\" value=\"Lookup\">\n\
+</form>\n\
+<pre>\n\
+"
+
+#define HTTP_FORM_GEN_ERROR "CGI environment error, can't determine server info required to generate input form.\n"
 
 /* --- */
 

@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <string.h>
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 #include <stdlib.h>
 
 #include "cli-sub.h"

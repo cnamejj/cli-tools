@@ -1,5 +1,7 @@
 PROGS = test-pull-actor-rule
-SOLOPROGS = test-gsub_string test-hexdigits_to_string test-string_to_hexdigits parse-actor-config
+SOLOPROGS = test-gsub_string test-hexdigits_to_string test-string_to_hexdigits parse-actor-config \
+	test-called-as-cgi test-get-cgi-data test-decode-url-string test-is-ip4-address \
+	test-is-ip6-address test-parse-url test-clock-calls
 UBIQ_H = ../err_ref.h ../net-task-data.h ../cli-sub.h
 
 # ---
@@ -7,7 +9,7 @@ UBIQ_H = ../err_ref.h ../net-task-data.h ../cli-sub.h
 CC = gcc
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I.. -I/usr/include/libxml2
-LDFLAGS = -L .. -lCLISUB -L/usr/lib/x86_64-linux-gnu -lxml2
+LDFLAGS = -L .. -lCLISUB -L/usr/lib/x86_64-linux-gnu -lxml2 -lrt
 ARCOMM = ar rlc
 LIBS = ../libCLISUB.a
 

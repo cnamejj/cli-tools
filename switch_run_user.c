@@ -29,7 +29,11 @@ int switch_run_user( char *new_user)
 
         if( my_uid != new_uid || my_euid != new_uid)
         {
+#ifdef __APPLE__
+            sysrc = setuid( new_uid);
+#else
             sysrc = setresuid( new_uid, new_uid, new_uid);
+#endif
             if( sysrc) rc = ERR_SYS_CALL;
         }
     }

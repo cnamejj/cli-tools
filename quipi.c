@@ -22,6 +22,51 @@
 
 /* --- */
 
+void quipi_exit( int rc, int is_cgi )
+
+{
+    if( is_cgi ) printf( "%s\n", HTML_RESP_CLOSE );
+
+    exit( rc );
+}
+
+
+/* --- */
+
+void display_entry_form()
+
+{
+    int complete = 0;
+    char *server_name = 0, *server_port = 0, *script_name = 0, *sep = COLON_ST;
+
+    server_name = getenv( ENV_SERVER_NAME);
+    server_port = getenv( ENV_SERVER_PORT);
+    script_name = getenv( ENV_SCRIPT_NAME);
+
+    if( !server_name || !server_port || !script_name) complete = 0;
+    else if( !*server_name || !*server_port || !*script_name) complete = 0;
+    else
+    {
+        complete = 1;
+
+        if( !strcmp( server_port, DEFAULT_HTTP_PORT))
+        {
+            sep = EMPTY_ST;
+            server_port = EMPTY_ST;
+	}
+    }
+
+    if( complete ) printf( HTTP_FORM_TEMPLATE, server_name, sep, server_port, script_name);
+    else printf( "%s\n", HTTP_FORM_GEN_ERROR);
+
+    /* --- */
+
+    quipi_exit( RC_NORMAL, 1 );
+}
+
+
+/* --- */
+
 void init_addrinfo_data( struct addrinfo *ai )
 
 {
@@ -218,9 +263,10 @@ struct addrinfo *convert_from_hostname( char *name, int debug )
 int main( int narg, char **opts )
 
 {
-    int rc = RC_NORMAL, seq = 0, debug_level = 0, show_help = 0;
+    int rc = RC_NORMAL, seq = 0, debug_level = 0, show_help = 0, is_cgi = 0, do_form = 0,
+      dbg_seq = 1;
     unsigned int family;
-    char *st, *name, *canon, *strc;
+    char *st, *name, *canon, *strc, *cgi_data = 0, *en;
     char *unknown_name = strdup( NO_HOSTNAME ), *unknown_ip4 = strdup( NO_IP4_ADDR ),
       *unknown_ip6 = strdup( NO_IP6_ADDR );
     char display_ip[ INET6_ADDRSTRLEN+1 ];
@@ -230,20 +276,35 @@ int main( int narg, char **opts )
     struct option_set opset[] = {
       { OP_DEBUG,   OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,     0, DEF_DEBUG,   0, 0 },
       { OP_HELP,    OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,      0, DEF_HELP,    0, 0 },
+      { OP_LOOKUP,  OP_TYPE_CHAR, OP_FL_BLANK, FL_LOOKUP,    0, DEF_LOOKUP,  0, 0 },
     };
     struct option_set *co = 0;
-    struct word_chain *extra_opts = 0, *walk = 0;
+    struct word_chain *extra_opts = 0, *walk = 0, *endlist = 0;
     int nflags = (sizeof opset) / (sizeof opset[0]);
+    FILE *errout = stderr;
 
     /* --- */
 
-    if( narg < 2) show_help = 1;
+    if( called_as_cgi())
+    {
+        is_cgi = 1;
+        errout = stdout;
+        printf( "%s\n", HTML_RESP_HEADER );
+        cgi_data = get_cgi_data( &rc);
+        if( rc == RC_NORMAL) extra_opts = parse_cgi_options( &rc, opset, nflags, cgi_data);
+        printf( "<!-- CGI data: (%s) -->\n", cgi_data);
+    }
+    else
+    {
+        if( narg < 2) show_help = 1;
 
-    extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+        extra_opts = parse_command_options( &rc, opset, nflags, narg, opts);
+    }
+
     if( rc != RC_NORMAL)
     {
-        fprintf( stderr, "Error parsing command options, rc=%d\n", rc);
-        exit( 1);
+        fprintf( errout, "Error parsing command options, rc=%d\n", rc);
+        quipi_exit( 1, is_cgi);
     }
 
     /* --- */
@@ -251,18 +312,61 @@ int main( int narg, char **opts )
     co = get_matching_option( OP_DEBUG, opset, nflags);
     if( !co)
     {
-        fprintf( stderr, "Program error dealing with options, this should never happen.\n");
-        exit( 1);
+        fprintf( errout, "Program error dealing with options, this should never happen.\n");
+        quipi_exit( 1, is_cgi);
     }
     debug_level = *((int *) co->parsed);
 
     co = get_matching_option( OP_HELP, opset, nflags);
     if( !co)
     {
-        fprintf( stderr, "Program error dealing with options, this should never happen.\n");
-        exit( 1);
+        fprintf( errout, "Program error dealing with options, this should never happen.\n");
+        quipi_exit( 1, is_cgi);
     }
     if( co->flags & OP_FL_SET) show_help = 1;
+
+    co = get_matching_option( OP_LOOKUP, opset, nflags);
+    if( !co)
+    {
+        fprintf( errout, "Program error dealing with options, this should never happen.\n");
+        quipi_exit( 1, is_cgi);
+    }
+    st = (char *) co->parsed;
+    if( st) if( *st)
+    {
+        for( en = st; *en; en++)
+          if( *en == TAB_CH || *en == CR_CH || *en == LF_CH) *en = BLANK_CH;
+
+        printf( "<!-- cleaned: (%s) -->\n", st);
+
+        walk = extra_opts;
+        if( walk) for( ; walk->next; walk = walk->next ) ;
+
+        for( ; *st; )
+        {
+            en = index( st, BLANK_CH);
+            if( en) *en = EOS_CH;
+
+            printf( "<!-- %d. (%s) -->\n", dbg_seq++, st);                
+            endlist = add_to_word_chain( endlist, st);
+            if( !endlist)
+            {
+                fprintf( errout, "Program error, unable to allocate memory.\n");
+                quipi_exit( 1, is_cgi);
+	    }
+
+            if( !walk) walk = endlist;
+            else if( !walk->next) walk->next = endlist;
+            if( en)
+            {
+                for( en++; *en == BLANK_CH ; en++) ;
+                st = en;
+	    }
+            else for( ; *st; st++) ;
+	}
+
+        if( !extra_opts) extra_opts = walk;
+    }
 
     /* --- */
 
@@ -271,7 +375,7 @@ int main( int narg, char **opts )
         st = opts[ 0];
         if( *st == '.' && *(st + 1) == '/') st += 2;
         printf( MSG_SHOW_SYNTAX, st);
-        exit( 1);
+        quipi_exit( 1, is_cgi);
     }
 
     /* --- */
@@ -280,14 +384,30 @@ int main( int narg, char **opts )
 
     /* --- */
 
-    if( narg<=1 )
+    if( !is_cgi && narg<=1 )
     {
         st = opts[0];
         if( *st == '.' && *(st+1) == '/') st += 2;
         printf( "Syntax: %s [ --debug ## ] [ host1 | ip1 ] [ host2 | ip2 ] ...\n", st );
     }
 
+    if( is_cgi)
+    {
+        if( !extra_opts) do_form = 1;
+        else if( !extra_opts->opt) do_form = 1;
+        else if( !*extra_opts->opt) do_form = 1;
+
+        if( do_form)
+        {
+            display_entry_form();
+
+            quipi_exit( RC_NORMAL, is_cgi );
+	}
+    }
+
     /* --- */
+
+    printf( "%s", HTML_RESP_START);
 
     for( walk = extra_opts; walk; walk = walk->next )
     {
@@ -298,7 +418,7 @@ int main( int narg, char **opts )
 
         if( !host_recs)
         {
-            fprintf( stderr, "**Err** Name '%s' is unresolvable, doesn't look like an IP address or a hostname.\n", name);
+            fprintf( errout, "**Err** Name '%s' is unresolvable, doesn't look like an IP address or a hostname.\n", name);
 	}
 
         else
@@ -356,5 +476,7 @@ int main( int narg, char **opts )
 
     /* --- */
 
-    exit( rc );
+    quipi_exit( rc, is_cgi );
+
+    exit( 0);
 }
