@@ -8,120 +8,9 @@
 #include <fcntl.h>
 #endif
 
-#ifdef NONONONONOOO
-#ifdef USE_CLOCK_GETTIME
-#include <time.h>
-#else
-#include <sys/time.h>
-#endif
-#endif
-
 #include "http-fetch.h"
 #include "cli-sub.h"
 #include "err_ref.h"
-
-/* --- */
-
-int main( int narg, char **opts)
-
-{
-    int rc = RC_NORMAL;
-    char *emsg = 0;
-    struct plan_data *plan = 0;
-    struct target_info *target = 0;
-    struct display_settings *disp = 0;
-    struct exec_controls *runex = 0;
-    struct output_options *out = 0;
-    struct fetch_status *fetch = 0;
-    struct value_chain *chain = 0;
-
-    /* --- */
-
-    plan = figure_out_plan( &rc, narg, opts);
-
-    if( rc == RC_NORMAL)
-    {
-        target = plan->target;
-        disp = plan->disp;
-        runex = plan->run;
-        out = plan->out;
-        fetch = plan->status;
-    }
-
-    if( rc == RC_NORMAL) rc = find_connection( plan);
-
-/* ... the request build has to consider the "proxy" settings and "connect thru" as well ... */
-    if( rc == RC_NORMAL) rc = construct_request( plan);
-
-    if( rc == RC_NORMAL) if( plan->out->debug_level >= DEBUG_HIGH2)
-    {
-        fprintf( out->info_out, "- - Target:\n");
-        fprintf( out->info_out, "- - - - ipv4: (%s)\n", SPSP( target->ipv4));
-        fprintf( out->info_out, "- - - - ipv6: (%s)\n", SPSP( target->ipv6));
-        fprintf( out->info_out, "- - - - web-host: (%s)\n", SPSP( target->http_host));
-        fprintf( out->info_out, "- - - - conn-host: (%s)\n", SPSP( target->conn_host));
-        fprintf( out->info_out, "- - - - conn-uri: (%s)\n", SPSP( target->conn_uri));
-        fprintf( out->info_out, "- - - - conn-url: (%s)\n", SPSP( target->conn_url));
-        fprintf( out->info_out, "- - - - auth-user: (%s)\n", SPSP( target->auth_user));
-        fprintf( out->info_out, "- - - - auth-password: (%s)\n", SPSP( target->auth_passwd));
-        fprintf( out->info_out, "- - - - proxy-url: (%s)\n", SPSP( target->proxy_url));
-        fprintf( out->info_out, "- - - - proxy-host: (%s)\n", SPSP( target->proxy_host));
-        fprintf( out->info_out, "- - - - proxy-ipv4: (%s)\n", SPSP( target->proxy_ipv4));
-        fprintf( out->info_out, "- - - - proxy-ipv6: (%s)\n", SPSP( target->proxy_ipv6));
-        for( chain = target->extra_headers; chain; chain = chain->next)
-        fprintf( out->info_out, "- - - - extra-headers: (%s)\n", SPSP( (char *) chain->parsed));
-        fprintf( out->info_out, "- - - - conn-port: (%d)\n", target->conn_port);
-        fprintf( out->info_out, "- - - - proxy-port: (%d)\n", target->proxy_port);
-        fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
-
-        fprintf( out->info_out, "\n- - Display:\n");
-        fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);
-        fprintf( out->info_out, "- - - - show-data: %d\n", disp->show_data);
-        fprintf( out->info_out, "- - - - show-timers: %d\n", disp->show_timers);
-        fprintf( out->info_out, "- - - - show-timerheaders: %d\n", disp->show_timerheaders);
-        fprintf( out->info_out, "- - - - show-packetime: %d\n", disp->show_packetime);
-        fprintf( out->info_out, "- - - - show-help: %d\n", disp->show_help);
-        fprintf( out->info_out, "- - - - show-all-results: %d\n", disp->show_complete);
-        fprintf( out->info_out, "- - - - show-number: %d\n", disp->show_number);
-
-        fprintf( out->info_out, "\n- - Output:\n");
-        fprintf( out->info_out, "- - - - out-html: %d\n", out->out_html);
-        fprintf( out->info_out, "- - - - debug-level: %d\n", out->debug_level);
-        fprintf( out->info_out, "- - - - info-out: %d\n", fileno( out->info_out));
-        fprintf( out->info_out, "- - - - err-out: %d\n", fileno( out->err_out));
-
-        fprintf( out->info_out, "\n- - RunEx:\n");
-        fprintf( out->info_out, "- - - - loop-count: %d\n", runex->loop_count);
-        fprintf( out->info_out, "- - - - loop-pause: %d\n", runex->loop_pause);
-        fprintf( out->info_out, "- - - - conn-timeout: %d\n", runex->conn_timeout);
-        fprintf( out->info_out, "- - - - client-ip: (%s)\n", SPSP( runex->client_ip));
-
-        fprintf( out->info_out, "\n- - FetchStatus:\n");
-        fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);
-        fprintf( out->info_out, "- - - - errmsg: (%s)\n", SPSP( fetch->err_msg));
-        fprintf( out->info_out, "- - - - request: (%s)\n", SPSP( fetch->request));
-    }
-
-    if( rc == RC_NORMAL) rc = execute_fetch_plan( plan);
-
-    /* --- */
-
-    if( rc != RC_NORMAL)
-    {
-        emsg = fetch->err_msg;
-        if( !emsg) emsg = UNDEFINED_ERROR;
-        else if( !*emsg) emsg = UNDEFINED_ERROR;
-
-        fprintf( out->err_out, "Error(%d/%x): %s. %s\n", rc, fetch->last_state, cli_strerror( rc), emsg);
-    }
-
-    if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
-      "End state: %06X, End err: %d\n", fetch->last_state, fetch->end_errno);
-
-    /* --- */
-
-    exit( rc);
-}
 
 /* --- */
 
@@ -879,9 +768,9 @@ void display_output( int *rc, struct plan_data *plan)
 
     status = plan->status;
     out = plan->out;
-    walk = status->checkpoint;
-
     top = (long) (1.0 / status->clock_res);
+
+    walk = status->checkpoint;
 
     for( ; walk; walk = walk->next)
     {
@@ -1184,9 +1073,10 @@ struct plan_data *allocate_plan_data()
 
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
-    int rc = RC_NORMAL, errlen, off, in_val;
+    int rc = RC_NORMAL, errlen, in_val;
+/*    int off; */
 /*    int is_cgi = 0; */
-    int *int_p = 0;
+/*    int *int_p = 0; */
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -1226,7 +1116,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
-    struct value_chain *chain = 0;
+/*    struct value_chain *chain = 0; */
 
 /*
 
@@ -1353,6 +1243,8 @@ The run plan needs to have these fields:
 	    }
 	}
 
+        if( out->debug_level >= DEBUG_HIGH1) 
+
         /* ---
          * This chunk just displays a dump of the options supported and how the parsed data overlays onto
          *   that model.  It's only shown if the debug level requested is high.
@@ -1371,93 +1263,7 @@ The run plan needs to have these fields:
             }
             fprintf( out->info_out, ")\n");
 
-            /* Print out settings just for options included on the command line */
-            fprintf( out->info_out, "Seq Num Typ Fl Opt\n");
-
-            for( off= 0; off < nflags; off++)
-            {
-                co = opset + off;
-                if( co->opt_num)
-                {
-                    if( co->flags & OP_FL_REPEATS)
-                    {
-                        for( chain = (struct value_chain *) co->parsed; chain; chain = chain->next)
-                        {
-                            fprintf( out->info_out, "%2d+ %3d %3d %2X ", off + 1, co->num, co->type, chain->flags);
-                            fprintf( out->info_out, "%3d ", chain->opt_num);
-
-                            if( co->type == OP_TYPE_INT)
-                            {
-                                int_p = (int *) chain->parsed;
-                                fprintf( out->info_out, "%d ", *int_p);
-                            }
-                            else if( co->type == OP_TYPE_CHAR) fprintf( out->info_out, "(%s) ", (char *) chain->parsed);
-                            else if( co->type == OP_TYPE_FLOAT) fprintf( out->info_out, "%f ", *((float *) chain->parsed));
-                            else fprintf( out->info_out, "/?/ ");
-                            fprintf( out->info_out, "(%s) (%s) ", co->name, chain->val);
-                            fprintf( out->info_out, "\n");
-			}
-		    }
-                    else
-                    {
-                        fprintf( out->info_out, "%2d. %3d %3d %2X ", off + 1, co->num, co->type, co->flags);
-                        fprintf( out->info_out, "%3d ", co->opt_num);
-                        if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
-                        {
-                            int_p = (int *) co->parsed;
-                            fprintf( out->info_out, "%d ", *int_p);
-                        }
-                        else if( co->type == OP_TYPE_CHAR) fprintf( out->info_out, "(%s) ", (char *) co->parsed);
-                        else if( co->type == OP_TYPE_FLOAT) fprintf( out->info_out, "%f ", *((float *) co->parsed));
-                        else fprintf( out->info_out, "/?/ ");
-                        fprintf( out->info_out, "(%s) (%s) ", co->name, co->val);
-                        fprintf( out->info_out, "\n");
-		    }
-                }
-            }
-
-            /* Print out all options settings, includes defaults for unspecified options */
-            fprintf( out->info_out, "Seq Num Typ Fl Opt\n");
-
-            for( off= 0; off < nflags; off++)
-            {
-                co = opset + off;
-                if(( co->flags & OP_FL_REPEATS) && co->parsed)
-                {
-                    for( chain = (struct value_chain *) co->parsed; chain; chain = chain->next)
-                    {
-                        fprintf( out->info_out, "%2d+ %3d %3d %2X ", off + 1, co->num, co->type, chain->flags);
-                        fprintf( out->info_out, "%3d ", chain->opt_num);
-
-                        if( co->type == OP_TYPE_INT)
-                        {
-                            int_p = (int *) chain->parsed;
-                            fprintf( out->info_out, "%d ", *int_p);
-                        }
-                        else if( co->type == OP_TYPE_CHAR) fprintf( out->info_out, "(%s) ", (char *) chain->parsed);
-                        else if( co->type == OP_TYPE_FLOAT) fprintf( out->info_out, "%f ", *((float *) chain->parsed));
-                        else fprintf( out->info_out, "/?/ ");
-                        fprintf( out->info_out, "(%s) (%s) ", co->name, chain->val);
-                        fprintf( out->info_out, "\n");
-		    }
-                }
-                else
-                {
-                    fprintf( out->info_out, "%2d. %3d %3d %2X ", off + 1, co->num, co->type, co->flags);
-                    fprintf( out->info_out, "%3d ", co->opt_num);
-                    if( !co->parsed) fprintf( out->info_out, "(%s) ", co->def);
-                    else if( co->type == OP_TYPE_INT || co->type == OP_TYPE_FLAG)
-                    {
-                        int_p = (int *) co->parsed;
-                        fprintf( out->info_out, "%d ", *int_p);
-                    }
-                    else if( co->type == OP_TYPE_CHAR) fprintf( out->info_out, "(%s) ", (char *) co->parsed);
-                    else if( co->type == OP_TYPE_FLOAT) fprintf( out->info_out, "%f ", *((float *) co->parsed));
-                    else fprintf( out->info_out, "/?/ ");
-                    fprintf( out->info_out, "(%s) (%s) ", co->name, co->val);
-                    fprintf( out->info_out, "\n");
-	        }
-            }
+            print_option_settings( out->info_out, nflags, opset);
         }
     }
 
@@ -1685,4 +1491,107 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
     }
 
     return( rc);
+}
+
+/* --- */
+
+int main( int narg, char **opts)
+
+{
+    int rc = RC_NORMAL;
+    char *emsg = 0;
+    struct plan_data *plan = 0;
+    struct target_info *target = 0;
+    struct display_settings *disp = 0;
+    struct exec_controls *runex = 0;
+    struct output_options *out = 0;
+    struct fetch_status *fetch = 0;
+    struct value_chain *chain = 0;
+
+    /* --- */
+
+    plan = figure_out_plan( &rc, narg, opts);
+
+    if( rc == RC_NORMAL)
+    {
+        target = plan->target;
+        disp = plan->disp;
+        runex = plan->run;
+        out = plan->out;
+        fetch = plan->status;
+    }
+
+    if( rc == RC_NORMAL) rc = find_connection( plan);
+
+/* ... the request build has to consider the "proxy" settings and "connect thru" as well ... */
+    if( rc == RC_NORMAL) rc = construct_request( plan);
+
+    if( rc == RC_NORMAL) if( plan->out->debug_level >= DEBUG_HIGH2)
+    {
+        fprintf( out->info_out, "- - Target:\n");
+        fprintf( out->info_out, "- - - - ipv4: (%s)\n", SPSP( target->ipv4));
+        fprintf( out->info_out, "- - - - ipv6: (%s)\n", SPSP( target->ipv6));
+        fprintf( out->info_out, "- - - - web-host: (%s)\n", SPSP( target->http_host));
+        fprintf( out->info_out, "- - - - conn-host: (%s)\n", SPSP( target->conn_host));
+        fprintf( out->info_out, "- - - - conn-uri: (%s)\n", SPSP( target->conn_uri));
+        fprintf( out->info_out, "- - - - conn-url: (%s)\n", SPSP( target->conn_url));
+        fprintf( out->info_out, "- - - - auth-user: (%s)\n", SPSP( target->auth_user));
+        fprintf( out->info_out, "- - - - auth-password: (%s)\n", SPSP( target->auth_passwd));
+        fprintf( out->info_out, "- - - - proxy-url: (%s)\n", SPSP( target->proxy_url));
+        fprintf( out->info_out, "- - - - proxy-host: (%s)\n", SPSP( target->proxy_host));
+        fprintf( out->info_out, "- - - - proxy-ipv4: (%s)\n", SPSP( target->proxy_ipv4));
+        fprintf( out->info_out, "- - - - proxy-ipv6: (%s)\n", SPSP( target->proxy_ipv6));
+        for( chain = target->extra_headers; chain; chain = chain->next)
+        fprintf( out->info_out, "- - - - extra-headers: (%s)\n", SPSP( (char *) chain->parsed));
+        fprintf( out->info_out, "- - - - conn-port: (%d)\n", target->conn_port);
+        fprintf( out->info_out, "- - - - proxy-port: (%d)\n", target->proxy_port);
+        fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
+
+        fprintf( out->info_out, "\n- - Display:\n");
+        fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);
+        fprintf( out->info_out, "- - - - show-data: %d\n", disp->show_data);
+        fprintf( out->info_out, "- - - - show-timers: %d\n", disp->show_timers);
+        fprintf( out->info_out, "- - - - show-timerheaders: %d\n", disp->show_timerheaders);
+        fprintf( out->info_out, "- - - - show-packetime: %d\n", disp->show_packetime);
+        fprintf( out->info_out, "- - - - show-help: %d\n", disp->show_help);
+        fprintf( out->info_out, "- - - - show-all-results: %d\n", disp->show_complete);
+        fprintf( out->info_out, "- - - - show-number: %d\n", disp->show_number);
+
+        fprintf( out->info_out, "\n- - Output:\n");
+        fprintf( out->info_out, "- - - - out-html: %d\n", out->out_html);
+        fprintf( out->info_out, "- - - - debug-level: %d\n", out->debug_level);
+        fprintf( out->info_out, "- - - - info-out: %d\n", fileno( out->info_out));
+        fprintf( out->info_out, "- - - - err-out: %d\n", fileno( out->err_out));
+
+        fprintf( out->info_out, "\n- - RunEx:\n");
+        fprintf( out->info_out, "- - - - loop-count: %d\n", runex->loop_count);
+        fprintf( out->info_out, "- - - - loop-pause: %d\n", runex->loop_pause);
+        fprintf( out->info_out, "- - - - conn-timeout: %d\n", runex->conn_timeout);
+        fprintf( out->info_out, "- - - - client-ip: (%s)\n", SPSP( runex->client_ip));
+
+        fprintf( out->info_out, "\n- - FetchStatus:\n");
+        fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);
+        fprintf( out->info_out, "- - - - errmsg: (%s)\n", SPSP( fetch->err_msg));
+        fprintf( out->info_out, "- - - - request: (%s)\n", SPSP( fetch->request));
+    }
+
+    if( rc == RC_NORMAL) rc = execute_fetch_plan( plan);
+
+    /* --- */
+
+    if( rc != RC_NORMAL)
+    {
+        emsg = fetch->err_msg;
+        if( !emsg) emsg = UNDEFINED_ERROR;
+        else if( !*emsg) emsg = UNDEFINED_ERROR;
+
+        fprintf( out->err_out, "Error(%d/%x): %s. %s\n", rc, fetch->last_state, cli_strerror( rc), emsg);
+    }
+
+    if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
+      "End state: %06X, End err: %d\n", fetch->last_state, fetch->end_errno);
+
+    /* --- */
+
+    exit( rc);
 }

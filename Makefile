@@ -5,7 +5,8 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	get_username.o switch_run_user.o switch_run_group.o int_to_str.o \
 	build_syscall_errmsg.o hexdigits_to_string.o xml2-util.o called_as_cgi.o \
         get_cgi_data.o chunk_routines.o decode_url_str.o word_chain_routines.o \
-	is_option_set.o is_ipv4_address.o is_ipv6_address.o url_breakout_routines.o
+	is_option_set.o is_ipv4_address.o is_ipv6_address.o url_breakout_routines.o \
+	print_option_settings.o
 LIBS = libCLISUB.a
 UBIQ_H = err_ref.h net-task-data.h cli-sub.h
 

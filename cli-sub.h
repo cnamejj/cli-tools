@@ -217,6 +217,8 @@ int is_ipv4_address( char *ip);
 
 int is_ipv6_address( char *ip);
 
+void print_option_settings( FILE *out, int nflags, struct option_set *opset);
+
 /* --- */
 
 #endif
