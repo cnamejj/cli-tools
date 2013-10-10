@@ -667,7 +667,10 @@ void wait_for_reply( int *rc, struct plan_data *plan)
 void pull_response( int *rc, struct plan_data *plan)
 
 {
-    int done, off = 0, sysrc, buffsize = READ_BUFF_SIZE;
+    int done, sysrc, buffsize = READ_BUFF_SIZE;
+#ifdef DEBUG_DUMP_OF_PACKETS
+    int off = 0;
+#endif
     char buff[ READ_BUFF_SIZE];
     struct pollfd netbox;
     struct fetch_status *status;
@@ -718,6 +721,7 @@ void pull_response( int *rc, struct plan_data *plan)
 		}
                 else
                 {
+#ifdef DEBUG_DUMP_OF_PACKETS
                     if( out->debug_level >= DEBUG_MEDIUM2)
                     {
                         fprintf( out->info_out, "Read %d bytes (", sysrc);
@@ -726,6 +730,7 @@ void pull_response( int *rc, struct plan_data *plan)
                           else fprintf( out->info_out, "%%%02X", buff[ off]);
                         fprintf( out->info_out, ")\n");
 		    }
+#endif
                     status->response_len += sysrc;
                     *rc = capture_checkpoint( status, EVENT_READ_PACKET);
                     if( *rc == RC_NORMAL) *rc = add_data_block( status->lastcheck, sysrc, buff);
@@ -747,6 +752,73 @@ void pull_response( int *rc, struct plan_data *plan)
 
 /* --- */
 
+struct chain_position *find_header_break( struct ckpt_chain *chain)
+
+{
+    char *fence = 0, *pos = 0, *last = 0;
+    char *sng_pos = 0, *sng_hold = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
+    char *dbl_pos = 0, *dbl_hold = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
+    struct ckpt_chain *walk = 0;
+    struct data_block *detail = 0;
+    struct chain_position *result = 0;
+
+    result = (struct chain_position *) malloc( sizeof *result);
+    if( result)
+    {
+        result->position = 0;
+        result->chain = 0;
+
+        sng_pos = sng_patt;
+        dbl_pos = dbl_patt;
+
+        for( walk = chain; walk && !fence; walk = walk->next)
+        {
+            detail = walk->detail;
+            if( detail)
+            {
+                pos = detail->data;
+                last = pos + detail->len;
+
+                for( ; pos <= last && !fence; pos++)
+                {
+                    if( *pos == *sng_pos) sng_pos++;
+                    else
+                    {
+                        sng_pos = sng_patt;
+                        sng_hold = pos;
+                    }
+
+                    if( *pos == *dbl_pos) dbl_pos++;
+                    else
+                    {
+                        dbl_pos = dbl_patt;
+                        dbl_hold = pos;
+                    }
+
+                    if( !*sng_pos) fence = sng_hold;
+                    if( !*dbl_pos) fence = dbl_hold;
+
+                    if( fence)
+                    {
+                        result->chain = walk;
+                        result->position = fence;
+		    }
+		}
+	    }
+	}
+    }
+
+    if( !fence && result)
+    {
+        free( result);
+        result = 0;
+    }
+
+    return( result);
+}
+
+/* --- */
+
 void display_output( int *rc, struct plan_data *plan)
 
 {
@@ -754,10 +826,14 @@ void display_output( int *rc, struct plan_data *plan)
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, trans_rate = 0.0;
+    char *pos = 0, *last_pos = 0;
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct ckpt_chain *walk = 0, *start = 0;
     struct summary_stats stats;
+    struct data_block *detail = 0;
+    struct display_settings *display = 0;
+    struct chain_position *head_spot = 0;
 
     stats.start_time = 0.0;
     stats.lookup_time = 0.0;
@@ -768,7 +844,26 @@ void display_output( int *rc, struct plan_data *plan)
 
     status = plan->status;
     out = plan->out;
+    display = plan->disp;
     top = (long) (1.0 / status->clock_res);
+
+    if( display->show_data)
+    {
+        head_spot = find_header_break( status->checkpoint);
+
+        walk = status->checkpoint;
+
+        for( ; walk; walk = walk->next)
+        {
+            detail = walk->detail;
+            if( detail)
+            {
+                pos = detail->data;
+                last_pos = pos + detail->len;
+                for( ; pos <= last_pos; pos++) fputc( *pos, out->info_out);
+	    }
+ 	}
+    }
 
     walk = status->checkpoint;
 
@@ -1074,9 +1169,6 @@ struct plan_data *allocate_plan_data()
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
     int rc = RC_NORMAL, errlen, in_val;
-/*    int off; */
-/*    int is_cgi = 0; */
-/*    int *int_p = 0; */
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -1116,7 +1208,6 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
-/*    struct value_chain *chain = 0; */
 
 /*
 
