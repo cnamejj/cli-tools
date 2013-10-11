@@ -1,3 +1,9 @@
+
+/* Bug: fix it!
+ * Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
+ * results in a malloc() failed error, which makes no sense. :)
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -756,8 +762,12 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 {
     char *fence = 0, *pos = 0, *last = 0;
+/*
     char *sng_pos = 0, *sng_hold = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
     char *dbl_pos = 0, *dbl_hold = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
+ */
+    char *sng_pos = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
+    char *dbl_pos = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
     struct ckpt_chain *walk = 0;
     struct data_block *detail = 0;
     struct chain_position *result = 0;
@@ -785,18 +795,18 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
                     else
                     {
                         sng_pos = sng_patt;
-                        sng_hold = pos;
+/*                        sng_hold = pos; */
                     }
 
                     if( *pos == *dbl_pos) dbl_pos++;
                     else
                     {
                         dbl_pos = dbl_patt;
-                        dbl_hold = pos;
+/*                        dbl_hold = pos; */
                     }
 
-                    if( !*sng_pos) fence = sng_hold;
-                    if( !*dbl_pos) fence = dbl_hold;
+                    if( !*sng_pos) fence = pos;
+                    if( !*dbl_pos) fence = pos;
 
                     if( fence)
                     {
@@ -822,7 +832,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 void display_output( int *rc, struct plan_data *plan)
 
 {
-    int seq = 0, packlen = 0;
+    int seq = 0, packlen = 0, in_head;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, trans_rate = 0.0;
@@ -847,10 +857,12 @@ void display_output( int *rc, struct plan_data *plan)
     display = plan->disp;
     top = (long) (1.0 / status->clock_res);
 
-    if( display->show_data)
-    {
-        head_spot = find_header_break( status->checkpoint);
+    head_spot = find_header_break( status->checkpoint);
+    if( !head_spot) *rc = ERR_UNSUPPORTED;
 
+    if( *rc == RC_NORMAL && (display->show_head || display->show_data))
+    {
+        in_head = 1;
         walk = status->checkpoint;
 
         for( ; walk; walk = walk->next)
@@ -860,61 +872,73 @@ void display_output( int *rc, struct plan_data *plan)
             {
                 pos = detail->data;
                 last_pos = pos + detail->len;
-                for( ; pos <= last_pos; pos++) fputc( *pos, out->info_out);
+                for( ; pos <= last_pos; pos++)
+                {
+                    if( in_head && display->show_head) fputc( *pos, out->info_out);
+                    else if( !in_head && display->show_data) fputc( *pos, out->info_out);
+
+                    if( pos == head_spot->position) in_head = 0;
+		}
 	    }
  	}
     }
 
-    walk = status->checkpoint;
-
-    for( ; walk; walk = walk->next)
+    if( *rc == RC_NORMAL)
     {
-        seq++;
-        if( start) elap = calc_time_difference( &start->clock, &walk->clock, status->clock_res);
+        walk = status->checkpoint;
 
-        if( walk->event == EVENT_START_FETCH) start = walk;
-        else if( walk->event == EVENT_DNS_LOOKUP) stats.lookup_time = elap;
-        else if( walk->event == EVENT_CONNECT_SERVER) stats.connect_time = elap;
-        else if( walk->event == EVENT_REQUEST_SENT) stats.request_time = elap;
-        else if( walk->event == EVENT_FIRST_RESPONSE) stats.response_time = elap;
-        else if( walk->event == EVENT_READ_ALL_DATA) stats.complete_time = elap;
-
-        if( walk->event != EVENT_BLANK)
+        for( ; walk; walk = walk->next)
         {
-            prev_sec = now_sec;
-            prev_sub = now_sub;
+            if( start) elap = calc_time_difference( &start->clock, &walk->clock, status->clock_res);
 
-            now_sec = walk->clock.sec; 
-            now_sub = walk->clock.frac;
+            if( walk->event == EVENT_START_FETCH) start = walk;
+            else if( walk->event == EVENT_DNS_LOOKUP) stats.lookup_time = elap;
+            else if( walk->event == EVENT_CONNECT_SERVER) stats.connect_time = elap;
+            else if( walk->event == EVENT_REQUEST_SENT) stats.request_time = elap;
+            else if( walk->event == EVENT_FIRST_RESPONSE) stats.response_time = elap;
+            else if( walk->event == EVENT_READ_ALL_DATA) stats.complete_time = elap;
 
-            diff_sec = now_sec - prev_sec;
-            diff_sub = now_sub - prev_sub;
-            if( diff_sub < 0)
+            if( walk->event != EVENT_BLANK)
             {
-                diff_sec--;
-                diff_sub += top;
-            }
+                prev_sec = now_sec;
+                prev_sub = now_sub;
 
-            if( walk->detail) packlen = walk->detail->len;
-            else packlen = 0;
+                now_sec = walk->clock.sec; 
+                now_sub = walk->clock.frac;
 
+                diff_sec = now_sec - prev_sec;
+                diff_sub = now_sub - prev_sub;
+                if( diff_sub < 0)
+                {
+                    diff_sec--;
+                    diff_sub += top;
+                }
+
+                if( walk->detail && display->show_packetime)
+                {
+                    packlen = walk->detail->len;
+                    seq++;
 #ifdef USE_CLOCK_GETTIME
-            fprintf( out->info_out, "%d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n", 
-              seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
+                    fprintf( out->info_out, "%d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n", 
+                      seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
 #else
-            fprintf( out->info_out, "%d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n", 
-              seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
+                    fprintf( out->info_out, "%d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n", 
+                      seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
 #endif
-
+		}
+	    }
 	}
     }
 
-    if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
-    else trans_rate = 0.0;
+    if( *rc == RC_NORMAL && display->show_timers)
+    {
+        if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
+        else trans_rate = 0.0;
 
-    fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld K/sec: %.4f\n",
-      stats.lookup_time, stats.connect_time, stats.request_time, stats.response_time,
-      stats.complete_time, status->response_len, trans_rate);
+        fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld K/sec: %.4f\n",
+          stats.lookup_time, stats.connect_time, stats.request_time, stats.response_time,
+          stats.complete_time, status->response_len, trans_rate);
+    }
 
     return;
 }
@@ -1168,7 +1192,7 @@ struct plan_data *allocate_plan_data()
 
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
-    int rc = RC_NORMAL, errlen, in_val;
+    int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -1208,49 +1232,6 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
-
-/*
-
-The run plan needs to have these fields:
-
-1. Target info
- HTTP hostname
- connect target, hostname or ip, port
- URI
- list of extra headers
- user/password auth info
- http proxy yes/no, hostname or ip, port
- use proxy w/ passthru yes/no
-    char *http_host, *conn_host, *conn_ip, *conn_uri;
-    char *auth_user, *auth_passwd;
-    char *proxy_host, *proxy_ip;
-    int conn_port, proxy_port, conn_pthru;
-    struct value_chain *extra_headers;
-
-2. Display settings
- show http header yes/no
- show http data yes/no
- number summary info yes/no
- show timer info yes/no
- show packet time data yes/no
-    int show_head, show_data, show_timers, show_packetime, show_complete, show_number;
-
-3. Execution controls
- loop #
- pause between loop #
- timeout # value
- client IP to bind to
-    int loop_count, loop_pause, conn_timeout;
-    char *client_ip;
-
-4. Output options
- display as HTML yes/no
- debug level
- fprintf() file descriptor for informational output (stdout by default, switch to stderr optionally)
-    int out_html, debug_level;
-    FILE *info_out, *err_out;
-
- */
 
     /* --- */
 
@@ -1365,12 +1346,14 @@ The run plan needs to have these fields:
     {
         SHOW_OPT_IF_DEBUG( "header")
         display->show_head = *((int *) co->parsed);
+        nop_head = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_OUTPUT, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( "all-output")
         display->show_complete = *((int *) co->parsed);
+        nop_comp = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_URI, opset, nflags)))
@@ -1413,6 +1396,7 @@ The run plan needs to have these fields:
     {
         SHOW_OPT_IF_DEBUG( "data")
         display->show_data = *((int *) co->parsed);
+        nop_data = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_LOOP, opset, nflags)))
@@ -1504,6 +1488,31 @@ The run plan needs to have these fields:
             if( target->auth_passwd) *target->auth_passwd = '\0';
         }
         if( !target->auth_passwd) rc = ERR_MALLOC_FAILED;
+    }
+
+    /* ---
+     * If the options controlling which parts of the response conflict, then
+     *   check where each was given on the command line to decide which
+     *   overrides.
+     */
+
+    if( !display->show_complete && (display->show_head || display->show_data))
+    {
+        if( nop_comp > nop_head && nop_comp > nop_data)
+        {
+            display->show_head = 0;
+            display->show_data = 0;
+	}
+    }
+
+    else if( display->show_complete && (!display->show_head || !display->show_data))
+    {
+        if( nop_comp > nop_head && nop_comp > nop_data)
+        {
+            display->show_head = 1;
+            display->show_data = 1;
+	}
+        else display->show_complete = 0;
     }
 
     /* --- */

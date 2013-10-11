@@ -72,7 +72,7 @@
 #define OP_PTHRU          22
 #define OP_DEBUG          23
 
-#define DEF_HEADER         "0"
+#define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
 #define DEF_OUTPUT         "1"
 #define DEF_OUTPUT_2       DEF_OUTPUT
@@ -83,7 +83,7 @@
 #define DEF_PORT           "-1"
 #define DEF_TIMERS         "0"
 #define DEF_TIMERS_2       DEF_TIMERS
-#define DEF_DATA           "0"
+#define DEF_DATA           "1"
 #define DEF_LOOP           "0"
 #define DEF_HTML           "0"
 #define DEF_NUMBER         "0"
@@ -218,6 +218,52 @@ if( out->debug_level >= DEBUG_HIGH1 && (co->flags & OP_FL_FOUND)) \
   fprintf( out->info_out, "Opt #%d, %s '%s'\n", co->opt_num, NAME, co->val);
 
 #define SPSP( ST) ST ? ST : "\0"
+
+/*
+ * ---
+
+The run plan needs to have these fields:
+
+1. Target info
+ HTTP hostname
+ connect target, hostname or ip, port
+ URI
+ list of extra headers
+ user/password auth info
+ http proxy yes/no, hostname or ip, port
+ use proxy w/ passthru yes/no
+    char *http_host, *conn_host, *conn_ip, *conn_uri;
+    char *auth_user, *auth_passwd;
+    char *proxy_host, *proxy_ip;
+    int conn_port, proxy_port, conn_pthru;
+    struct value_chain *extra_headers;
+
+2. Display settings
+ show http header yes/no
+ show http data yes/no
+ number summary info yes/no
+ show timer info yes/no
+ show packet time data yes/no
+    int show_head, show_data, show_timers, show_packetime, show_complete, show_number;
+
+3. Execution controls
+ loop #
+ pause between loop #
+ timeout # value
+ client IP to bind to
+    int loop_count, loop_pause, conn_timeout;
+    char *client_ip;
+
+4. Output options
+ display as HTML yes/no
+ debug level
+ fprintf() file descriptor for informational output (stdout by default, switch to stderr optionally)
+    int out_html, debug_level;
+    FILE *info_out, *err_out;
+
+ * ---
+ */
+
 
 /* --- */
 
