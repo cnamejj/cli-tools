@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 /* --- */
 
@@ -14,7 +15,6 @@
 #  include <time.h>
 #  define FRAC_RESOLUTION 0.000000001
 #else
-#  include <sys/time.h>
 #  define FRAC_RESOLUTION 0.000001
 #endif
 

@@ -20,6 +20,40 @@
 
 /* --- */
 
+void debug_timelog( char *tag);
+
+void debug_timelog( char *tag)
+
+{
+    static int seq = 0;
+    long diff_sec, diff_sub, now_sec, now_sub, top = 1000000;
+    static struct timeval now, prev = { 0, 0 };
+
+    seq++;
+    (void) gettimeofday( &now, 0);
+
+    diff_sec = now.tv_sec - prev.tv_sec;
+    diff_sub = now.tv_usec - prev.tv_usec;
+
+    now_sec = now.tv_sec;
+    now_sub = now.tv_usec;
+
+    if( diff_sub < 0)
+    {
+        diff_sec--;
+        diff_sub += top;
+    }
+
+    fprintf( stderr, "dbg:: %3d. %11ld.%06ld %11ld.%06ld (%s)\n", seq, now_sec, now_sub, diff_sec, diff_sub, tag);
+
+    prev.tv_sec = now.tv_sec;
+    prev.tv_usec = now.tv_usec;
+
+    return;
+}
+
+/* --- */
+
 float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, float frac_res)
 
 {
@@ -243,7 +277,7 @@ int execute_fetch_plan( struct plan_data *plan)
 
         display_output( &rc, plan);
 
-        if( runex->loop_pause > 0) sleep( runex->loop_pause);
+        if( runex->loop_pause > 0) usleep( runex->loop_pause);
     }
 
     /* --- */
@@ -557,7 +591,9 @@ void connect_to_server( int *rc, struct plan_data *plan)
             netbox.events = POLL_EVENTS_WRITE;
             netbox.revents = 0;
 
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre connect-to-server");
             sysrc = poll( &netbox, 1, status->wait_timeout);
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft connect-to-server");
             if( sysrc == 0) *rc = ERR_POLL_TIMEOUT;
             else if( sysrc == -1)
             {
@@ -644,7 +680,9 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         netbox.events = POLL_EVENTS_READ;
         netbox.revents = 0;
 
+        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre wait-for-reply");
         sysrc = poll( &netbox, 1, status->wait_timeout);
+        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft wait-for-reply");
         if( sysrc == 0)
         {
             *rc = ERR_POLL_TIMEOUT;
@@ -673,14 +711,13 @@ void wait_for_reply( int *rc, struct plan_data *plan)
 void pull_response( int *rc, struct plan_data *plan)
 
 {
-    int done, sysrc, buffsize = READ_BUFF_SIZE;
-#ifdef DEBUG_DUMP_OF_PACKETS
-    int off = 0;
-#endif
-    char buff[ READ_BUFF_SIZE];
+    int done, sysrc, buffsize = READ_BUFF_SIZE, packlen = 0;
+    char data_buff[ READ_BUFF_SIZE], *buff = 0, *pos = 0;
     struct pollfd netbox;
     struct fetch_status *status;
     struct output_options *out;
+
+    buff = data_buff;
 
     if( *rc == RC_NORMAL)
     {
@@ -696,7 +733,9 @@ void pull_response( int *rc, struct plan_data *plan)
 
         for( done = 0; !done && *rc == RC_NORMAL; )
         {
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre pull-response");
             sysrc = poll( &netbox, 1, status->wait_timeout);
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft pull-response");
             if( sysrc == 0) *rc = ERR_POLL_TIMEOUT;
             else if( sysrc == -1)
             {
@@ -705,7 +744,7 @@ void pull_response( int *rc, struct plan_data *plan)
 	    }
             else
             {
-                sysrc = read( status->conn_sock, buff, buffsize);
+                sysrc = packlen = read( status->conn_sock, buff, buffsize);
                 if( sysrc == -1)
                 {
                     if( errno == EINTR)
@@ -727,16 +766,15 @@ void pull_response( int *rc, struct plan_data *plan)
 		}
                 else
                 {
-#ifdef DEBUG_DUMP_OF_PACKETS
-                    if( out->debug_level >= DEBUG_MEDIUM2)
+                    if( out->debug_level >= DEBUG_HIGH3)
                     {
-                        fprintf( out->info_out, "Read %d bytes (", sysrc);
-                        for( off = 0; off < sysrc; off++)
-                          if( buff[ off] != '%' && (isprint( buff[ off]) || buff[ off] == '\n')) fputc( buff[ off], out->info_out);
-                          else fprintf( out->info_out, "%%%02X", buff[ off]);
+                        fprintf( out->info_out, "Read %d bytes (", packlen);
+                        for( pos = buff; pos < buff + packlen; pos++)
+                          if( *pos != '%' && (isprint( *pos) || *pos == '\n')) fputc( *pos, out->info_out);
+                          else fprintf( out->info_out, "%%%02X", *pos);
                         fprintf( out->info_out, ")\n");
 		    }
-#endif
+
                     status->response_len += sysrc;
                     *rc = capture_checkpoint( status, EVENT_READ_PACKET);
                     if( *rc == RC_NORMAL) *rc = add_data_block( status->lastcheck, sysrc, buff);
@@ -762,10 +800,6 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 {
     char *fence = 0, *pos = 0, *last = 0;
-/*
-    char *sng_pos = 0, *sng_hold = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
-    char *dbl_pos = 0, *dbl_hold = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
- */
     char *sng_pos = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
     char *dbl_pos = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
     struct ckpt_chain *walk = 0;
@@ -792,18 +826,10 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
                 for( ; pos <= last && !fence; pos++)
                 {
                     if( *pos == *sng_pos) sng_pos++;
-                    else
-                    {
-                        sng_pos = sng_patt;
-/*                        sng_hold = pos; */
-                    }
+                    else sng_pos = sng_patt;
 
                     if( *pos == *dbl_pos) dbl_pos++;
-                    else
-                    {
-                        dbl_pos = dbl_patt;
-/*                        dbl_hold = pos; */
-                    }
+                    else dbl_pos = dbl_patt;
 
                     if( !*sng_pos) fence = pos;
                     if( !*dbl_pos) fence = pos;
@@ -874,8 +900,8 @@ void display_output( int *rc, struct plan_data *plan)
                 last_pos = pos + detail->len;
                 for( ; pos <= last_pos; pos++)
                 {
-                    if( in_head && display->show_head) fputc( *pos, out->info_out);
-                    else if( !in_head && display->show_data) fputc( *pos, out->info_out);
+                    if( in_head && display->show_head) fputc( *pos, stdout);
+                    else if( !in_head && display->show_data) fputc( *pos, stdout);
 
                     if( pos == head_spot->position) in_head = 0;
 		}
@@ -1272,12 +1298,17 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
         /* Need to pull this one up to enable debug logging (other options are parsed later) */
 
-        if(( co = cond_get_matching_option( &rc, OP_DEBUG, opset, nflags)))
+        if(( co = cond_get_matching_option( &rc, OP_DEBUG, opset, nflags))) out->debug_level = *((int *) co->parsed);
+
+        if(( co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags)))
         {
-            out->debug_level = *((int *) co->parsed);
+            in_val = *((int *) co->parsed);
+            if( in_val) out->info_out = stderr;
+            SHOW_OPT_IF_DEBUG( "use-stderr")
             if( out->debug_level >= DEBUG_HIGH1) fprintf( out->info_out, "Opt #%d, debug '%d'\n",
               co->opt_num, *((int *) co->parsed));
         }
+
     }
 
 
@@ -1420,16 +1451,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_PAUSE, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( "pause")
-        runex->loop_pause = *((int *) co->parsed);
+        runex->loop_pause = *((int *) co->parsed) * 1000;
     }
-
+/*
     if(( co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( "use-stderr")
         in_val = *((int *) co->parsed);
         if( in_val) out->info_out = stderr;
     }
-
+ */
     if(( co = cond_get_matching_option( &rc, OP_TIMERHEADERS, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( "timerheaders")
