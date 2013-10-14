@@ -1,7 +1,20 @@
-
-/* Bug: fix it!
- * Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
- * results in a malloc() failed error, which makes no sense. :)
+/*
+ * Bugs:
+ * ---
+ * - Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
+ * results in a malloc() failed error, which makes no sense.
+ *
+ * Features:
+ * ---
+ * - Add an option to control HTTP/1.0 or HTTP/1.1
+ *
+ * - Understand and parse "chunked" content
+ *
+ * - Allow saving raw or parsed (as in chunked) content
+ *
+ * - Add an option to select IPv4 or IPv6 address from DNS results
+ *
+ * - Let the pick the bind IP by interface name (and prot 6/4 choice)
  */
 
 #include <stdio.h>
@@ -156,7 +169,11 @@ int find_connection( struct plan_data *plan)
             parts->ip6 = 0;
             free_url_breakout( parts);
 	}
-        else rc = ERR_INVALID_DATA;
+        else
+        {
+            status->err_msg = strdup( "TEMP EMSG: Invalid proxy server string");
+            rc = ERR_INVALID_DATA;
+	}
     }
 
     if( rc == RC_NORMAL && url) if( *url)
@@ -210,7 +227,11 @@ int find_connection( struct plan_data *plan)
 
             free_url_breakout( parts);
 	}
-        else rc = ERR_INVALID_DATA;
+        else
+        {
+            status->err_msg = strdup( "TEMP EMSG: Invalid URL specified.");
+            rc = ERR_INVALID_DATA;
+	}
     }
 
     if( rc == RC_NORMAL)
@@ -318,7 +339,11 @@ void clear_counters( int *rc, struct plan_data *plan)
             walk->clock.frac = 0;
 	}
 
-        if( !status->checkpoint) *rc = ERR_UNSUPPORTED;
+        if( !status->checkpoint)
+        {
+            status->err_msg = strdup( "TEMP EMSG: There should never be a null checkpoint, ugh.");
+            *rc = ERR_UNSUPPORTED;
+	}
         else
         {
 #ifdef USE_CLOCK_GETTIME
@@ -341,9 +366,9 @@ void clear_counters( int *rc, struct plan_data *plan)
                 *rc = ERR_SYS_CALL;
                 status->end_errno = errno;
 #ifdef USE_CLOCK_GETTIME
-                status->err_msg = "TEMP EMSG: Call to clock_gettime() failed.";
+                status->err_msg = strdup( "TEMP EMSG: Call to clock_gettime() failed.");
 #else
-                status->err_msg = "TEMP EMSG: Call to gettimeofday() failed.";
+                status->err_msg = strdup( "TEMP EMSG: Call to gettimeofday() failed.");
 #endif
             }
 	}
@@ -389,6 +414,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             if( sysrc != 1)
             {
                 status->end_errno = errno;
+                status->err_msg = strdup( "TEMP EMSG: Lookup, IPv6 address failure.");
                 *rc = ERR_SYS_CALL;
 	    }
 	}
@@ -404,6 +430,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             if( sysrc != 1)
             {
                 status->end_errno = errno;
+                status->err_msg = strdup( "TEMP EMSG: Lookup, IPv4 address failure.");
                 *rc = ERR_SYS_CALL;
 	    }
 	}
@@ -430,6 +457,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                 if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
                   "Can't lookup domain (%s)\n", target->conn_host);
                 *rc = ERR_GETHOST_FAILED;
+                status->err_msg = strdup( "TEMP EMSG: Lookup, no such hostname.");
                 status->end_errno = sysrc;
                 status->last_state |= LS_NO_DNS_CONNECT | LS_USE_GAI_ERRNO;
 	    }
@@ -437,6 +465,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             {
                 if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->err_out,
                   "Error: rc=%d (%s)\n", sysrc, gai_strerror( sysrc));
+                status->err_msg = strdup( "TEMP EMSG: Lookup, hostname failure.");
                 *rc = ERR_SYS_CALL;
                 status->end_errno = sysrc;
                 status->last_state |= LS_USE_GAI_ERRNO;
@@ -484,6 +513,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 		}
                 else
                 {
+                    status->err_msg = strdup( "TEMP EMSG: Lookup, no IPv4 or IPv6 records.");
                     *rc = ERR_GETHOST_FAILED;
                     if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
                       "No IPV4 or IPV6 host records found.\n");
@@ -497,6 +527,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         {
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
               "Oops! no idea what to lookup.\n");
+            status->err_msg = strdup( "TEMP EMSG: Lookup, no records matched, this is odd...");
             *rc = ERR_UNSUPPORTED;
 	}
 
@@ -521,11 +552,18 @@ void connect_to_server( int *rc, struct plan_data *plan)
     struct sockaddr *sa = 0;
     struct linger linger;
     struct pollfd netbox;
+    struct exec_controls *runex = 0;
+    struct sockaddr_in sock4;
+    struct sockaddr_in6 sock6;
+
+    memset( &sock4, '\0', sizeof sock4);
+    memset( &sock6, '\0', sizeof sock6);
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         out = plan->out;
+        runex = plan->run;
     }
 
     if( *rc == RC_NORMAL)
@@ -541,7 +579,56 @@ void connect_to_server( int *rc, struct plan_data *plan)
         if( sock == -1)
         {
             status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Call to socket() failed.");
             *rc = ERR_SOCKET_FAILED;
+	}
+    }
+
+    if( *rc == RC_NORMAL && runex->client_ip) if( *runex->client_ip)
+    {
+        if( is_ipv6_address( runex->client_ip))
+        {
+            sa = (struct sockaddr *) &sock6;
+            sock6.sin6_family = AF_INET6;
+            sock6.sin6_port = 0;
+            sock6.sin6_flowinfo = 0;
+            sock6.sin6_addr = in6addr_loopback;
+            sock6.sin6_scope_id = SCOPE_LINK;
+            salen = sizeof sock6;
+
+            sysrc = inet_pton( AF_INET6, runex->client_ip, &sock6.sin6_addr);
+            if( sysrc != 1)
+            {
+                status->err_msg = strdup( "TEMP EMSG: Call to inet_pton/6() failed.");
+                *rc = ERR_INVALID_DATA;
+	    }
+	}
+        else
+        {
+            sa = (struct sockaddr *) &sock4;
+            sock4.sin_family = AF_INET;
+            sock4.sin_port = 0;
+            sock4.sin_addr.s_addr = 0;
+            salen = sizeof sock4;
+
+            sysrc = inet_pton( AF_INET, runex->client_ip, &sock4.sin_addr);
+            if( sysrc != 1)
+            {
+                status->err_msg = strdup( "TEMP EMSG: Call to inet_pton/4() failed.");
+                *rc = ERR_INVALID_DATA;
+	    }
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            sysrc = bind( sock, sa, salen);
+            if( sysrc == -1)
+            {
+printf( "DBG:: Bind-failed errno=%d\n", errno);
+                status->end_errno = errno;
+                status->err_msg = strdup( "TEMP EMSG: Call to bind() failed.");
+                *rc = ERR_SYS_CALL;
+	    }
 	}
     }
 
@@ -553,6 +640,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
         if( sysrc < 0)
         {
             status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Setting linger didn't work.");
             *rc = ERR_SYS_CALL;
 	}
     }
@@ -565,6 +653,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
         if( flags < 0)
         {
             status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Can't make the socket non-blocking.");
             *rc = ERR_FCNTL_FAILED;
 	}
     }
@@ -594,10 +683,15 @@ void connect_to_server( int *rc, struct plan_data *plan)
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre connect-to-server");
             sysrc = poll( &netbox, 1, status->wait_timeout);
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft connect-to-server");
-            if( sysrc == 0) *rc = ERR_POLL_TIMEOUT;
+            if( sysrc == 0)
+            {
+                status->err_msg = strdup( "TEMP EMSG: Call to poll() timeout.");
+                *rc = ERR_POLL_TIMEOUT;
+	    }
             else if( sysrc == -1)
             {
                 status->end_errno = errno;
+                status->err_msg = strdup( "TEMP EMSG: Call to poll() failed.");
                 *rc = ERR_SYS_CALL;
 	    }
             else
@@ -610,6 +704,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
         else
         {
             status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Call to connect() failed.");
             *rc = ERR_CONN_FAILED;
 	}
 
@@ -649,6 +744,7 @@ void send_request( int *rc, struct plan_data *plan)
         {
             status->end_errno = errno;
             status->last_state |= LS_NO_REQUEST;
+            status->err_msg = strdup( "TEMP EMSG: Call to write() failed.");
             *rc = ERR_WRITE_FAILED;
 	}
 
@@ -685,12 +781,14 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft wait-for-reply");
         if( sysrc == 0)
         {
+            status->err_msg = strdup( "TEMP EMSG: Call to poll() timeout.");
             *rc = ERR_POLL_TIMEOUT;
             status->last_state |= LS_NO_RESPONSE;
 	}
         else if( sysrc == -1)
         {
             status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Call to poll() failed.");
             *rc = ERR_SYS_CALL;
             status->last_state |= LS_NO_RESPONSE;
 	}
@@ -712,12 +810,13 @@ void pull_response( int *rc, struct plan_data *plan)
 
 {
     int done, sysrc, buffsize = READ_BUFF_SIZE, packlen = 0;
-    char data_buff[ READ_BUFF_SIZE], *buff = 0, *pos = 0;
+    char *buff = 0, *pos = 0;
     struct pollfd netbox;
     struct fetch_status *status;
     struct output_options *out;
 
-    buff = data_buff;
+    buff = (char *) malloc( buffsize);
+    if( !buff) *rc = ERR_MALLOC_FAILED;
 
     if( *rc == RC_NORMAL)
     {
@@ -736,10 +835,15 @@ void pull_response( int *rc, struct plan_data *plan)
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre pull-response");
             sysrc = poll( &netbox, 1, status->wait_timeout);
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft pull-response");
-            if( sysrc == 0) *rc = ERR_POLL_TIMEOUT;
+            if( sysrc == 0)
+            {
+                status->err_msg = strdup( "TEMP EMSG: Call to poll() timeout.");
+                *rc = ERR_POLL_TIMEOUT;
+	    }
             else if( sysrc == -1)
             {
                 status->end_errno = errno;
+                status->err_msg = strdup( "TEMP EMSG: Call to poll() failed.");
                 *rc = ERR_SYS_CALL;
 	    }
             else
@@ -755,6 +859,7 @@ void pull_response( int *rc, struct plan_data *plan)
                     else
                     {
                         status->end_errno = errno;
+                        status->err_msg = strdup( "TEMP EMSG: Call to read() failed.");
                         *rc = ERR_READ_FAILED;
 		    }
 		}
@@ -770,8 +875,8 @@ void pull_response( int *rc, struct plan_data *plan)
                     {
                         fprintf( out->info_out, "Read %d bytes (", packlen);
                         for( pos = buff; pos < buff + packlen; pos++)
-                          if( *pos != '%' && (isprint( *pos) || *pos == '\n')) fputc( *pos, out->info_out);
-                          else fprintf( out->info_out, "%%%02X", *pos);
+                          if( isprint( *pos) || *pos == '\n') fputc( *pos, out->info_out);
+                          else fprintf( out->info_out, "<%02X>", *pos);
                         fprintf( out->info_out, ")\n");
 		    }
 
@@ -883,8 +988,15 @@ void display_output( int *rc, struct plan_data *plan)
     display = plan->disp;
     top = (long) (1.0 / status->clock_res);
 
-    head_spot = find_header_break( status->checkpoint);
-    if( !head_spot) *rc = ERR_UNSUPPORTED;
+    if( *rc == RC_NORMAL)
+    {
+        head_spot = find_header_break( status->checkpoint);
+        if( !head_spot)
+        {
+            status->err_msg = strdup( "TEMP EMSG: Can't find the end of the HTTP header.");
+            *rc = ERR_UNSUPPORTED;
+	}
+    }
 
     if( *rc == RC_NORMAL && (display->show_head || display->show_data))
     {
@@ -894,11 +1006,11 @@ void display_output( int *rc, struct plan_data *plan)
         for( ; walk; walk = walk->next)
         {
             detail = walk->detail;
-            if( detail)
+            if( detail) if( detail->len)
             {
                 pos = detail->data;
                 last_pos = pos + detail->len;
-                for( ; pos <= last_pos; pos++)
+                for( ; pos < last_pos; pos++)
                 {
                     if( in_head && display->show_head) fputc( *pos, stdout);
                     else if( !in_head && display->show_data) fputc( *pos, stdout);
@@ -1324,7 +1436,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
         if( errlen)
         {
+            status->err_msg = strdup( "TEMP EMSG: Unrecognized options on command line.");
             rc = ERR_SYNTAX;
+
             unrecognized = (char *) malloc( errlen + 1);
             if( !unrecognized) rc = ERR_MALLOC_FAILED;
             else
@@ -1345,8 +1459,6 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
                 free( unrecognized);
 	    }
 	}
-
-        if( out->debug_level >= DEBUG_HIGH1) 
 
         /* ---
          * This chunk just displays a dump of the options supported and how the parsed data overlays onto
@@ -1570,7 +1682,11 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
 #endif
 
     anchor = status->lastcheck;
-    if( !anchor) rc = ERR_UNSUPPORTED;
+    if( !anchor)
+    {
+        status->err_msg = strdup( "TEMP EMSG: Weird, there's no anchor...");
+        rc = ERR_UNSUPPORTED;
+    }
     else
     {
         curr = anchor->next;
@@ -1612,9 +1728,9 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
             {
                 status->end_errno = errno;
 #ifdef USE_CLOCK_GETTIME
-                status->err_msg = "TEMP: Call to clock_gettime() failed in capture_checkpoint()";
+                status->err_msg = strdup( "TEMP: Call to clock_gettime() failed in capture_checkpoint()");
 #else
-                status->err_msg = "TEMP: Call to clock_gettime() failed in gettimeofday()";
+                status->err_msg = strdup( "TEMP: Call to clock_gettime() failed in gettimeofday()");
 #endif
                 rc = ERR_SYS_CALL;
 	    }
@@ -1716,7 +1832,7 @@ int main( int narg, char **opts)
         if( !emsg) emsg = UNDEFINED_ERROR;
         else if( !*emsg) emsg = UNDEFINED_ERROR;
 
-        fprintf( out->err_out, "Error(%d/%x): %s. %s\n", rc, fetch->last_state, cli_strerror( rc), emsg);
+        fprintf( out->err_out, "Error(%d/%06x): %s %s\n", rc, fetch->last_state, cli_strerror( rc), emsg);
     }
 
     if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
