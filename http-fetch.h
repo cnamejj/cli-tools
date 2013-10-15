@@ -119,6 +119,8 @@
 
 #define HTTP_EOL "\r\n"
 
+#define NO_CR_HTTP_EOL "\r\n"
+
 #define NO_PORT -1
 #define NO_SOCK -1
 
@@ -188,28 +190,31 @@
 
 /* --- */
 
-#define FINAL_FETCH_REQUEST_TEMPLATE "\
+#define FETCH_REQUEST_TEMPLATE "\
 GET %uri% HTTP/1.1\r\n\
 %hostcomment%Host: %webhost%\r\n\
 User-Agent: %agent%\r\n\
 Accept: */*\r\n\
 Connection: close\r\n\
 DNT: 1\r\n\
+%exheaders%\
 \r\n"
 
-#define FETCH_REQUEST_TEMPLATE "\
+#define NO_CR_FETCH_REQUEST_TEMPLATE "\
 GET %uri% HTTP/1.1\n\
 %hostcomment%Host: %webhost%\n\
 User-Agent: %agent%\n\
 Accept: */*\n\
 Connection: close\n\
 DNT: 1\n\
+%exheaders%\
 \n"
 
 #define PATT_URI "%uri%"
 #define PATT_HOST_COMMENT "%hostcomment%"
 #define PATT_HOST_NAME "%webhost%"
 #define PATT_USER_AGENT "%agent%"
+#define PATT_EXTRA_HEADERS "%exheaders%"
 
 /* --- */
 

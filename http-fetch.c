@@ -14,7 +14,7 @@
  *
  * - Add an option to select IPv4 or IPv6 address from DNS results
  *
- * - Let the pick the bind IP by interface name (and prot 6/4 choice)
+ * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
  */
 
 #include <stdio.h>
@@ -1086,13 +1086,14 @@ void display_output( int *rc, struct plan_data *plan)
 int construct_request( struct plan_data *plan)
 
 {
-    int rc = RC_NORMAL, empty;
+    int rc = RC_NORMAL, empty, ex_len;
     char *blank = "", *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
-      *uri = 0;
+      *uri = 0, *ex_headers = 0, *st = 0;
     struct target_info *target = 0;
     struct fetch_status *fetch = 0;
     struct output_options *out = 0;
     struct sub_list *subs = 0, *walk = 0;
+    struct value_chain *chain = 0;
 
     /* --- */
 
@@ -1131,12 +1132,62 @@ int construct_request( struct plan_data *plan)
 
     /* --- */
 
-    walk = subs = (struct sub_list *) malloc( sizeof *subs);
-    if( !walk) rc = ERR_MALLOC_FAILED;
-    else
+    ex_len = 0;
+
+    chain = target->extra_headers;
+    for( ; chain; chain = chain->next)
     {
-        walk->from = PATT_URI;
-        walk->to = uri;
+        st = (char *) chain->parsed;
+#ifdef NO_CR
+        if( *st) ex_len += strlen( st) + strlen( NO_CR_HTTP_EOL);
+#else
+        if( *st) ex_len += strlen( st) + strlen( HTTP_EOL);
+#endif
+    }
+
+    if( ex_len)
+    {
+        ex_headers = (char *) malloc( ex_len + 1);
+        if( !ex_headers) rc = ERR_MALLOC_FAILED;
+        else
+        {
+            *ex_headers = '\0';
+
+            chain = target->extra_headers;
+            for( ; chain; chain = chain->next)
+            {
+                st = (char *) chain->parsed;
+                if( *st)
+                {
+                    strcat( ex_headers, (char *) chain->parsed);
+                    strcat( ex_headers, HTTP_EOL);
+		}
+	    }
+	}
+    }
+
+    if( rc == RC_NORMAL) if( !ex_headers) ex_headers = blank;
+
+    /* --- */
+
+    if( rc == RC_NORMAL)
+    {
+        walk = subs = (struct sub_list *) malloc( sizeof *subs);
+        if( !walk) rc = ERR_MALLOC_FAILED;
+        else
+        {
+            walk->from = PATT_URI;
+            walk->to = uri;
+            walk->next = (struct sub_list *) malloc( sizeof *walk);
+            if( !walk->next) rc = ERR_MALLOC_FAILED;
+            else walk = walk->next;
+	}
+    }
+
+    if( rc == RC_NORMAL)
+    {
+        walk->from = PATT_EXTRA_HEADERS;
+        walk->to = ex_headers;
         walk->next = (struct sub_list *) malloc( sizeof *walk);
         if( !walk->next) rc = ERR_MALLOC_FAILED;
         else walk = walk->next;
@@ -1167,7 +1218,11 @@ int construct_request( struct plan_data *plan)
         walk->next = 0;
     }
 
+#ifdef NO_CR
+    if( rc == RC_NORMAL) fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
+#else
     if( rc == RC_NORMAL) fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
+#endif
 
     if( rc == RC_NORMAL) fetch->request_len = strlen( fetch->request);
 
@@ -1789,7 +1844,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - proxy-ipv4: (%s)\n", SPSP( target->proxy_ipv4));
         fprintf( out->info_out, "- - - - proxy-ipv6: (%s)\n", SPSP( target->proxy_ipv6));
         for( chain = target->extra_headers; chain; chain = chain->next)
-        fprintf( out->info_out, "- - - - extra-headers: (%s)\n", SPSP( (char *) chain->parsed));
+          fprintf( out->info_out, "- - - - extra-headers: (%s)\n", SPSP( (char *) chain->parsed));
         fprintf( out->info_out, "- - - - conn-port: (%d)\n", target->conn_port);
         fprintf( out->info_out, "- - - - proxy-port: (%d)\n", target->proxy_port);
         fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
