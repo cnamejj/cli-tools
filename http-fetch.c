@@ -1,3 +1,12 @@
+#define TIME_SUMMARY_HEADER "\
+-Date--TIme-     ----- Elapsed Time ---- Total  Bytes\n\
+YrMnDyHrMnSe HRC   DNS  Conn 1stRD Close  Time   Xfer\n\
+------------ --- ----- ----- ----- ----- ----- ------\n\
+"
+
+#define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
+#define TIME_DISPLAY_SIZE 15
+
 /*
  * Bugs:
  * ---
@@ -7,15 +16,13 @@
  * Features:
  * ---
  * - Add an option to control HTTP/1.0 or HTTP/1.1
- *
  * - Understand and parse "chunked" content
- *
  * - Allow saving raw or parsed (as in chunked) content
- *
  * - Add an option to select IPv4 or IPv6 address from DNS results
- *
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
+ * - Display both total bytes transfered and payload bytes with "-time" option
  */
+
 
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +33,7 @@
 #ifndef linux
 #include <fcntl.h>
 #endif
+#include <math.h>
 
 #include "http-fetch.h"
 #include "cli-sub.h"
@@ -296,7 +304,7 @@ int execute_fetch_plan( struct plan_data *plan)
 
         pull_response( &rc, plan);
 
-        display_output( &rc, plan);
+        display_output( &rc, plan, seq);
 
         if( runex->loop_pause > 0) usleep( runex->loop_pause);
     }
@@ -326,6 +334,7 @@ void clear_counters( int *rc, struct plan_data *plan)
         status = plan->status;
         status->clock_res = FRAC_RESOLUTION;
         status->response_len = 0;
+        time( &status->wall_start);
     }
 
     if( *rc == RC_NORMAL)
@@ -960,14 +969,16 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 /* --- */
 
-void display_output( int *rc, struct plan_data *plan)
+void display_output( int *rc, struct plan_data *plan, int iter)
 
 {
-    int seq = 0, packlen = 0, in_head;
+    int seq = 0, packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
+      dns_ms, conn_ms, resp_ms, close_ms, complete_ms;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, trans_rate = 0.0;
     char *pos = 0, *last_pos = 0;
+    char disp_time[ TIME_DISPLAY_SIZE];
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct ckpt_chain *walk = 0, *start = 0;
@@ -975,6 +986,7 @@ void display_output( int *rc, struct plan_data *plan)
     struct data_block *detail = 0;
     struct display_settings *display = 0;
     struct chain_position *head_spot = 0;
+    struct tm local_wall_start;
 
     stats.start_time = 0.0;
     stats.lookup_time = 0.0;
@@ -1068,6 +1080,18 @@ void display_output( int *rc, struct plan_data *plan)
 	}
     }
 
+
+/*
+
+The output should look like this at some point.
+
+-Date--TIme-     ----- Elapsed Time ---- Total Bytes
+YrMnDyHrMnSe HRC   DNS  Conn 1stRD Close  Time  Xfer
+------------ --- ----- ----- ----- ----- ----- -----
+131015003945 200     1    79    95    84   259  7523
+Average values:      1    79    95    84   259  7523
+
+ */
     if( *rc == RC_NORMAL && display->show_timers)
     {
         if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
@@ -1076,6 +1100,30 @@ void display_output( int *rc, struct plan_data *plan)
         fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld K/sec: %.4f\n",
           stats.lookup_time, stats.connect_time, stats.request_time, stats.response_time,
           stats.complete_time, status->response_len, trans_rate);
+
+        (void) localtime_r( &status->wall_start, &local_wall_start);
+        disp_time[ 0] = '\0';
+        sysrc = strftime( disp_time, disp_time_len, TIME_DISPLAY_FORMAT, &local_wall_start);
+        if( !sysrc)
+        {
+            status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Call to strftime() failed.");
+            *rc = ERR_SYS_CALL;
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            if( iter == 1) fprintf( out->info_out, TIME_SUMMARY_HEADER);
+
+            dns_ms = lroundf( stats.lookup_time * 1000.0);
+            conn_ms = lroundf( (stats.connect_time - stats.lookup_time) * 1000.0);
+            resp_ms = lroundf( (stats.response_time - stats.connect_time) * 1000.0);
+            close_ms = lroundf( (stats.complete_time - stats.response_time) * 1000.0);
+            complete_ms = lroundf( stats.complete_time * 1000.0);
+
+            fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %6ld\n",
+              disp_time, 999, dns_ms, conn_ms, resp_ms, close_ms, complete_ms, status->response_len);
+	}
     }
 
     return;

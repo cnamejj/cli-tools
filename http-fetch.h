@@ -331,6 +331,8 @@ struct fetch_status {
   struct sockaddr_in sock4;
   struct sockaddr_in6 sock6;
   struct ckpt_chain *checkpoint, *lastcheck;
+  time_t wall_start;
+
 };
 
 struct plan_data {
@@ -396,7 +398,7 @@ void wait_for_reply( int *rc, struct plan_data *plan);
 
 void pull_response( int *rc, struct plan_data *plan);
 
-void display_output( int *rc, struct plan_data *plan);
+void display_output( int *rc, struct plan_data *plan, int iter);
 
 int capture_checkpoint( struct fetch_status *anchor, int event_type);
 

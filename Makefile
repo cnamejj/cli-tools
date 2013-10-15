@@ -23,7 +23,7 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 CC = gcc $(DEBUG_DEFS)
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
-LDFLAGS = -L . -lCLISUB -lxml2 $(LD_OPTS_$(OS))
+LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS))
 ARCOMM = ar rlc
 
 # ---
