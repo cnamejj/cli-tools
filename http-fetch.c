@@ -1,3 +1,5 @@
+#ifdef TMEPTEMPTEMP
+
 #define TIME_SUMMARY_HEADER "\
 -Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
 YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
@@ -17,6 +19,8 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
 #  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n"
 #else
 #  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n"
+#endif
+
 #endif
 
 /*
@@ -316,9 +320,11 @@ int execute_fetch_plan( struct plan_data *plan)
 
         pull_response( &rc, plan);
 
+        parse_payload( &rc, plan);
+
         display_output( &rc, plan, seq);
 
-        if( runex->loop_pause > 0) usleep( runex->loop_pause);
+        if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
     }
 
     /* --- */
@@ -981,6 +987,30 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 /* --- */
 
+void parse_payload( int *rc, struct plan_data *plan)
+
+{
+    struct fetch_status *status = 0;
+    struct payload_breakout *breakout = 0;
+
+    if( *rc == RC_NORMAL)
+    {
+        status = plan->status;
+        breakout = plan->partlist;
+
+        breakout->head_spot = find_header_break( status->checkpoint);
+        if( !breakout->head_spot)
+        {
+            status->err_msg = strdup( "TEMP EMSG: Can't find the end of the HTTP header.");
+            *rc = ERR_UNSUPPORTED;
+	}
+    }
+
+    return;
+}
+
+/* --- */
+
 void display_output( int *rc, struct plan_data *plan, int iter)
 
 {
@@ -988,7 +1018,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, scaled_off = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
-/*    float trans_rate = 0.0; */
     float elap = 0.0, scaled_rate = 0.0, nloop = 0.0;
     char *pos = 0, *last_pos = 0;
     char disp_time[ TIME_DISPLAY_SIZE], *scaled_unit = "bkmg";
@@ -999,40 +1028,36 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     static struct summary_stats stats;
     struct data_block *detail = 0;
     struct display_settings *display = 0;
+    struct payload_breakout *breakout = 0;
     struct chain_position *head_spot = 0;
     struct tm local_wall_start;
 
-    stats.lookup_time = 0.0;
-    stats.connect_time = 0.0;
-    stats.request_time = 0.0;
-    stats.response_time = 0.0;
-    stats.complete_time = 0.0;
-
-    if( iter == 1)
-    {
-        stats.lookup_sum = 0.0;
-        stats.connect_sum = 0.0;
-        stats.request_sum = 0.0;
-        stats.response_sum = 0.0;
-        stats.close_sum = 0.0;
-        stats.complete_sum = 0.0;
-        stats.xfer_sum = 0;
-    }
-
-    status = plan->status;
-    out = plan->out;
-    display = plan->disp;
-    runex = plan->run;
-    top = (long) (1.0 / status->clock_res);
-
     if( *rc == RC_NORMAL)
     {
-        head_spot = find_header_break( status->checkpoint);
-        if( !head_spot)
+        stats.lookup_time = 0.0;
+        stats.connect_time = 0.0;
+        stats.request_time = 0.0;
+        stats.response_time = 0.0;
+        stats.complete_time = 0.0;
+
+        if( iter == 1)
         {
-            status->err_msg = strdup( "TEMP EMSG: Can't find the end of the HTTP header.");
-            *rc = ERR_UNSUPPORTED;
-	}
+            stats.lookup_sum = 0.0;
+            stats.connect_sum = 0.0;
+            stats.request_sum = 0.0;
+            stats.response_sum = 0.0;
+            stats.close_sum = 0.0;
+            stats.complete_sum = 0.0;
+            stats.xfer_sum = 0;
+        }
+
+        status = plan->status;
+        out = plan->out;
+        display = plan->disp;
+        runex = plan->run;
+        breakout = plan->partlist;
+        top = (long) (1.0 / status->clock_res);
+        head_spot = breakout->head_spot;
     }
 
     if( *rc == RC_NORMAL && (display->show_head || display->show_data))
@@ -1086,28 +1111,11 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
         scaled_rate = ((float) status->response_len) / stats.complete_time;
 
-/*
-        if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
-        else trans_rate = 0.0;
- */
-
         for( scaled_off = 0; *(scaled_unit + scaled_off) && scaled_rate >= 1000.; )
         {
             scaled_rate /= 1024.0;
             scaled_off++;
 	}
-
-/*
-        fprintf( out->info_out, "Summary: dns: %.5f conn: %.5f sreq: %.5f resp: %.5f done: %.5f tot: %.5f size: %ld K/sec: %.4f scaled: %.1f%c\n",
-          stats.lookup_time,
-          stats.connect_time - stats.lookup_time,
-          stats.request_time - stats.connect_time,
-          stats.response_time - stats.request_time,
-          stats.complete_time - stats.response_time,
-          stats.complete_time,
-          status->response_len,
-          trans_rate, scaled_rate, *(scaled_unit + scaled_off));
- */
 
         (void) localtime_r( &status->wall_start, &local_wall_start);
         disp_time[ 0] = '\0';
@@ -1166,10 +1174,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 {
                     packlen = walk->detail->len;
                     seq++;
-/*
-                    fprintf( out->info_out, TIME_OUTPUT_FORMAT, seq, walk->event,
-                      walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
- */
                     fprintf( out->info_out, " %ld/%d", lroundf( elap * 1000.0), packlen);
 		}
 	    }
@@ -1188,14 +1192,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         stats.close_sum += stats.complete_time - stats.response_time;
         stats.complete_sum += stats.complete_time;
         stats.xfer_sum += status->response_len;
-/*
-fprintf( out->info_out, "dbg:: dns:: %.5f %.5f\n", stats.lookup_sum, stats.lookup_time);
-fprintf( out->info_out, "dbg:: conn: %.5f %.5f\n", stats.connect_sum, stats.connect_time - stats.lookup_time);
-fprintf( out->info_out, "dbg:: req:: %.5f %.5f\n", stats.request_sum, stats.request_time - stats.connect_time);
-fprintf( out->info_out, "dbg:: resp: %.5f %.5f\n", stats.response_sum, stats.response_time - stats.request_time);
-fprintf( out->info_out, "dbg:: clos: %.5f %.5f\n", stats.close_sum, stats.complete_time - stats.response_time);
-fprintf( out->info_out, "dbg:: tot:: %.5f %.5f\n", stats.complete_sum, stats.complete_time);
- */
+
         if( iter == runex->loop_count)
         {
             nloop = runex->loop_count / 1000.0;
@@ -1394,6 +1391,7 @@ struct plan_data *allocate_plan_data()
     struct output_options *out = 0;
     struct fetch_status *status = 0;
     struct ckpt_chain *checkpoint = 0;
+    struct payload_breakout *breakout = 0;
 
     /* --- */
 
@@ -1436,6 +1434,12 @@ struct plan_data *allocate_plan_data()
         if( !checkpoint) error = 1;
     }
 
+    if( !error)
+    {
+        breakout = (struct payload_breakout *) malloc( sizeof *breakout);
+        if( !checkpoint) error = 1;
+    }
+
     if( error)
     {
         if( plan) free( plan);
@@ -1445,6 +1449,7 @@ struct plan_data *allocate_plan_data()
         if( out) free( out);
         if( status) free( status);
         if( checkpoint) free( checkpoint);
+        if( breakout) free( breakout);
         plan = 0;
     }
     else
@@ -1460,6 +1465,7 @@ struct plan_data *allocate_plan_data()
         plan->run = runex;
         plan->out = out;
         plan->status = status;
+        plan->partlist = breakout;
 
         target->http_host = 0;
         target->conn_host = 0;
@@ -1521,6 +1527,8 @@ struct plan_data *allocate_plan_data()
 
         status->checkpoint = checkpoint;
         status->lastcheck = checkpoint;
+
+        breakout->head_spot = 0;
     }
 
     return( plan);

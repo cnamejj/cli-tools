@@ -210,6 +210,29 @@ DNT: 1\n\
 %exheaders%\
 \n"
 
+/* --- */
+
+#define TIME_SUMMARY_HEADER "\
+-Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
+"
+
+#define TIME_SUMMARY_HEADER_WITH_SEQ "\
+     -Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
+ Seq YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
+---- ------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
+"
+
+#define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
+#define TIME_DISPLAY_SIZE 15
+
+#ifdef USE_CLOCK_GETTIME
+#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n"
+#else
+#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n"
+#endif
+
 #define PATT_URI "%uri%"
 #define PATT_HOST_COMMENT "%hostcomment%"
 #define PATT_HOST_NAME "%webhost%"
@@ -336,12 +359,17 @@ struct fetch_status {
 
 };
 
+struct payload_breakout {
+  struct chain_position *head_spot;
+};
+
 struct plan_data {
   struct target_info *target;
   struct display_settings *disp;
   struct exec_controls *run;
   struct output_options *out;
   struct fetch_status *status;
+  struct payload_breakout *partlist;
 };
 
 /* --- */
@@ -398,6 +426,8 @@ void send_request( int *rc, struct plan_data *plan);
 void wait_for_reply( int *rc, struct plan_data *plan);
 
 void pull_response( int *rc, struct plan_data *plan);
+
+void parse_payload( int *rc, struct plan_data *plan);
 
 void display_output( int *rc, struct plan_data *plan, int iter);
 
