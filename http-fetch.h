@@ -273,8 +273,9 @@ The run plan needs to have these fields:
 /* --- */
 
 struct summary_stats {
-  float start_time, lookup_time, connect_time, request_time, response_time,
-    complete_time;
+  int xfer_sum;
+  float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
+    response_time, response_sum, close_sum, complete_time, complete_sum;
 };
 
 struct data_block {

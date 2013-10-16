@@ -1,11 +1,23 @@
 #define TIME_SUMMARY_HEADER "\
--Date--TIme-     ----- Elapsed Time ---- Total  Bytes\n\
-YrMnDyHrMnSe HRC   DNS  Conn 1stRD Close  Time   Xfer\n\
------------- --- ----- ----- ----- ----- ----- ------\n\
+-Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
+"
+
+#define TIME_SUMMARY_HEADER_WITH_SEQ "\
+     -Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
+ Seq YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
+---- ------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
 "
 
 #define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
 #define TIME_DISPLAY_SIZE 15
+
+#ifdef USE_CLOCK_GETTIME
+#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n"
+#else
+#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n"
+#endif
 
 /*
  * Bugs:
@@ -973,31 +985,44 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
 {
     int seq = 0, packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
-      dns_ms, conn_ms, resp_ms, close_ms, complete_ms;
+      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, scaled_off = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
-    float elap = 0.0, trans_rate = 0.0;
+/*    float trans_rate = 0.0; */
+    float elap = 0.0, scaled_rate = 0.0, nloop = 0.0;
     char *pos = 0, *last_pos = 0;
-    char disp_time[ TIME_DISPLAY_SIZE];
+    char disp_time[ TIME_DISPLAY_SIZE], *scaled_unit = "bkmg";
     struct fetch_status *status = 0;
     struct output_options *out = 0;
-    struct ckpt_chain *walk = 0, *start = 0;
-    struct summary_stats stats;
+    struct exec_controls *runex = 0;
+    struct ckpt_chain *walk = 0, *start = 0, *before = 0;
+    static struct summary_stats stats;
     struct data_block *detail = 0;
     struct display_settings *display = 0;
     struct chain_position *head_spot = 0;
     struct tm local_wall_start;
 
-    stats.start_time = 0.0;
     stats.lookup_time = 0.0;
     stats.connect_time = 0.0;
     stats.request_time = 0.0;
     stats.response_time = 0.0;
     stats.complete_time = 0.0;
 
+    if( iter == 1)
+    {
+        stats.lookup_sum = 0.0;
+        stats.connect_sum = 0.0;
+        stats.request_sum = 0.0;
+        stats.response_sum = 0.0;
+        stats.close_sum = 0.0;
+        stats.complete_sum = 0.0;
+        stats.xfer_sum = 0;
+    }
+
     status = plan->status;
     out = plan->out;
     display = plan->disp;
+    runex = plan->run;
     top = (long) (1.0 / status->clock_res);
 
     if( *rc == RC_NORMAL)
@@ -1040,6 +1065,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         for( ; walk; walk = walk->next)
         {
             if( start) elap = calc_time_difference( &start->clock, &walk->clock, status->clock_res);
+            else elap = 0.0;
 
             if( walk->event == EVENT_START_FETCH) start = walk;
             else if( walk->event == EVENT_DNS_LOOKUP) stats.lookup_time = elap;
@@ -1047,9 +1073,81 @@ void display_output( int *rc, struct plan_data *plan, int iter)
             else if( walk->event == EVENT_REQUEST_SENT) stats.request_time = elap;
             else if( walk->event == EVENT_FIRST_RESPONSE) stats.response_time = elap;
             else if( walk->event == EVENT_READ_ALL_DATA) stats.complete_time = elap;
+	}
+    }
 
+    if( *rc == RC_NORMAL && display->show_timers)
+    {
+        if( iter == 1)
+        {
+            if( display->show_number) fprintf( out->info_out, TIME_SUMMARY_HEADER_WITH_SEQ);
+            else fprintf( out->info_out, TIME_SUMMARY_HEADER);
+	}
+
+        scaled_rate = ((float) status->response_len) / stats.complete_time;
+
+/*
+        if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
+        else trans_rate = 0.0;
+ */
+
+        for( scaled_off = 0; *(scaled_unit + scaled_off) && scaled_rate >= 1000.; )
+        {
+            scaled_rate /= 1024.0;
+            scaled_off++;
+	}
+
+/*
+        fprintf( out->info_out, "Summary: dns: %.5f conn: %.5f sreq: %.5f resp: %.5f done: %.5f tot: %.5f size: %ld K/sec: %.4f scaled: %.1f%c\n",
+          stats.lookup_time,
+          stats.connect_time - stats.lookup_time,
+          stats.request_time - stats.connect_time,
+          stats.response_time - stats.request_time,
+          stats.complete_time - stats.response_time,
+          stats.complete_time,
+          status->response_len,
+          trans_rate, scaled_rate, *(scaled_unit + scaled_off));
+ */
+
+        (void) localtime_r( &status->wall_start, &local_wall_start);
+        disp_time[ 0] = '\0';
+        sysrc = strftime( disp_time, disp_time_len, TIME_DISPLAY_FORMAT, &local_wall_start);
+        if( !sysrc)
+        {
+            status->end_errno = errno;
+            status->err_msg = strdup( "TEMP EMSG: Call to strftime() failed.");
+            *rc = ERR_SYS_CALL;
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            dns_ms = lroundf( stats.lookup_time * 1000.0);
+            conn_ms = lroundf( (stats.connect_time - stats.lookup_time) * 1000.0);
+            send_ms = lroundf( (stats.request_time - stats.connect_time) * 1000.0);
+            resp_ms = lroundf( (stats.response_time - stats.request_time) * 1000.0);
+            close_ms = lroundf( (stats.complete_time - stats.response_time) * 1000.0);
+            complete_ms = lroundf( stats.complete_time * 1000.0);
+
+            if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
+            fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %5.1f%c\n",
+              disp_time, 999, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+              status->response_len, scaled_rate, *(scaled_unit + scaled_off));
+	}
+    }
+
+    if( *rc == RC_NORMAL && display->show_packetime)
+    {
+        if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
+        fprintf( out->info_out, "Packets:");
+
+        before = walk = status->checkpoint;
+
+        for( ; walk; walk = walk->next)
+        {
             if( walk->event != EVENT_BLANK)
             {
+                elap = calc_time_difference( &before->clock, &walk->clock, status->clock_res);
+
                 prev_sec = now_sec;
                 prev_sub = now_sub;
 
@@ -1068,62 +1166,61 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 {
                     packlen = walk->detail->len;
                     seq++;
-#ifdef USE_CLOCK_GETTIME
-                    fprintf( out->info_out, "%d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n", 
-                      seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
-#else
-                    fprintf( out->info_out, "%d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n", 
-                      seq, walk->event, walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
-#endif
+/*
+                    fprintf( out->info_out, TIME_OUTPUT_FORMAT, seq, walk->event,
+                      walk->clock.sec, walk->clock.frac, diff_sec, diff_sub, packlen, elap);
+ */
+                    fprintf( out->info_out, " %ld/%d", lroundf( elap * 1000.0), packlen);
 		}
 	    }
+
+            before = walk;
 	}
+        fprintf( out->info_out, "\n");
     }
 
-
-/*
-
-The output should look like this at some point.
-
--Date--TIme-     ----- Elapsed Time ---- Total Bytes
-YrMnDyHrMnSe HRC   DNS  Conn 1stRD Close  Time  Xfer
------------- --- ----- ----- ----- ----- ----- -----
-131015003945 200     1    79    95    84   259  7523
-Average values:      1    79    95    84   259  7523
-
- */
     if( *rc == RC_NORMAL && display->show_timers)
     {
-        if( stats.complete_time) trans_rate = (((float) status->response_len) / stats.complete_time) / 1024;
-        else trans_rate = 0.0;
-
-        fprintf( out->info_out, "Summary: dns: %.4f conn: %.4f sreq: %.4f resp: %.4f done: %.4f size: %ld K/sec: %.4f\n",
-          stats.lookup_time, stats.connect_time, stats.request_time, stats.response_time,
-          stats.complete_time, status->response_len, trans_rate);
-
-        (void) localtime_r( &status->wall_start, &local_wall_start);
-        disp_time[ 0] = '\0';
-        sysrc = strftime( disp_time, disp_time_len, TIME_DISPLAY_FORMAT, &local_wall_start);
-        if( !sysrc)
+        stats.lookup_sum += stats.lookup_time;
+        stats.connect_sum += stats.connect_time - stats.lookup_time;
+        stats.request_sum += stats.request_time - stats.connect_time;
+        stats.response_sum += stats.response_time - stats.request_time;
+        stats.close_sum += stats.complete_time - stats.response_time;
+        stats.complete_sum += stats.complete_time;
+        stats.xfer_sum += status->response_len;
+/*
+fprintf( out->info_out, "dbg:: dns:: %.5f %.5f\n", stats.lookup_sum, stats.lookup_time);
+fprintf( out->info_out, "dbg:: conn: %.5f %.5f\n", stats.connect_sum, stats.connect_time - stats.lookup_time);
+fprintf( out->info_out, "dbg:: req:: %.5f %.5f\n", stats.request_sum, stats.request_time - stats.connect_time);
+fprintf( out->info_out, "dbg:: resp: %.5f %.5f\n", stats.response_sum, stats.response_time - stats.request_time);
+fprintf( out->info_out, "dbg:: clos: %.5f %.5f\n", stats.close_sum, stats.complete_time - stats.response_time);
+fprintf( out->info_out, "dbg:: tot:: %.5f %.5f\n", stats.complete_sum, stats.complete_time);
+ */
+        if( iter == runex->loop_count)
         {
-            status->end_errno = errno;
-            status->err_msg = strdup( "TEMP EMSG: Call to strftime() failed.");
-            *rc = ERR_SYS_CALL;
-	}
+            nloop = runex->loop_count / 1000.0;
 
-        if( *rc == RC_NORMAL)
-        {
-            if( iter == 1) fprintf( out->info_out, TIME_SUMMARY_HEADER);
+            dns_ms = lroundf( stats.lookup_sum / nloop);
+            conn_ms = lroundf( stats.connect_sum / nloop);
+            send_ms = lroundf( stats.request_sum / nloop);
+            resp_ms = lroundf( stats.response_sum / nloop);
+            close_ms = lroundf( stats.complete_sum / nloop);
+            complete_ms = lroundf( stats.complete_sum / nloop);
 
-            dns_ms = lroundf( stats.lookup_time * 1000.0);
-            conn_ms = lroundf( (stats.connect_time - stats.lookup_time) * 1000.0);
-            resp_ms = lroundf( (stats.response_time - stats.connect_time) * 1000.0);
-            close_ms = lroundf( (stats.complete_time - stats.response_time) * 1000.0);
-            complete_ms = lroundf( stats.complete_time * 1000.0);
+            scaled_rate = ((float) stats.xfer_sum) / stats.complete_sum;
 
-            fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %6ld\n",
-              disp_time, 999, dns_ms, conn_ms, resp_ms, close_ms, complete_ms, status->response_len);
-	}
+            for( scaled_off = 0; *(scaled_unit + scaled_off) && scaled_rate >= 1000.; )
+            {
+                scaled_rate /= 1024.0;
+                scaled_off++;
+            }
+
+            fprintf( out->info_out, "Average values: ");
+            if( display->show_number) fprintf( out->info_out, "  ---");
+            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %5.1f%c\n",
+              dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+              stats.xfer_sum / runex->loop_count, scaled_rate, *(scaled_unit + scaled_off));
+        }
     }
 
     return;
