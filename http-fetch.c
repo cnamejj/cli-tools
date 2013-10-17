@@ -1,28 +1,3 @@
-#ifdef TMEPTEMPTEMP
-
-#define TIME_SUMMARY_HEADER "\
--Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
-YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
------------- --- ----- ----- ----- ----- ----- ----- ------ ------\n\
-"
-
-#define TIME_SUMMARY_HEADER_WITH_SEQ "\
-     -Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
- Seq YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
----- ------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
-"
-
-#define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
-#define TIME_DISPLAY_SIZE 15
-
-#ifdef USE_CLOCK_GETTIME
-#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n"
-#else
-#  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%06ld elap: %ld.%06ld data: %d elap: %.4f\n"
-#endif
-
-#endif
-
 /*
  * Bugs:
  * ---
@@ -37,6 +12,8 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
  * - Add an option to select IPv4 or IPv6 address from DNS results
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
  * - Display both total bytes transfered and payload bytes with "-time" option
+ *
+ * - Options: html, auth, proxy, connthru
  */
 
 
@@ -416,6 +393,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
     struct target_info *target = 0;
     struct fetch_status *status = 0;
     struct output_options *out = 0;
+    struct exec_controls *runex = 0;
     struct addrinfo hints, *hostrecs = 0, *match4 = 0, *match6 = 0, *walk = 0;
     struct sockaddr_in *sock4 = 0;
     struct sockaddr_in6 *sock6 = 0;
@@ -426,6 +404,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         target = plan->target;
         status = plan->status;
         out = plan->out;
+        runex = plan->run;
     }
 
     if( *rc == RC_NORMAL)
@@ -445,8 +424,11 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                 *rc = ERR_SYS_CALL;
 	    }
 	}
+    }
 
-        if( *rc == RC_NORMAL && target->ipv4) if( *target->ipv4) found = 1;
+    if( *rc == RC_NORMAL)
+    {
+        if( target->ipv4) if( *target->ipv4) found = 1;
         if( found)
         {
             found = 0;
@@ -461,8 +443,11 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                 *rc = ERR_SYS_CALL;
 	    }
 	}
+    }
 
-        if( *rc == RC_NORMAL && target->conn_host) if( *target->conn_host) found = 1;
+    if( *rc == RC_NORMAL)
+    {
+        if( target->conn_host) if( *target->conn_host) found = 1;
         if( found)
         {
             found = 0;
@@ -509,6 +494,13 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                     else walk = walk->ai_next;
 		}
 
+                /* If we've been asked to bind the socket to an IPV6 address
+                 * then we have to pick an IPV6 server address.  The same goes
+                 * for IPV4 binds as well.
+                 */
+                if( runex->client_ip_type == IP_V6) match4 = 0;
+                else if( runex->client_ip_type == IP_V4) match6 = 0;
+
                 if( match6)
                 {
                     status->ip_type = IP_V6;
@@ -542,8 +534,15 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                 {
                     status->err_msg = strdup( "TEMP EMSG: Lookup, no IPv4 or IPv6 records.");
                     *rc = ERR_GETHOST_FAILED;
-                    if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-                      "No IPV4 or IPV6 host records found.\n");
+                    if( out->debug_level >= DEBUG_MEDIUM2)
+                    {
+                        if( runex->client_ip_type == IP_V6) fprintf( out->info_out,
+                          "IPV6 host record required, none found.\n");
+                        else if( runex->client_ip_type == IP_V4) fprintf( out->info_out,
+                          "IPV4 host record required, none found.\n");
+                        else fprintf( out->info_out,
+                          "No IPV4 or IPV6 host records found.\n");
+		    }
 		}
 
                 freeaddrinfo( hostrecs);
@@ -708,7 +707,8 @@ printf( "DBG:: Bind-failed errno=%d\n", errno);
             netbox.revents = 0;
 
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre connect-to-server");
-            sysrc = poll( &netbox, 1, status->wait_timeout);
+            sysrc = poll( &netbox, 1, runex->conn_timeout);
+
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft connect-to-server");
             if( sysrc == 0)
             {
@@ -790,11 +790,13 @@ void wait_for_reply( int *rc, struct plan_data *plan)
     struct pollfd netbox;
     struct fetch_status *status;
     struct output_options *out;
+    struct exec_controls *runex = 0;
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         out = plan->out;
+        runex = plan->run;
     }
 
     if( *rc == RC_NORMAL)
@@ -804,7 +806,7 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         netbox.revents = 0;
 
         if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre wait-for-reply");
-        sysrc = poll( &netbox, 1, status->wait_timeout);
+        sysrc = poll( &netbox, 1, runex->conn_timeout);
         if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft wait-for-reply");
         if( sysrc == 0)
         {
@@ -841,6 +843,7 @@ void pull_response( int *rc, struct plan_data *plan)
     struct pollfd netbox;
     struct fetch_status *status;
     struct output_options *out;
+    struct exec_controls *runex = 0;
 
     buff = (char *) malloc( buffsize);
     if( !buff) *rc = ERR_MALLOC_FAILED;
@@ -849,6 +852,7 @@ void pull_response( int *rc, struct plan_data *plan)
     {
         status = plan->status;
         out = plan->out;
+        runex = plan->run;
     }
 
     if( *rc == RC_NORMAL)
@@ -860,7 +864,7 @@ void pull_response( int *rc, struct plan_data *plan)
         for( done = 0; !done && *rc == RC_NORMAL; )
         {
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre pull-response");
-            sysrc = poll( &netbox, 1, status->wait_timeout);
+            sysrc = poll( &netbox, 1, runex->conn_timeout);
             if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft pull-response");
             if( sysrc == 0)
             {
@@ -1103,7 +1107,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
     if( *rc == RC_NORMAL && display->show_timers)
     {
-        if( iter == 1)
+        if( iter == 1 && display->show_timerheaders)
         {
             if( display->show_number) fprintf( out->info_out, TIME_SUMMARY_HEADER_WITH_SEQ);
             else fprintf( out->info_out, TIME_SUMMARY_HEADER);
@@ -1501,6 +1505,7 @@ struct plan_data *allocate_plan_data()
         runex->loop_count = 0;
         runex->loop_pause = 0;
         runex->conn_timeout = 0;
+        runex->client_ip_type = IP_UNKNOWN;
         runex->client_ip = 0;
 
         status->response_len = 0;
@@ -1773,14 +1778,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         SHOW_OPT_IF_DEBUG( "pause")
         runex->loop_pause = *((int *) co->parsed) * 1000;
     }
-/*
-    if(( co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags)))
-    {
-        SHOW_OPT_IF_DEBUG( "use-stderr")
-        in_val = *((int *) co->parsed);
-        if( in_val) out->info_out = stderr;
-    }
- */
+
     if(( co = cond_get_matching_option( &rc, OP_TIMERHEADERS, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( "timerheaders")
@@ -1847,28 +1845,40 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
      *   overrides.
      */
 
-    if( !display->show_complete && (display->show_head || display->show_data))
+    if( rc == RC_NORMAL)
     {
-        if( nop_comp > nop_head && nop_comp > nop_data)
+        if( !display->show_complete && (display->show_head || display->show_data))
         {
-            display->show_head = 0;
-            display->show_data = 0;
+            if( nop_comp > nop_head && nop_comp > nop_data)
+            {
+                display->show_head = 0;
+                display->show_data = 0;
+            }
+        }
+
+        else if( display->show_complete && (!display->show_head || !display->show_data))
+        {
+            if( nop_comp > nop_head && nop_comp > nop_data)
+            {
+                display->show_head = 1;
+                display->show_data = 1;
+	    }
+            else display->show_complete = 0;
 	}
     }
 
-    else if( display->show_complete && (!display->show_head || !display->show_data))
+    if( rc == RC_NORMAL)
     {
-        if( nop_comp > nop_head && nop_comp > nop_data)
+        if( runex->client_ip) if( *runex->client_ip)
         {
-            display->show_head = 1;
-            display->show_data = 1;
+            if( is_ipv6_address( runex->client_ip)) runex->client_ip_type = IP_V6;
+            else if( is_ipv4_address( runex->client_ip)) runex->client_ip_type = IP_V4;
 	}
-        else display->show_complete = 0;
     }
 
     /* --- */
 
-    if( runex->loop_count < 1) runex->loop_count = 1;
+    if( rc == RC_NORMAL && runex->loop_count < 1) runex->loop_count = 1;
 
     /* --- */
 
@@ -2022,6 +2032,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - loop-count: %d\n", runex->loop_count);
         fprintf( out->info_out, "- - - - loop-pause: %d\n", runex->loop_pause);
         fprintf( out->info_out, "- - - - conn-timeout: %d\n", runex->conn_timeout);
+        fprintf( out->info_out, "- - - - client-ip-type: %d\n", runex->client_ip_type);
         fprintf( out->info_out, "- - - - client-ip: (%s)\n", SPSP( runex->client_ip));
 
         fprintf( out->info_out, "\n- - FetchStatus:\n");

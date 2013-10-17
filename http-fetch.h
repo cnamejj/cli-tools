@@ -342,7 +342,7 @@ struct display_settings {
 };
 
 struct exec_controls {
-  int loop_count, loop_pause, conn_timeout;
+  int loop_count, loop_pause, conn_timeout, client_ip_type;
   char *client_ip;
 };
 
