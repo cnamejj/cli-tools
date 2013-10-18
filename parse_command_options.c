@@ -43,6 +43,7 @@ struct word_chain *parse_cgi_options( int *rc, struct option_set *plist,
     char *st = 0, *en = 0, *sep = 0, *vname = 0, *vvalue = 0, *source = 0;
     struct option_set *curr = 0;
     struct word_chain *invlist = 0, *endlist = 0;
+    struct value_chain *chain = 0;
 
     /* --- */
 
@@ -58,7 +59,9 @@ struct word_chain *parse_cgi_options( int *rc, struct option_set *plist,
     {
         curr = plist + op;
         curr->val = 0;
-        curr->flags = OP_FL_BLANK;
+        curr->flags &= ~(OP_FL_FOUND | OP_FL_SET | OP_FL_INVALID);
+        if( curr->flags & OP_FL_REPEATS && (curr->type == OP_TYPE_FLAG || curr->type == OP_TYPE_LAST))
+          curr->flags &= ~OP_FL_REPEATS;
         curr->parsed = 0;
         curr->opt_num = 0;
      }
@@ -100,14 +103,25 @@ struct word_chain *parse_cgi_options( int *rc, struct option_set *plist,
                         plist[ op].flags |= OP_FL_FOUND;
                         if( is_option_set( vvalue)) plist[ op].flags |= OP_FL_SET;
                         else plist[ op].flags &= ~OP_FL_SET;
-                        if( plist[ op].type != OP_TYPE_FLAG) plist[ op].val = vvalue;
+                        if( plist[ op].type != OP_TYPE_FLAG)
+                        {
+                            plist[ op].val = vvalue;
+                            if( plist[ op].flags & OP_FL_REPEATS)
+                            {
+                                curr = plist + op;
+                                chain = add_option_to_chain( (struct value_chain *) curr->parsed, opseq,
+                                  curr->flags, curr->val, 0);
+                                if( !chain) *rc = ERR_MALLOC_FAILED;
+                                else curr->parsed = (void *) chain;
+			    }
+			}
                         else free( vvalue);
                         plist[ op].opt_num = opseq;
                     }
                 }
             }
 
-            if( !sep || !match)
+            if( *rc == RC_NORMAL) if( !sep || !match)
             {
                 endlist = add_to_word_chain( endlist, vname);
                 if( !endlist) *rc = ERR_MALLOC_FAILED;
