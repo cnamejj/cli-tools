@@ -1237,10 +1237,10 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                 mean_diff = *(xfrate + off) - xfrate_mean;
                 xfrate_msd_sum += (mean_diff * mean_diff);
 	    }
- */
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
             printf( "dbg:: Xf_RMS %3d. %f %f\n", off, mean_diff * mean_diff, xfrate_msd_sum);
 #endif
+ */
 	}
 
 #ifdef SHOW_DEBUG_STATS_CALCS
@@ -1288,15 +1288,29 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             else
             {
                 adj = (float) (npackets) / (float) ((npackets - 1) * (npackets - 2));
-                profile->packsize_norm_skew = adj * (packsize_mth_norm / pow( profile->packsize_norm_stdev, 3.0));
-                profile->readlag_norm_skew = adj * (readlag_mth_norm / pow( profile->readlag_norm_stdev, 3.0));
 
+                adj2 = pow( profile->packsize_norm_stdev, 3.0);
+                if( !adj2) profile->packsize_norm_skew = 0.0;
+                else profile->packsize_norm_skew = adj * (packsize_mth_norm / adj2);
+
+                adj2 = pow( profile->readlag_norm_stdev, 3.0);
+                if( !adj2) profile->readlag_norm_skew = 0.0;
+                else profile->readlag_norm_skew = adj * (readlag_mth_norm / adj2);
+
+/*              profile->packsize_norm_skew = adj * (packsize_mth_norm / pow( profile->packsize_norm_stdev, 3.0));
+ *              profile->readlag_norm_skew = adj * (readlag_mth_norm / pow( profile->readlag_norm_stdev, 3.0));
+ */
                 if( npackets < 4) profile->xfrate_norm_skew = 0.0;
                 else
                 {
                     adj = (float) (npackets - 1) / (float) ((npackets - 2) * (npackets - 3));
-                    profile->xfrate_norm_skew = adj * (xfrate_mth_norm / pow( profile->xfrate_norm_stdev, 3.0));
-		}
+
+                    adj2 = pow( profile->xfrate_norm_stdev, 3.0);
+                    if( !adj2) profile->xfrate_norm_skew = 0.0;
+                    else profile->xfrate_norm_skew = adj * (xfrate_mth_norm / adj2);
+
+/*                  profile->xfrate_norm_skew = adj * (xfrate_mth_norm / pow( profile->xfrate_norm_stdev, 3.0));
+ */		}
 
                 if( npackets < 4)
                 {
@@ -1312,7 +1326,8 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                     adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
 
                     variance = packsize_msd_norm / samp_div;
-                    profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
+                    if( !variance) profile->packsize_norm_kurt = 0.0;
+                    else profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
 #ifdef SHOW_DEBUG_STATS_CALCS
                     printf( "dbg:: Stat: What: AdjFactor1 MFoDiffSum   Variance AdjFactor2       Kurt\n");
                     printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
@@ -1321,7 +1336,8 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 #endif
 
                     variance = readlag_msd_norm / samp_div;
-                    profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
+                    if( !variance) profile->readlag_norm_kurt = 0.0;
+                    else profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
 #ifdef SHOW_DEBUG_STATS_CALCS
                     printf( "dbg:: Kurt: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, readlag_mfo_norm,
                       variance, adj2, profile->readlag_norm_kurt);
@@ -1336,7 +1352,8 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                         adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
 
                         variance = xfrate_msd_norm / samp_div;
-                        profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
+                        if( !variance) profile->xfrate_norm_kurt = 0.0;
+                        else profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
 #ifdef SHOW_DEBUG_STATS_CALCS
                         printf( "dbg:: Kurt: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mfo_norm,
                           variance, adj2, profile->xfrate_norm_kurt);

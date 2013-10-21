@@ -217,7 +217,7 @@ DNT: 1\n\
 /* --- */
 
 #define TIME_SUMMARY_HEADER_1 "\
--Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ---- - Per-Packet Tranfer Rate -\n\
+-Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\n\
 "
 #define TIME_SUMMARY_HEADER_2 "\
 YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\n\
