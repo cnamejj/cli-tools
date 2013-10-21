@@ -126,7 +126,11 @@
 
 #define UNDEFINED_ERROR "A unspecified error halted execution of the program."
 
-#define HTML_RESP_HEADER "<HEAD><pre>\n"
+#define HTML_RESP_HEADER "\
+Content-type: text/html\r\n\
+\r\n\
+<HEAD><pre>\n\
+"
 
 #define HTTP_HEADER_XPREF "X-"
 
@@ -212,17 +216,19 @@ DNT: 1\n\
 
 /* --- */
 
-#define TIME_SUMMARY_HEADER "\
--Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
-YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
------------- --- ----- ----- ----- ----- ----- ----- ------ ------\n\
+#define TIME_SUMMARY_HEADER_1 "\
+-Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ---- - Per-Packet Tranfer Rate -\n\
+"
+#define TIME_SUMMARY_HEADER_2 "\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\n\
+"
+#define TIME_SUMMARY_HEADER_3 "\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\n\
 "
 
-#define TIME_SUMMARY_HEADER_WITH_SEQ "\
-     -Date--Time-     -------- Elapsed Time ------- Total -- Transfer -\n\
- Seq YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes  X/Sec\n\
----- ------------ --- ----- ----- ----- ----- ----- ----- ------ ------\n\
-"
+#define TIME_SUMMARY_HEADER_SEQ_1 "     "
+#define TIME_SUMMARY_HEADER_SEQ_2 " Seq "
+#define TIME_SUMMARY_HEADER_SEQ_3 "---- "
 
 #define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
 #define TIME_DISPLAY_SIZE 15
@@ -299,6 +305,13 @@ struct summary_stats {
   int xfer_sum;
   float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
     response_time, response_sum, close_sum, complete_time, complete_sum;
+  float packsize_mean, readlag_mean, xfrate_mean,
+    packsize_norm_stdev, readlag_norm_stdev, xfrate_norm_stdev,
+    packsize_norm_skew, readlag_norm_skew, xfrate_norm_skew,
+    packsize_norm_kurt, readlag_norm_kurt, xfrate_norm_kurt,
+    packsize_stdev_sum, packsize_skew_sum, packsize_kurt_sum,
+    readlag_stdev_sum, readlag_skew_sum, readlag_kurt_sum,
+    xfrate_stdev_sum, xfrate_skew_sum, xfrate_kurt_sum;
 };
 
 struct data_block {
@@ -370,6 +383,7 @@ struct plan_data {
   struct output_options *out;
   struct fetch_status *status;
   struct payload_breakout *partlist;
+  struct summary_stats *profile;
 };
 
 /* --- */
@@ -431,6 +445,8 @@ void parse_payload( int *rc, struct plan_data *plan);
 
 void display_output( int *rc, struct plan_data *plan, int iter);
 
+void stats_from_packets( int *rc, struct plan_data *plan, int iter);
+
 int capture_checkpoint( struct fetch_status *anchor, int event_type);
 
 void free_data_block( struct data_block *detail);
@@ -440,6 +456,10 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff);
 float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, float clock_res);
 
 struct chain_position *find_header_break( struct ckpt_chain *chain);
+
+void debug_timelog( char *tag);
+
+float get_scaled_number( char *mark, float figure);
 
 /* --- */
 

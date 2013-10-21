@@ -1,4 +1,9 @@
 /*
+#define SHOW_DEBUG_STATS_CALCS
+#define SHOW_GORY_XFRATE_CALC_DETAILS
+ */
+
+/*
  * Bugs:
  * ---
  * - Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
@@ -12,6 +17,7 @@
  * - Add an option to select IPv4 or IPv6 address from DNS results
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
  * - Display both total bytes transfered and payload bytes with "-time" option
+ * - For CGI calls, use "iframes" with "srcdoc=" to display the fetched page
  *
  * - Options: html, auth, proxy, connthru
  */
@@ -34,13 +40,11 @@
 
 /* --- */
 
-void debug_timelog( char *tag);
-
 void debug_timelog( char *tag)
 
 {
     static int seq = 0;
-    long diff_sec, diff_sub, now_sec, now_sub, top = 1000000;
+    long diff_sec, diff_sub, top = 1000000, now_sec, now_sub;
     static struct timeval now, prev = { 0, 0 };
 
     seq++;
@@ -51,6 +55,7 @@ void debug_timelog( char *tag)
 
     now_sec = now.tv_sec;
     now_sub = now.tv_usec;
+
 
     if( diff_sub < 0)
     {
@@ -64,6 +69,26 @@ void debug_timelog( char *tag)
     prev.tv_usec = now.tv_usec;
 
     return;
+}
+
+/* --- */
+
+float get_scaled_number( char *mark, float figure)
+
+{
+    int off;
+    char *scaled_unit = "bkmg";
+    float scaled_figure = figure;
+
+    for( off = 0; *(scaled_unit + off) && scaled_figure >= 1000.; )
+    {
+        scaled_figure /= 1024.0;
+        off++;
+    }
+
+    if( mark) *mark = *(scaled_unit + off);
+
+    return( scaled_figure);
 }
 
 /* --- */
@@ -110,14 +135,14 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff)
             packet->len = len;
             packet->data = (char *) malloc( len);
             if( !packet->data) rc = ERR_MALLOC_FAILED;
-            else (void) memcpy( packet->data, buff, len);
+            else
+            {
+                (void) memcpy( packet->data, buff, len);
+                checkpoint->detail = packet;
+	    }
 	}
-    }
 
-    if( rc == RC_NORMAL) checkpoint->detail = packet;
-    else
-    {
-        if( packet) free( packet);
+        if( rc != RC_NORMAL) if( packet) free( packet);
     }
 
     return( rc);
@@ -298,6 +323,8 @@ int execute_fetch_plan( struct plan_data *plan)
         pull_response( &rc, plan);
 
         parse_payload( &rc, plan);
+
+        stats_from_packets( &rc, plan, seq);
 
         display_output( &rc, plan, seq);
 
@@ -650,7 +677,6 @@ void connect_to_server( int *rc, struct plan_data *plan)
             sysrc = bind( sock, sa, salen);
             if( sysrc == -1)
             {
-printf( "DBG:: Bind-failed errno=%d\n", errno);
                 status->end_errno = errno;
                 status->err_msg = strdup( "TEMP EMSG: Call to bind() failed.");
                 *rc = ERR_SYS_CALL;
@@ -991,6 +1017,378 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 /* --- */
 
+void stats_from_packets( int *rc, struct plan_data *plan, int iter)
+
+{
+    int npackets = 0, packsize_sum = 0, off, is_last_data;
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+    int dbgfirst = 0, initial_size = 0;
+    float r1, r2;
+    char m1, m2;
+#endif
+    int *packsize = 0;
+    float readlag_sum = 0.0, xfrate_sum = 0.0, packsize_mean = 0.0,
+      readlag_mean = 0.0, xfrate_mean = 0.0, mean_diff = 0.0,
+      elap = 0.0, rate = 0.0, packsize_max, readlag_max, xfrate_max,
+      packsize_msd_norm, readlag_msd_norm, xfrate_msd_norm,
+      packsize_mth_norm, readlag_mth_norm, xfrate_mth_norm,
+      packsize_mfo_norm, readlag_mfo_norm, xfrate_mfo_norm,
+      adj, adj2, samp_sz, samp_div, variance;
+    float *readlag = 0, *xfrate = 0;
+    struct summary_stats *profile = 0;
+    struct display_settings *display = 0;
+    struct fetch_status *status = 0;
+    struct ckpt_chain *walk = 0, *start = 0, *prevpack = 0;
+
+    if( *rc == RC_NORMAL)
+    {
+        display = plan->disp;
+        profile = plan->profile;
+        status = plan->status;
+    }
+
+    if( *rc == RC_NORMAL) if( display->show_timers)
+    {
+        profile->lookup_time = 0.0;
+        profile->connect_time = 0.0;
+        profile->request_time = 0.0;
+        profile->response_time = 0.0;
+        profile->complete_time = 0.0;
+
+        if( iter == 1)
+        {
+            profile->lookup_sum = 0.0;
+            profile->connect_sum = 0.0;
+            profile->request_sum = 0.0;
+            profile->response_sum = 0.0;
+            profile->close_sum = 0.0;
+            profile->complete_sum = 0.0;
+            profile->xfer_sum = 0;
+        }
+
+        walk = status->checkpoint;
+
+        for( ; walk; walk = walk->next)
+        {
+            if( start) elap = calc_time_difference( &start->clock, &walk->clock, status->clock_res);
+            else elap = 0.0;
+
+            if( walk->event == EVENT_START_FETCH) start = walk;
+            else if( walk->event == EVENT_DNS_LOOKUP) profile->lookup_time = elap;
+            else if( walk->event == EVENT_CONNECT_SERVER) profile->connect_time = elap;
+            else if( walk->event == EVENT_REQUEST_SENT) profile->request_time = elap;
+            else if( walk->event == EVENT_FIRST_RESPONSE) profile->response_time = elap;
+            else if( walk->event == EVENT_READ_ALL_DATA) profile->complete_time = elap;
+            else if( walk->event == EVENT_READ_PACKET && walk->detail) npackets++;
+	}
+
+        if( npackets)
+        {
+            readlag = (float *) malloc( npackets * (sizeof *readlag));
+            if( !readlag) *rc = ERR_MALLOC_FAILED;
+
+            if( *rc == RC_NORMAL)
+            {
+                packsize = (int *) malloc( npackets * (sizeof *packsize));
+                if( !packsize) *rc = ERR_MALLOC_FAILED;
+	    }
+
+            if( *rc == RC_NORMAL)
+            {
+                xfrate = (float *) malloc( npackets * (sizeof *packsize));
+                if( !xfrate) *rc = ERR_MALLOC_FAILED;
+	    }
+
+            if( *rc == RC_NORMAL) for( off = 0; off < npackets; off++)
+            {
+                *(packsize + off) = 0;
+                *(readlag + off) = 0.0;
+                *(xfrate + off) = 0.0;
+	    }
+	}
+
+        packsize_max = 0.0;
+        readlag_max = 0.0;
+        xfrate_max = 0.0;
+        walk = status->checkpoint;
+        is_last_data = 0;
+
+        for( off = 0; walk; walk = walk->next) if( walk->event == EVENT_READ_PACKET && walk->detail)
+        {
+            if( !walk->next) is_last_data = 1;
+            else if( walk->next->event != EVENT_READ_PACKET) is_last_data = 1;
+
+            /* The last packet is usually partial, so it should be ignored */
+            if( !is_last_data)
+            {
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+                if( !off) initial_size = walk->detail->len;
+#endif
+                packsize_sum += walk->detail->len;
+                *(packsize + off) = walk->detail->len;
+                if( (float) walk->detail->len > packsize_max) packsize_max = (float) walk->detail->len;
+	    }
+
+            /* Lag is calculate from the last read, so the first packet has none */
+            if( off)
+            {
+                elap = calc_time_difference( &prevpack->clock, &walk->clock, status->clock_res);
+                readlag_sum += elap;
+                *(readlag + off - 1) = elap;
+                if( elap > readlag_max) readlag_max = elap;
+	    }
+
+            /* Per packet transfer rates only make sense for the 2nd to next to last packets */
+            if( off && !is_last_data)
+            {
+                if( !walk->detail->len || elap == 0.0) rate = 0.0;
+                else rate = ((float) walk->detail->len) / elap;
+                xfrate_sum += rate;
+                *(xfrate + off - 1) = rate;
+                if( rate > xfrate_max) xfrate_max = rate;
+
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+                if( !dbgfirst++)
+                {
+                    printf( "dbg:: Xf_Sum Seq.  Elapsed  Size      Xfer   Xfer-Rate-Sum  SzSum   Read-Lag-Sum  Run-Xfer\n");
+                    printf( "dbg:: Xf_Sum ---. -------- ----- --------- --------------- ------ -------------- ---------\n");
+                }
+                r1 = get_scaled_number( &m1, rate);
+                r2 = get_scaled_number( &m2, (packsize_sum - initial_size) / readlag_sum);
+                printf( "dbg:: Xf_Sum %3d. %8.6f %5d %8.3f%c %15.4f %6d %14.6f %8.3f%c\n", off, elap, walk->detail->len, 
+                  r1, m1, xfrate_sum, packsize_sum - initial_size, readlag_sum, r2, m2);
+#endif
+	    }
+
+            prevpack = walk;
+            off++;
+	}
+
+        if( !npackets)
+        {
+           readlag_mean = packsize_mean = xfrate_mean = 0.0;
+	}
+        else if( npackets == 1)
+        {
+            readlag_mean = readlag_sum;
+            packsize_mean = (float) packsize_sum;
+            xfrate_mean = 0.0;
+	}
+        else
+        {
+            npackets--;
+            readlag_mean = readlag_sum / npackets;
+            packsize_mean = ((float) packsize_sum) / npackets;
+            if( npackets == 1) xfrate_mean = xfrate_sum;
+            else xfrate_mean = xfrate_sum / (npackets - 1);
+	}
+
+        packsize_msd_norm = readlag_msd_norm = xfrate_msd_norm = 0.0;
+        packsize_mth_norm = readlag_mth_norm = xfrate_mth_norm = 0.0;
+        packsize_mfo_norm = readlag_mfo_norm = xfrate_mfo_norm = 0.0;
+        walk = status->checkpoint;
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+        printf( "dbg:: - - -\n");
+#endif
+        for( off = 0; off < npackets; off++)
+        {
+            if( packsize_max)
+            {
+                mean_diff = (((float) *(packsize + off)) - packsize_mean) / packsize_max;
+                adj = mean_diff * mean_diff;
+                packsize_msd_norm += adj;
+                adj *= mean_diff;
+                packsize_mth_norm += adj;
+                adj *= mean_diff;
+                packsize_mfo_norm += adj;
+	    }
+
+            if( readlag_max)
+            {
+                mean_diff = (*(readlag + off) - readlag_mean) / readlag_max;
+                adj = mean_diff * mean_diff;
+                readlag_msd_norm += adj;
+                adj *= mean_diff;
+                readlag_mth_norm += adj;
+                adj *= mean_diff;
+                readlag_mfo_norm += adj;
+	    }
+
+            if( off < npackets - 1 && xfrate_max)
+            {
+                mean_diff = (*(xfrate + off) - xfrate_mean) / xfrate_max;
+                adj = mean_diff * mean_diff;
+                xfrate_msd_norm += adj;
+                adj *= mean_diff;
+                xfrate_mth_norm += adj;
+                adj *= mean_diff;
+                xfrate_mfo_norm += adj;
+	    }
+
+/*
+            mean_diff = ((float) *(packsize + off)) - packsize_mean;
+            packsize_msd_sum += (mean_diff * mean_diff);
+
+            mean_diff = *(readlag + off) - readlag_mean;
+            readlag_msd_sum += (mean_diff * mean_diff);
+
+            if( off < npackets - 1)
+            {
+                mean_diff = *(xfrate + off) - xfrate_mean;
+                xfrate_msd_sum += (mean_diff * mean_diff);
+	    }
+ */
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+            printf( "dbg:: Xf_RMS %3d. %f %f\n", off, mean_diff * mean_diff, xfrate_msd_sum);
+#endif
+	}
+
+#ifdef SHOW_DEBUG_STATS_CALCS
+        printf( "dbg:: - - - %d\n", npackets);
+        printf( "dbg:: What:        Sum       Mean        Max MSqDiffSum MThDiffSum MFoDiffSum\n");
+        printf( "dbg:: ----- ---------- ---------- ---------- ---------- ---------- ----------\n");
+        printf( "dbg:: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", readlag_sum,
+          readlag_mean, readlag_max, readlag_msd_norm, readlag_mth_norm, readlag_mfo_norm);
+        printf( "dbg:: Pack: %10d %10.3e %10.3e %10.3e %10.3e %10.3e\n", packsize_sum,
+          packsize_mean, packsize_max, packsize_msd_norm, packsize_mth_norm, packsize_mfo_norm);
+        printf( "dbg:: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", xfrate_sum,
+          xfrate_mean, xfrate_max, xfrate_msd_norm, xfrate_mth_norm, xfrate_mfo_norm);
+#endif
+
+        if( npackets < 2)
+        {
+            profile->readlag_norm_stdev = 0.0;
+            profile->packsize_norm_stdev = 0.0;
+            profile->xfrate_norm_stdev = 0.0;
+            profile->readlag_norm_skew = 0.0;
+            profile->packsize_norm_skew = 0.0;
+            profile->xfrate_norm_skew = 0.0;
+            profile->readlag_norm_kurt = 0.0;
+            profile->packsize_norm_kurt = 0.0;
+            profile->xfrate_norm_kurt = 0.0;
+	}
+        else
+        {
+            /* When calculating the variance/stdev from a sample popultion you divide by N-1 */
+            adj = (float) npackets - 1;
+            profile->packsize_norm_stdev = sqrt( packsize_msd_norm / adj);
+            profile->readlag_norm_stdev = sqrt( readlag_msd_norm / adj);
+            if( npackets == 2) profile->xfrate_norm_stdev = 0.0;
+            else profile->xfrate_norm_stdev = sqrt( xfrate_msd_norm / (adj - 1.0));
+
+            if( npackets < 3)
+            {
+                profile->packsize_norm_skew = 0.0;
+                profile->readlag_norm_skew = 0.0;
+                profile->xfrate_norm_skew = 0.0;
+                profile->packsize_norm_kurt = 0.0;
+                profile->readlag_norm_kurt = 0.0;
+                profile->xfrate_norm_kurt = 0.0;
+	    }
+            else
+            {
+                adj = (float) (npackets) / (float) ((npackets - 1) * (npackets - 2));
+                profile->packsize_norm_skew = adj * (packsize_mth_norm / pow( profile->packsize_norm_stdev, 3.0));
+                profile->readlag_norm_skew = adj * (readlag_mth_norm / pow( profile->readlag_norm_stdev, 3.0));
+
+                if( npackets < 4) profile->xfrate_norm_skew = 0.0;
+                else
+                {
+                    adj = (float) (npackets - 1) / (float) ((npackets - 2) * (npackets - 3));
+                    profile->xfrate_norm_skew = adj * (xfrate_mth_norm / pow( profile->xfrate_norm_stdev, 3.0));
+		}
+
+                if( npackets < 4)
+                {
+                    profile->packsize_norm_kurt = 0.0;
+                    profile->readlag_norm_kurt = 0.0;
+                    profile->xfrate_norm_kurt = 0.0;
+		}
+                else
+                {
+                    samp_sz = (float) npackets;
+                    samp_div = samp_sz - 1.0;
+                    adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
+                    adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
+
+                    variance = packsize_msd_norm / samp_div;
+                    profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
+#ifdef SHOW_DEBUG_STATS_CALCS
+                    printf( "dbg:: Stat: What: AdjFactor1 MFoDiffSum   Variance AdjFactor2       Kurt\n");
+                    printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
+                    printf( "dbg:: Kurt: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, packsize_mfo_norm,
+                      variance, adj2, profile->packsize_norm_kurt);
+#endif
+
+                    variance = readlag_msd_norm / samp_div;
+                    profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
+#ifdef SHOW_DEBUG_STATS_CALCS
+                    printf( "dbg:: Kurt: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, readlag_mfo_norm,
+                      variance, adj2, profile->readlag_norm_kurt);
+#endif
+
+                    if( npackets < 5) profile->xfrate_norm_kurt = 0.0;
+                    else
+                    {
+                        samp_sz = (float) (npackets - 1);
+                        samp_div = samp_sz - 1.0;
+                        adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
+                        adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
+
+                        variance = xfrate_msd_norm / samp_div;
+                        profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
+#ifdef SHOW_DEBUG_STATS_CALCS
+                        printf( "dbg:: Kurt: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mfo_norm,
+                          variance, adj2, profile->xfrate_norm_kurt);
+#endif
+                    }
+		}
+
+#ifdef SHOW_DEBUG_STATS_CALCS
+                printf( "dbg:: Stat: What: AdjFactor1 MThDiffSum     StdDev   StDev**3       Skew\n");
+                printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
+                printf( "dbg:: Skew: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
+                  (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), readlag_mth_norm,
+                  profile->readlag_norm_stdev, pow( profile->readlag_norm_stdev, 3.0), profile->readlag_norm_skew);
+                printf( "dbg:: Skew: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
+                  (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), packsize_mth_norm,
+                  profile->packsize_norm_stdev, pow( profile->packsize_norm_stdev, 3.0), profile->packsize_norm_skew);
+                printf( "dbg:: Skew: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mth_norm,
+                  profile->xfrate_norm_stdev, pow( profile->xfrate_norm_stdev, 3.0), profile->xfrate_norm_skew);
+#endif
+	    }
+	}
+
+        profile->packsize_mean = packsize_mean;
+        profile->readlag_mean = readlag_mean;
+        profile->xfrate_mean = xfrate_mean;
+        profile->lookup_sum += profile->lookup_time;
+        profile->connect_sum += profile->connect_time - profile->lookup_time;
+        profile->request_sum += profile->request_time - profile->connect_time;
+        profile->response_sum += profile->response_time - profile->request_time;
+        profile->close_sum += profile->complete_time - profile->response_time;
+        profile->complete_sum += profile->complete_time;
+        profile->xfer_sum += status->response_len;
+        profile->packsize_stdev_sum += profile->packsize_norm_stdev;
+        profile->packsize_skew_sum += profile->packsize_norm_skew;
+        profile->packsize_kurt_sum += profile->packsize_norm_kurt;
+        profile->readlag_stdev_sum += profile->readlag_norm_stdev;
+        profile->readlag_skew_sum += profile->readlag_norm_skew;
+        profile->readlag_kurt_sum += profile->readlag_norm_kurt;
+        profile->xfrate_stdev_sum += profile->xfrate_norm_stdev;
+        profile->xfrate_skew_sum += profile->xfrate_norm_skew;
+        profile->xfrate_kurt_sum += profile->xfrate_norm_kurt;
+    }
+
+    if( packsize) free( packsize);
+    if( readlag) free( readlag);
+    if( xfrate) free( xfrate);
+
+    return;
+}
+
+/* --- */
+
 void parse_payload( int *rc, struct plan_data *plan)
 
 {
@@ -1018,18 +1416,19 @@ void parse_payload( int *rc, struct plan_data *plan)
 void display_output( int *rc, struct plan_data *plan, int iter)
 
 {
-    int seq = 0, packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
-      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, scaled_off = 0;
+    int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
+      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+      xfer_mean = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
-    float elap = 0.0, scaled_rate = 0.0, nloop = 0.0;
-    char *pos = 0, *last_pos = 0;
-    char disp_time[ TIME_DISPLAY_SIZE], *scaled_unit = "bkmg";
+    float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
+    char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark;
+    char disp_time[ TIME_DISPLAY_SIZE];
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct exec_controls *runex = 0;
-    struct ckpt_chain *walk = 0, *start = 0, *before = 0;
-    static struct summary_stats stats;
+    struct ckpt_chain *walk = 0, *before = 0;
+    struct summary_stats *profile = 0;
     struct data_block *detail = 0;
     struct display_settings *display = 0;
     struct payload_breakout *breakout = 0;
@@ -1038,28 +1437,12 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
     if( *rc == RC_NORMAL)
     {
-        stats.lookup_time = 0.0;
-        stats.connect_time = 0.0;
-        stats.request_time = 0.0;
-        stats.response_time = 0.0;
-        stats.complete_time = 0.0;
-
-        if( iter == 1)
-        {
-            stats.lookup_sum = 0.0;
-            stats.connect_sum = 0.0;
-            stats.request_sum = 0.0;
-            stats.response_sum = 0.0;
-            stats.close_sum = 0.0;
-            stats.complete_sum = 0.0;
-            stats.xfer_sum = 0;
-        }
-
         status = plan->status;
         out = plan->out;
         display = plan->disp;
         runex = plan->run;
         breakout = plan->partlist;
+        profile = plan->profile;
         top = (long) (1.0 / status->clock_res);
         head_spot = breakout->head_spot;
     }
@@ -1087,38 +1470,30 @@ void display_output( int *rc, struct plan_data *plan, int iter)
  	}
     }
 
-    if( *rc == RC_NORMAL)
-    {
-        walk = status->checkpoint;
-
-        for( ; walk; walk = walk->next)
-        {
-            if( start) elap = calc_time_difference( &start->clock, &walk->clock, status->clock_res);
-            else elap = 0.0;
-
-            if( walk->event == EVENT_START_FETCH) start = walk;
-            else if( walk->event == EVENT_DNS_LOOKUP) stats.lookup_time = elap;
-            else if( walk->event == EVENT_CONNECT_SERVER) stats.connect_time = elap;
-            else if( walk->event == EVENT_REQUEST_SENT) stats.request_time = elap;
-            else if( walk->event == EVENT_FIRST_RESPONSE) stats.response_time = elap;
-            else if( walk->event == EVENT_READ_ALL_DATA) stats.complete_time = elap;
-	}
-    }
-
     if( *rc == RC_NORMAL && display->show_timers)
     {
         if( iter == 1 && display->show_timerheaders)
         {
-            if( display->show_number) fprintf( out->info_out, TIME_SUMMARY_HEADER_WITH_SEQ);
-            else fprintf( out->info_out, TIME_SUMMARY_HEADER);
+            if( display->show_number)
+            {
+                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_1, TIME_SUMMARY_HEADER_1);
+                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_2, TIME_SUMMARY_HEADER_2);
+                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_3, TIME_SUMMARY_HEADER_3);
+	    }
+            else
+            {
+                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_1);
+                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_2);
+                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_3);
+	    }
 	}
 
-        scaled_rate = ((float) status->response_len) / stats.complete_time;
-
-        for( scaled_off = 0; *(scaled_unit + scaled_off) && scaled_rate >= 1000.; )
+        if( profile->complete_time) totrate = get_scaled_number( &totrate_mark,
+          (float) status->response_len / (float) profile->complete_time);
+        else
         {
-            scaled_rate /= 1024.0;
-            scaled_off++;
+            totrate = 0.0;
+            totrate_mark = 'b';
 	}
 
         (void) localtime_r( &status->wall_start, &local_wall_start);
@@ -1130,21 +1505,35 @@ void display_output( int *rc, struct plan_data *plan, int iter)
             status->err_msg = strdup( "TEMP EMSG: Call to strftime() failed.");
             *rc = ERR_SYS_CALL;
 	}
+    }
 
-        if( *rc == RC_NORMAL)
+    if( *rc == RC_NORMAL && display->show_timers)
+    {
+        dns_ms = lroundf( profile->lookup_time * 1000.0);
+        conn_ms = lroundf( (profile->connect_time - profile->lookup_time) * 1000.0);
+        send_ms = lroundf( (profile->request_time - profile->connect_time) * 1000.0);
+        resp_ms = lroundf( (profile->response_time - profile->request_time) * 1000.0);
+        close_ms = lroundf( (profile->complete_time - profile->response_time) * 1000.0);
+        complete_ms = lroundf( profile->complete_time * 1000.0);
+
+        if( profile->complete_time - profile->response_time)
         {
-            dns_ms = lroundf( stats.lookup_time * 1000.0);
-            conn_ms = lroundf( (stats.connect_time - stats.lookup_time) * 1000.0);
-            send_ms = lroundf( (stats.request_time - stats.connect_time) * 1000.0);
-            resp_ms = lroundf( (stats.response_time - stats.request_time) * 1000.0);
-            close_ms = lroundf( (stats.complete_time - stats.response_time) * 1000.0);
-            complete_ms = lroundf( stats.complete_time * 1000.0);
-
-            if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
-            fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %5.1f%c\n",
-              disp_time, 999, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-              status->response_len, scaled_rate, *(scaled_unit + scaled_off));
+            datarate = get_scaled_number( &datarate_mark,
+              status->response_len / (profile->complete_time - profile->response_time));
 	}
+        else
+        {
+            datarate_mark = 'b';
+            datarate = 0.0;
+	}
+
+        if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
+        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+          disp_time, 999, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+          status->response_len, totrate, totrate_mark, datarate, datarate_mark,
+          profile->packsize_norm_stdev, profile->packsize_norm_skew, profile->packsize_norm_kurt,
+          profile->readlag_norm_stdev, profile->readlag_norm_skew, profile->readlag_norm_kurt,
+          profile->xfrate_norm_stdev, profile->xfrate_norm_skew, profile->xfrate_norm_kurt);
     }
 
     if( *rc == RC_NORMAL && display->show_packetime)
@@ -1152,12 +1541,14 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
         fprintf( out->info_out, "Packets:");
 
-        before = walk = status->checkpoint;
+        before = 0;
+        walk = status->checkpoint;
 
         for( ; walk; walk = walk->next)
         {
-            if( walk->event != EVENT_BLANK)
+            if( walk->event == EVENT_READ_PACKET && walk->detail)
             {
+                if( !before) before = walk;
                 elap = calc_time_difference( &before->clock, &walk->clock, status->clock_res);
 
                 prev_sec = now_sec;
@@ -1174,53 +1565,71 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                     diff_sub += top;
                 }
 
-                if( walk->detail && display->show_packetime)
-                {
-                    packlen = walk->detail->len;
-                    seq++;
-                    fprintf( out->info_out, " %ld/%d", lroundf( elap * 1000.0), packlen);
-		}
-	    }
+                packlen = walk->detail->len;
+                fprintf( out->info_out, " %ld/%d", lroundf( elap * 1000000.0), packlen);
 
-            before = walk;
+                before = walk;
+	    }
 	}
         fprintf( out->info_out, "\n");
     }
 
     if( *rc == RC_NORMAL && display->show_timers)
     {
-        stats.lookup_sum += stats.lookup_time;
-        stats.connect_sum += stats.connect_time - stats.lookup_time;
-        stats.request_sum += stats.request_time - stats.connect_time;
-        stats.response_sum += stats.response_time - stats.request_time;
-        stats.close_sum += stats.complete_time - stats.response_time;
-        stats.complete_sum += stats.complete_time;
-        stats.xfer_sum += status->response_len;
-
         if( iter == runex->loop_count)
         {
             nloop = runex->loop_count / 1000.0;
 
-            dns_ms = lroundf( stats.lookup_sum / nloop);
-            conn_ms = lroundf( stats.connect_sum / nloop);
-            send_ms = lroundf( stats.request_sum / nloop);
-            resp_ms = lroundf( stats.response_sum / nloop);
-            close_ms = lroundf( stats.complete_sum / nloop);
-            complete_ms = lroundf( stats.complete_sum / nloop);
-
-            scaled_rate = ((float) stats.xfer_sum) / stats.complete_sum;
-
-            for( scaled_off = 0; *(scaled_unit + scaled_off) && scaled_rate >= 1000.; )
+            if( !nloop) 
             {
-                scaled_rate /= 1024.0;
-                scaled_off++;
-            }
+                dns_ms = 0;
+                conn_ms = 0;
+                send_ms = 0;
+                resp_ms = 0;
+                close_ms = 0;
+                complete_ms = 0;
+                xfer_mean = 0;
+	    }
+            else
+            {
+                dns_ms = lroundf( profile->lookup_sum / nloop);
+                conn_ms = lroundf( profile->connect_sum / nloop);
+                send_ms = lroundf( profile->request_sum / nloop);
+                resp_ms = lroundf( profile->response_sum / nloop);
+                close_ms = lroundf( profile->close_sum / nloop);
+                complete_ms = lroundf( profile->complete_sum / nloop);
+                xfer_mean = profile->xfer_sum / runex->loop_count;
+	    }
 
+            if( !profile->complete_sum)
+            {
+                totrate = 0.0;
+                totrate_mark = 'b';
+	    }
+            else totrate = get_scaled_number( &totrate_mark,
+              (float) profile->xfer_sum / profile->complete_sum);
+
+            if( !(profile->complete_sum - profile->response_sum))
+            {
+                datarate_mark = 'b';
+                datarate = 0.0;
+            }
+            else
+            {
+                pre_response = profile->lookup_sum + profile->connect_sum + profile->request_sum + profile->response_sum;
+                datarate = get_scaled_number( &datarate_mark,
+                  profile->xfer_sum / (profile->complete_sum - pre_response));
+	    }
+
+            nloop = (float) runex->loop_count;
             fprintf( out->info_out, "Average values: ");
             if( display->show_number) fprintf( out->info_out, "  ---");
-            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %5.1f%c\n",
+            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
               dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-              stats.xfer_sum / runex->loop_count, scaled_rate, *(scaled_unit + scaled_off));
+              xfer_mean, totrate, totrate_mark, datarate, datarate_mark,
+              profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
+              profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
+              profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
         }
     }
 
@@ -1396,6 +1805,7 @@ struct plan_data *allocate_plan_data()
     struct fetch_status *status = 0;
     struct ckpt_chain *checkpoint = 0;
     struct payload_breakout *breakout = 0;
+    struct summary_stats *profile = 0;
 
     /* --- */
 
@@ -1441,7 +1851,13 @@ struct plan_data *allocate_plan_data()
     if( !error)
     {
         breakout = (struct payload_breakout *) malloc( sizeof *breakout);
-        if( !checkpoint) error = 1;
+        if( !breakout) error = 1;
+    }
+
+    if( !error)
+    {
+        profile = (struct summary_stats *) malloc( sizeof *profile);
+        if( !profile) error = 1;
     }
 
     if( error)
@@ -1454,6 +1870,7 @@ struct plan_data *allocate_plan_data()
         if( status) free( status);
         if( checkpoint) free( checkpoint);
         if( breakout) free( breakout);
+        if( profile) free(profile);
         plan = 0;
     }
     else
@@ -1470,6 +1887,7 @@ struct plan_data *allocate_plan_data()
         plan->out = out;
         plan->status = status;
         plan->partlist = breakout;
+        plan->profile = profile;
 
         target->http_host = 0;
         target->conn_host = 0;
@@ -1534,6 +1952,39 @@ struct plan_data *allocate_plan_data()
         status->lastcheck = checkpoint;
 
         breakout->head_spot = 0;
+
+        profile->xfer_sum = 0;
+        profile->lookup_time = 0.0;
+        profile->lookup_sum = 0.0;
+        profile->connect_time = 0.0;
+        profile->connect_sum = 0.0;
+        profile->request_time = 0.0;
+        profile->request_sum = 0.0;
+        profile->response_time = 0.0;
+        profile->response_sum = 0.0;
+        profile->close_sum = 0.0;
+        profile->complete_time = 0.0;
+        profile->complete_sum = 0.0;
+        profile->packsize_mean = 0.0;
+        profile->xfrate_mean = 0.0;
+        profile->packsize_norm_stdev = 0.0;
+        profile->readlag_norm_stdev = 0.0;
+        profile->xfrate_norm_stdev = 0.0;
+        profile->packsize_norm_skew = 0.0;
+        profile->readlag_norm_skew = 0.0;
+        profile->xfrate_norm_skew = 0.0;
+        profile->packsize_norm_kurt = 0.0;
+        profile->readlag_norm_kurt = 0.0;
+        profile->xfrate_norm_kurt = 0.0;
+        profile->packsize_stdev_sum = 0.0;
+        profile->packsize_skew_sum = 0.0;
+        profile->packsize_kurt_sum = 0.0;
+        profile->readlag_stdev_sum = 0.0;
+        profile->readlag_skew_sum = 0.0;
+        profile->readlag_kurt_sum = 0.0;
+        profile->xfrate_stdev_sum = 0.0;
+        profile->xfrate_skew_sum = 0.0;
+        profile->xfrate_kurt_sum = 0.0;
     }
 
     return( plan);
