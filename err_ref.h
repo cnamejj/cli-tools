@@ -82,6 +82,7 @@ char *cli_strerror( int);
 #define ERR_POLL_FAILED 157
 #define ERR_UNSUPPORTED 158
 #define ERR_OPT_CONFIG 159
+#define ERR_NOTHING_LEFT 160
 
 #define ERRMSG_BAD_DEST "Destination '%s' invalid, expected 'host:port'."
 #define ERRMSG_GETHOST_FAILED "Hostname '%s' could not be resolved to an acceptable IP address."
@@ -171,6 +172,7 @@ static struct err_info err_msg_list[] = {
    { ERR_POLL_FAILED, "Call to poll() failed"},
    { ERR_UNSUPPORTED, "Unsupported condition detected."},
    { ERR_OPT_CONFIG, "Configuration error."},
+   { ERR_NOTHING_LEFT, "Nothing left to do."},
 };
 
 /* --- */

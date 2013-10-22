@@ -22,7 +22,6 @@
  * - Options: html, auth, proxy, connthru
  */
 
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -67,6 +66,39 @@ void debug_timelog( char *tag)
 
     prev.tv_sec = now.tv_sec;
     prev.tv_usec = now.tv_usec;
+
+    return;
+}
+
+/* --- */
+
+void display_entry_form()
+
+{
+    int complete = 0;
+    char *server_name = 0, *server_port = 0, *script_name = 0, *sep = COLON_ST;
+
+    server_name = getenv( ENV_SERVER_NAME);
+    server_port = getenv( ENV_SERVER_PORT);
+    script_name = getenv( ENV_SCRIPT_NAME);
+
+    if( !server_name || !server_port || !script_name) complete = 0;
+    else if( !*server_name || !*server_port || !*script_name) complete = 0;
+    else
+    {
+        complete = 1;
+
+        if( !strcmp( server_port, DEFAULT_HTTP_PORT))
+        {
+            sep = EMPTY_ST;
+            server_port = EMPTY_ST;
+        }
+    }
+
+    if( complete ) printf( HTTP_FORM_TEMPLATE, server_name, sep, server_port, script_name);
+    else printf( "%s\n", HTTP_FORM_GEN_ERROR);
+
+    /* --- */
 
     return;
 }
@@ -2011,7 +2043,7 @@ struct plan_data *allocate_plan_data()
 
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
-    int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0;
+    int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -2078,6 +2110,15 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
             out->err_out = stdout;
             fprintf( out->info_out, "%s\n", HTML_RESP_HEADER);
             cgi_data = get_cgi_data( &rc);
+            if( !cgi_data) show_form = 1;
+            else if( !*cgi_data) show_form = 1;
+            if( show_form)
+            {
+                display_entry_form();
+                status->last_state |= LS_HTML_FORM_SENT;
+                show_form = 1;
+                rc = ERR_NOTHING_LEFT;
+	    }
             if( rc == RC_NORMAL) extra_opts = parse_cgi_options( &rc, opset, nflags, cgi_data);
 	}
         else
@@ -2348,6 +2389,8 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
     if( rc == RC_NORMAL && runex->loop_count < 1) runex->loop_count = 1;
 
+    *returncode = rc;
+
     /* --- */
 
     return( plan);
@@ -2512,6 +2555,8 @@ int main( int narg, char **opts)
     if( rc == RC_NORMAL) rc = execute_fetch_plan( plan);
 
     /* --- */
+
+    if( rc == ERR_NOTHING_LEFT) rc = RC_NORMAL;
 
     if( rc != RC_NORMAL)
     {
