@@ -8,6 +8,8 @@
  * ---
  * - Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
  * results in a malloc() failed error, which makes no sense.
+ * - Any unrecognized options seem to cause a "oops, core dump" error exit
+ * - Specifying "-header" shows data and header, which isn't correct
  *
  * Features:
  * ---
@@ -270,7 +272,7 @@ int find_connection( struct plan_data *plan)
                     if( !target->conn_uri) rc = ERR_MALLOC_FAILED;
                     else
                     {
-                        *target->conn_uri = '\0';
+                        *target->conn_uri = EOS_CH;
                         if( parts->uri) strcat( target->conn_uri, parts->uri);
                         strcat( target->conn_uri, QUERY_DELIM);
                         strcat( target->conn_uri, parts->query);
@@ -459,7 +461,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 
     if( *rc == RC_NORMAL)
     {
-        memset( display_ip, '\0', (sizeof display_ip));
+        memset( display_ip, EOS_CH, (sizeof display_ip));
         target = plan->target;
         status = plan->status;
         out = plan->out;
@@ -641,8 +643,8 @@ void connect_to_server( int *rc, struct plan_data *plan)
     struct sockaddr_in sock4;
     struct sockaddr_in6 sock6;
 
-    memset( &sock4, '\0', sizeof sock4);
-    memset( &sock6, '\0', sizeof sock6);
+    memset( &sock4, EOS_CH, sizeof sock4);
+    memset( &sock6, EOS_CH, sizeof sock6);
 
     if( *rc == RC_NORMAL)
     {
@@ -964,7 +966,7 @@ void pull_response( int *rc, struct plan_data *plan)
                     {
                         fprintf( out->info_out, "Read %d bytes (", packlen);
                         for( pos = buff; pos < buff + packlen; pos++)
-                          if( isprint( *pos) || *pos == '\n') fputc( *pos, out->info_out);
+                          if( isprint( *pos) || *pos == LF_CH) fputc( *pos, out->info_out);
                           else fprintf( out->info_out, "<%02X>", *pos);
                         fprintf( out->info_out, ")\n");
 		    }
@@ -994,8 +996,8 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 {
     char *fence = 0, *pos = 0, *last = 0;
-    char *sng_pos = 0, sng_patt[ 3] = { '\n', '\n', '\0' };
-    char *dbl_pos = 0, dbl_patt[ 5] = { '\r', '\n', '\r', '\n', '\0' };
+    char *sng_pos = 0, sng_patt[ 3] = { LF_CH, LF_CH, EOS_CH };
+    char *dbl_pos = 0, dbl_patt[ 5] = { CR_CH, LF_CH, CR_CH, LF_CH, EOS_CH };
     struct ckpt_chain *walk = 0;
     struct data_block *detail = 0;
     struct chain_position *result = 0;
@@ -1438,11 +1440,196 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
 /* --- */
 
+char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct ckpt_chain *en_block,
+  char *en_pos)
+
+{
+    int size = 0, partial;
+    char *line = 0, *st = 0;
+    struct ckpt_chain *walk = 0;
+
+    if( st_block == en_block)
+    {
+        size = (en_pos - st_pos);
+        if( size <= 0) size = 0;
+        else size++;
+    }
+    else
+    {
+        size = st_block->detail->len - (st_pos - st_block->detail->data);
+        if( size < 0) size = 0;
+        
+        if( size) for( walk = st_block->next; walk && walk != en_block; walk = walk->next)
+          if( walk->detail) size += walk->detail->len;
+
+        if( size)
+        {
+            partial = en_pos - en_block->detail->data;
+            if( partial < 0) size = 0;
+            else size += partial + 1;
+        }
+    }
+
+    if( size)
+    {
+        line = (char *) malloc( size + 1);
+    }
+
+    if( line)
+    {
+        if( st_block == en_block)
+        {
+            memcpy( line, st_pos, size);
+            *(line + size) = EOS_CH;
+	}
+        else
+        {
+            partial = st_block->detail->len - (st_pos - st_block->detail->data);
+            st = line;
+            memcpy( st, st_pos, partial);
+            st+= partial;
+
+            for( walk = st_block->next; walk && walk != en_block; walk = walk->next)
+            {
+                if( walk->detail)
+                {
+                    memcpy( st, walk->detail->data, walk->detail->len);
+                    st += walk->detail->len;
+                }
+            }
+
+            partial = en_pos - en_block->detail->data + 1;
+            memcpy( st, en_block->detail->data, partial);
+            st += partial;
+            *st = EOS_CH;
+	}
+    }
+
+    return( line);
+}
+
+/* --- */
+
+int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout)
+
+{
+    int result = RC_NORMAL, nhead, datalen, off;
+int dbg_size = 0;
+char *dbg_st = 0;
+struct data_block *dbg_xx = 0;
+    char *st = 0, *eoh = 0, *st_pos = 0, *line = 0, *pos = 0;
+    struct ckpt_chain *walk = 0, *st_block = 0;
+    struct data_block *headset = 0;
+
+    if( !chain || !breakout) result = ERR_UNSUPPORTED;
+    else
+    {
+        eoh = breakout->head_spot->position;
+
+        walk = chain;
+        nhead = 0;
+
+        for( st = 0; st != eoh; )
+        {
+            if( walk->detail)
+            {
+                st = walk->detail->data;
+                datalen = walk->detail->len;
+                for( off = 0; off <= datalen && walk; off++)
+                {
+                    if( *st == LF_CH) nhead++;
+                    if( st == eoh) walk = 0;
+                    else st++;
+		}
+	    }
+
+            if( st != eoh && walk) walk = walk->next;
+	}
+
+        if( !nhead) result = ERR_UNSUPPORTED;
+        else
+        {
+/*
+dbg_size = (sizeof *headset);
+printf( "dbg:: headers:%d data-block-size:%d total:%d\n", nhead, dbg_size, dbg_size * nhead);
+ */
+            headset = (struct data_block *) malloc( (sizeof *headset) * nhead);
+/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "dbg:: pre--set %d. address:%p data:%p len:%d \n", off, dbg_xx, dbg_xx->data, dbg_xx->len); */
+            if( !headset) result = ERR_MALLOC_FAILED;
+            else for( off = 0; off < nhead; off++)
+            {
+                (headset + off)->len = 0;
+                (headset + off)->data = 0;
+	    }
+/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "dbg:: post-set %d. address:%p data:%p len:%d \n", off, dbg_xx, dbg_xx->data, dbg_xx->len); */
+	}
+
+        walk = chain;
+        st_block = 0;
+        st_pos = 0;
+        nhead = 0;
+
+        for( st = 0; result == RC_NORMAL && st != eoh; )
+        {
+            if( walk->detail)
+            {
+                st = walk->detail->data;
+                datalen = walk->detail->len;
+                for( off = 0; off <= datalen && walk; off++)
+                {
+                    if( !st_block)
+                    {
+                        st_block = walk;
+                        st_pos = st;
+		    }
+
+                    if( *st == LF_CH)
+                    {
+                        line = string_from_data_blocks( st_block, st_pos, walk, st);
+                        if( !line)
+                        {
+                            walk = 0;
+                            result = ERR_MALLOC_FAILED;
+			}
+                        else
+                        {
+                            pos = index( line, CR_CH);
+                            if( pos) *pos = EOS_CH;
+                            pos = index( line, LF_CH);
+                            if( pos) *pos = EOS_CH;
+                            (headset + nhead)->data = line;
+                            (headset + nhead)->len = strlen( line);
+                            nhead++;
+
+                            st_block = 0;
+                            st_pos = 0;
+			}
+                    }
+
+                    if( st == eoh) walk = 0;
+                    else st++;
+                }
+            }
+
+            if( st != eoh && walk) walk = walk->next;
+        }
+
+        breakout->n_headers = nhead;
+        breakout->header_line = headset;
+    }
+
+    return( result);
+}
+
+/* --- */
+
 void parse_payload( int *rc, struct plan_data *plan)
 
 {
+    int off, nh;
     struct fetch_status *status = 0;
     struct payload_breakout *breakout = 0;
+    struct data_block *header;
 
     if( *rc == RC_NORMAL)
     {
@@ -1455,6 +1642,17 @@ void parse_payload( int *rc, struct plan_data *plan)
             status->err_msg = strdup( "TEMP EMSG: Can't find the end of the HTTP header.");
             *rc = ERR_UNSUPPORTED;
 	}
+    }
+
+    if( *rc == RC_NORMAL) *rc = split_out_header_lines( status->checkpoint, breakout);
+
+    if( *rc == RC_NORMAL)
+    {
+        nh = breakout->n_headers;
+        header = breakout->header_line;
+
+        if( plan->out->debug_level >= DEBUG_MEDIUM2) for( off = 0; off < nh; off++)
+          fprintf( plan->out->info_out, "%d. Header '%s'\n", off, (header + off)->data);
     }
 
     return;
@@ -1546,7 +1744,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 	}
 
         (void) localtime_r( &status->wall_start, &local_wall_start);
-        disp_time[ 0] = '\0';
+        disp_time[ 0] = EOS_CH;
         sysrc = strftime( disp_time, disp_time_len, TIME_DISPLAY_FORMAT, &local_wall_start);
         if( !sysrc)
         {
@@ -1755,7 +1953,7 @@ int construct_request( struct plan_data *plan)
         if( !ex_headers) rc = ERR_MALLOC_FAILED;
         else
         {
-            *ex_headers = '\0';
+            *ex_headers = EOS_CH;
 
             chain = target->extra_headers;
             for( ; chain; chain = chain->next)
@@ -2001,6 +2199,8 @@ struct plan_data *allocate_plan_data()
         status->lastcheck = checkpoint;
 
         breakout->head_spot = 0;
+        breakout->n_headers = 0;
+        breakout->header_line = 0;
 
         profile->xfer_sum = 0;
         profile->lookup_time = 0.0;
@@ -2165,7 +2365,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
             if( !unrecognized) rc = ERR_MALLOC_FAILED;
             else
             {
-                *unrecognized = '\0';
+                *unrecognized = EOS_CH;
                 for( walk = extra_opts; walk; )
                 {
                     if( walk->opt) strcat( unrecognized, walk->opt);
@@ -2337,13 +2537,13 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         st = index( target->auth_user, COLON_CH);
         if( st)
         {
-            *st = '\0';
+            *st = EOS_CH;
             target->auth_passwd = strdup( st + 1);
         }
         else
         {
             target->auth_passwd = (char *) malloc( 1);
-            if( target->auth_passwd) *target->auth_passwd = '\0';
+            if( target->auth_passwd) *target->auth_passwd = EOS_CH;
         }
         if( !target->auth_passwd) rc = ERR_MALLOC_FAILED;
     }

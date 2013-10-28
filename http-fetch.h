@@ -433,6 +433,8 @@ struct fetch_status {
 };
 
 struct payload_breakout {
+  int n_headers;
+  struct data_block *header_line;
   struct chain_position *head_spot;
 };
 
@@ -522,6 +524,11 @@ void debug_timelog( char *tag);
 float get_scaled_number( char *mark, float figure);
 
 void display_entry_form();
+
+int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout);
+
+char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct ckpt_chain *en_block,
+  char *en_pos);
 
 /* --- */
 
