@@ -219,8 +219,10 @@ int is_ipv6_address( char *ip);
 
 void print_option_settings( FILE *out, int nflags, struct option_set *opset);
 
+char *dup_memory( char *start, char *end);
+
+float get_scaled_number( char *mark, float figure);
+
 /* --- */
 
 #endif
-
-

@@ -361,6 +361,11 @@ The run plan needs to have these fields:
 
 /* --- */
 
+struct http_status_response {
+  int code;
+  char *version, *reason;
+};
+
 struct summary_stats {
   int xfer_sum;
   float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
@@ -436,6 +441,7 @@ struct payload_breakout {
   int n_headers;
   struct data_block *header_line;
   struct chain_position *head_spot;
+  struct http_status_response *response_status;
 };
 
 struct plan_data {
@@ -521,14 +527,16 @@ struct chain_position *find_header_break( struct ckpt_chain *chain);
 
 void debug_timelog( char *tag);
 
-float get_scaled_number( char *mark, float figure);
-
 void display_entry_form();
 
 int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout);
 
 char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct ckpt_chain *en_block,
   char *en_pos);
+
+int parse_http_response( struct payload_breakout *breakout);
+
+struct http_status_response *parse_http_status( char *line);
 
 /* --- */
 

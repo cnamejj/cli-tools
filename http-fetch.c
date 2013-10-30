@@ -6,10 +6,6 @@
 /*
  * Bugs:
  * ---
- * - Use case: ./http-fetch -debug 1 -url www.nihilon.com -bogus
- * results in a malloc() failed error, which makes no sense.
- * - Any unrecognized options seem to cause a "oops, core dump" error exit
- * - Specifying "-header" shows data and header, which isn't correct
  *
  * Features:
  * ---
@@ -20,6 +16,7 @@
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
  * - Display both total bytes transfered and payload bytes with "-time" option
  * - For CGI calls, use "iframes" with "srcdoc=" to display the fetched page
+ * - Should have an option to follow redirects
  *
  * - Options: html, auth, proxy, connthru
  */
@@ -103,26 +100,6 @@ void display_entry_form()
     /* --- */
 
     return;
-}
-
-/* --- */
-
-float get_scaled_number( char *mark, float figure)
-
-{
-    int off;
-    char *scaled_unit = "bkmg";
-    float scaled_figure = figure;
-
-    for( off = 0; *(scaled_unit + off) && scaled_figure >= 1000.; )
-    {
-        scaled_figure /= 1024.0;
-        off++;
-    }
-
-    if( mark) *mark = *(scaled_unit + off);
-
-    return( scaled_figure);
 }
 
 /* --- */
@@ -1514,9 +1491,11 @@ int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *b
 
 {
     int result = RC_NORMAL, nhead, datalen, off;
+/*
 int dbg_size = 0;
 char *dbg_st = 0;
 struct data_block *dbg_xx = 0;
+ */
     char *st = 0, *eoh = 0, *st_pos = 0, *line = 0, *pos = 0;
     struct ckpt_chain *walk = 0, *st_block = 0;
     struct data_block *headset = 0;
@@ -1623,6 +1602,83 @@ printf( "dbg:: headers:%d data-block-size:%d total:%d\n", nhead, dbg_size, dbg_s
 
 /* --- */
 
+struct http_status_response *parse_http_status( char *line)
+
+{
+    int code, err = 0;
+    char *st = 0, *delim = 0, *pos = 0;
+    struct http_status_response *resp = 0;
+
+    resp = (struct http_status_response *) malloc( sizeof *resp);
+    if( resp)
+    {
+        resp->code = 0;
+        resp->version = 0;
+        resp->reason = 0;
+
+        delim = index( line, BLANK_CH);
+        st = dup_memory( line, delim - 1);
+        if( st)
+        {
+            resp->version = st;
+
+            pos = delim + 1;
+            delim = index( pos, BLANK_CH);
+            st = dup_memory( pos, delim - 1);
+            if( st)
+            {
+                code = strtol( st, &pos, 10);
+                if( !pos) err = 1;
+                else if( *pos) err = 1;
+                else
+                {
+                    resp->code = code;
+                    pos = strdup( delim + 1);
+                    if( pos) resp->reason = pos;
+		}
+
+                free( st);
+	    }
+        }
+
+        if( !resp->version || !resp->reason || err)
+        {
+            if( resp->version) free( resp->version);
+            if( resp->reason) free( resp->reason);
+            free( resp);
+            resp = 0;
+	}
+    }
+
+    return( resp);
+}
+
+/* --- */
+
+int parse_http_response( struct payload_breakout *breakout)
+
+{
+    int result = RC_NORMAL;
+    char *response = 0;
+
+    if( !breakout) result = ERR_UNSUPPORTED;
+    else
+    {
+        response = breakout->header_line->data;
+        if( !response) result = ERR_UNSUPPORTED;
+        else if( !*response) result = ERR_UNSUPPORTED;
+        else
+        {
+            breakout->response_status = parse_http_status( response);
+            if( !breakout->response_status) result = ERR_UNSUPPORTED;
+	}
+    }
+
+    return( result);
+}
+
+/* --- */
+
 void parse_payload( int *rc, struct plan_data *plan)
 
 {
@@ -1655,6 +1711,8 @@ void parse_payload( int *rc, struct plan_data *plan)
           fprintf( plan->out->info_out, "%d. Header '%s'\n", off, (header + off)->data);
     }
 
+    if( *rc == RC_NORMAL) *rc = parse_http_response( breakout);
+
     return;
 }
 
@@ -1665,7 +1723,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 {
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-      xfer_mean = 0;
+      xfer_mean = 0, http_rc;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
@@ -1774,9 +1832,12 @@ void display_output( int *rc, struct plan_data *plan, int iter)
             datarate = 0.0;
 	}
 
+        if( !plan->partlist->response_status) http_rc = 999;
+        else http_rc = plan->partlist->response_status->code;
+
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
         fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
-          disp_time, 999, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+          disp_time, http_rc, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
           status->response_len, totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_norm_stdev, profile->packsize_norm_skew, profile->packsize_norm_kurt,
           profile->readlag_norm_stdev, profile->readlag_norm_skew, profile->readlag_norm_kurt,
@@ -2053,6 +2114,7 @@ struct plan_data *allocate_plan_data()
     struct ckpt_chain *checkpoint = 0;
     struct payload_breakout *breakout = 0;
     struct summary_stats *profile = 0;
+    struct http_status_response *resp_status = 0;
 
     /* --- */
 
@@ -2107,6 +2169,12 @@ struct plan_data *allocate_plan_data()
         if( !profile) error = 1;
     }
 
+    if( !error)
+    {
+        resp_status = (struct http_status_response *) malloc( sizeof *resp_status);
+        if( !resp_status) error = 1;
+    }
+
     if( error)
     {
         if( plan) free( plan);
@@ -2117,7 +2185,8 @@ struct plan_data *allocate_plan_data()
         if( status) free( status);
         if( checkpoint) free( checkpoint);
         if( breakout) free( breakout);
-        if( profile) free(profile);
+        if( profile) free( profile);
+        if( resp_status) free( resp_status);
         plan = 0;
     }
     else
@@ -2201,6 +2270,11 @@ struct plan_data *allocate_plan_data()
         breakout->head_spot = 0;
         breakout->n_headers = 0;
         breakout->header_line = 0;
+
+        resp_status->code = 0;
+        resp_status->version = 0;
+        resp_status->reason = 0;
+        breakout->response_status = resp_status;
 
         profile->xfer_sum = 0;
         profile->lookup_time = 0.0;
@@ -2558,21 +2632,14 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         if( !display->show_complete && (display->show_head || display->show_data))
         {
-            if( nop_comp > nop_head && nop_comp > nop_data)
-            {
-                display->show_head = 0;
-                display->show_data = 0;
-            }
-        }
+            if( nop_comp > nop_head) display->show_head = 0;
+            if( nop_comp > nop_data) display->show_data = 0;
+	}
 
         else if( display->show_complete && (!display->show_head || !display->show_data))
         {
-            if( nop_comp > nop_head && nop_comp > nop_data)
-            {
-                display->show_head = 1;
-                display->show_data = 1;
-	    }
-            else display->show_complete = 0;
+            if( nop_comp > nop_head) display->show_head = 1;
+            if( nop_comp > nop_data) display->show_data = 1;
 	}
     }
 
@@ -2688,7 +2755,7 @@ int main( int narg, char **opts)
 
     plan = figure_out_plan( &rc, narg, opts);
 
-    if( rc == RC_NORMAL)
+    if( plan)
     {
         target = plan->target;
         disp = plan->disp;
