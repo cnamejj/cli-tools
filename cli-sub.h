@@ -223,6 +223,10 @@ char *dup_memory( char *start, char *end);
 
 float get_scaled_number( char *mark, float figure);
 
+char *sys_call_fail_msg( const char *routine);
+
+char *errmsg_with_string( const char *emsg_template, const char *detail);
+
 /* --- */
 
 #endif

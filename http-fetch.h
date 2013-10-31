@@ -149,7 +149,7 @@ Content-type: text/html\r\n\
 #define READ_BUFF_SIZE 262144
 
 #ifndef SCOPE_LINK
-  /* -- Can't use this constants from "in6.h", so hardcode tem
+  /* -- Can't use these constants from "in6.h", so hardcode them
   #define SCOPE_LOOP __IPV6_ADDR_SCOPE_INTFACELOCAL
   #define SCOPE_LINK __IPV6_ADDR_SCOPE_LINKLOCAL
   #define SCOPE_SITE __IPV6_ADDR_SCOPE_SITELOCAL
@@ -304,6 +304,25 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
 #define PATT_HOST_NAME "%webhost%"
 #define PATT_USER_AGENT "%agent%"
 #define PATT_EXTRA_HEADERS "%exheaders%"
+
+#define EMSG_INVALID_PROXY "Invalid URL given for proxy server."
+#define EMSG_INVALID_URL "The URL requested is invalid."
+#define EMSG_UNRECOV_NULL_CHECKPOINT "An internal program error lost essential 'checkpoint' data."
+#define EMSG_UNRECOV_NULL_ANCHOR "An internal program error lost essential 'anchor' data."
+#define EMSG_BAD_IPV6_ADDRESS "The IPv6 address specified is invalid."
+#define EMSG_BAD_IPV4_ADDRESS "The IPv4 address specified is invalid."
+#define EMSG_NO_IPS_IN_HOSTRECS "No usable IPv4 or IPv6 records found in DNS lookup results."
+#define EMSG_NOTHING_TO_LOOKUP "No IP address or hostname to lookup, probably a program error."
+#define EMSG_LINGER_WONT "Unable to set 'linger' option on socket."
+#define EMSG_NONBLOCK_WONT "Can't configure the socket for non-blocking I/O."
+#define EMSG_CONNECT_POLL_TIMEOUT "Connection to webserver (or proxy) timed out."
+#define EMSG_REPLY_POLL_TIMEOUT "Timed out waiting for the server to response to request for content."
+#define EMSG_READ_POLL_TIMEOUT "Timeout waiting to retrieve content from the server."
+#define EMSG_HTTP_HEADER_NO_END "Response from the server did not include a complete HTTP header."
+#define EMSG_UNRECOG_OPTIONS "One or more unrecognized options specified."
+
+#define EMSG_TEMP_LOOKUP_NO_SUCH_HOST "No such hostname '%s'."
+#define EMSG_TEMP_LOOKUP_BAD_RC "Call to getaddrinfo failed with error, '%s'."
 
 /* --- */
 
