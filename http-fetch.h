@@ -129,8 +129,17 @@
 #define HTML_RESP_HEADER "\
 Content-type: text/html\r\n\
 \r\n\
-<HEAD><pre>\n\
+<HEAD>\n\
 "
+
+#define HTML_PREFORMAT_START "<pre>"
+#define HTML_PREFORMAT_END "</pre>"
+#define HTML_FIXEDLINE_START "<br><tt>"
+#define HTML_FIXEDLINE_END "</tt>"
+#define HTML_BREAK "<br>"
+
+#define BLANK_STRING ""
+#define EOL_STRING "\n"
 
 #define HTTP_HEADER_XPREF "X-"
 
@@ -218,13 +227,13 @@ DNT: 1\n\
 /* --- */
 
 #define TIME_SUMMARY_HEADER_1 "\
--Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\n\
+-Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\
 "
 #define TIME_SUMMARY_HEADER_2 "\
-YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\n\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\
 "
 #define TIME_SUMMARY_HEADER_3 "\
------------- --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\n\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\
 "
 
 #define TIME_SUMMARY_HEADER_SEQ_1 "     "
@@ -326,9 +335,9 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
 
 /* --- */
 
-#define SHOW_OPT_IF_DEBUG( NAME) \
+#define SHOW_OPT_IF_DEBUG( PREFIX, NAME) \
 if( out->debug_level >= DEBUG_HIGH1 && (co->flags & OP_FL_FOUND)) \
-  fprintf( out->info_out, "Opt #%d, %s '%s'\n", co->opt_num, NAME, co->val);
+  fprintf( out->info_out, "%sOpt #%d, %s '%s'\n", PREFIX, co->opt_num, NAME, co->val);
 
 #define SPSP( ST) ST ? ST : "\0"
 
@@ -436,6 +445,7 @@ struct output_options {
 struct display_settings {
   int show_head, show_data, show_timers, show_timerheaders,
     show_packetime, show_help, show_complete, show_number;
+  char *line_pref;
 };
 
 struct exec_controls {
@@ -544,11 +554,11 @@ float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, fl
 
 struct chain_position *find_header_break( struct ckpt_chain *chain);
 
-void debug_timelog( char *tag);
+void debug_timelog( FILE *out, char *prefix, char *tag);
 
 void display_entry_form();
 
-int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout);
+int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout, char *prefix);
 
 char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct ckpt_chain *en_block,
   char *en_pos);

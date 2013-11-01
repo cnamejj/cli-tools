@@ -38,7 +38,7 @@
 
 /* --- */
 
-void debug_timelog( char *tag)
+void debug_timelog( FILE *out, char *prefix, char *tag)
 
 {
     static int seq = 0;
@@ -61,7 +61,7 @@ void debug_timelog( char *tag)
         diff_sub += top;
     }
 
-    fprintf( stderr, "dbg:: %3d. %11ld.%06ld %11ld.%06ld (%s)\n", seq, now_sec, now_sub, diff_sec, diff_sub, tag);
+    fprintf( out, "%sdbg:: %3d. %11ld.%06ld %11ld.%06ld (%s)\n", prefix, seq, now_sec, now_sub, diff_sec, diff_sub, tag);
 
     prev.tv_sec = now.tv_sec;
     prev.tv_usec = now.tv_usec;
@@ -303,19 +303,23 @@ int execute_fetch_plan( struct plan_data *plan)
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
+    struct display_settings *disp = 0;
 
     /* --- */
 
     runex = plan->run;
     status = plan->status;
     out = plan->out;
+    disp = plan->disp;
 
     entry_state = status->last_state;
 
+    if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
+
     for( seq = 1; rc == RC_NORMAL && seq <= runex->loop_count; seq++)
     {
-        if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "Loop start: %d of %d\n",
-          seq, runex->loop_count);
+        if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sLoop start: %d of %d\n",
+          disp->line_pref, seq, runex->loop_count);
 
         status->last_state = entry_state;
 
@@ -341,6 +345,8 @@ int execute_fetch_plan( struct plan_data *plan)
 
         if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
     }
+
+    if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
 
     /* --- */
 
@@ -435,6 +441,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
     struct addrinfo hints, *hostrecs = 0, *match4 = 0, *match6 = 0, *walk = 0;
     struct sockaddr_in *sock4 = 0;
     struct sockaddr_in6 *sock6 = 0;
+    struct display_settings *disp = 0;
 
     if( *rc == RC_NORMAL)
     {
@@ -443,6 +450,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         status = plan->status;
         out = plan->out;
         runex = plan->run;
+        disp = plan->disp;
     }
 
     if( *rc == RC_NORMAL)
@@ -452,7 +460,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Found an IPV6 address to use (%s)\n", target->ipv6);
+              "%sFound an IPV6 address to use (%s)\n", disp->line_pref, target->ipv6);
             status->ip_type = IP_V6;
             sysrc = inet_pton( AF_INET6, target->ipv6, &status->sock6.sin6_addr);
             if( sysrc != 1)
@@ -471,7 +479,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Found an IPV4 address to use (%s)\n", target->ipv4);
+              "%sFound an IPV4 address to use (%s)\n", disp->line_pref, target->ipv4);
             status->ip_type = IP_V4;
             sysrc = inet_pton( AF_INET, target->ipv4, &status->sock4.sin_addr);
             if( sysrc != 1)
@@ -490,7 +498,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Found a hostname to lookup (%s)\n", target->conn_host);
+              "%sFound a hostname to lookup (%s)\n", disp->line_pref, target->conn_host);
 
             hints.ai_flags = 0;
             hints.ai_family = AF_UNSPEC;
@@ -505,7 +513,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             if( sysrc == EAI_NONAME)
             {
                 if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
-                  "Can't lookup domain (%s)\n", target->conn_host);
+                  "%sCan't lookup domain (%s)\n", disp->line_pref, target->conn_host);
                 *rc = ERR_GETHOST_FAILED;
                 status->err_msg = errmsg_with_string( EMSG_TEMP_LOOKUP_NO_SUCH_HOST, target->conn_host);
                 status->end_errno = sysrc;
@@ -514,7 +522,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             else if( sysrc)
             {
                 if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->err_out,
-                  "Error: rc=%d (%s)\n", sysrc, gai_strerror( sysrc));
+                  "%sError: rc=%d (%s)\n", disp->line_pref, sysrc, gai_strerror( sysrc));
                 status->err_msg = errmsg_with_string( EMSG_TEMP_LOOKUP_BAD_RC, gai_strerror( sysrc));
                 *rc = ERR_SYS_CALL;
                 status->end_errno = sysrc;
@@ -551,7 +559,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                         st = display_ip;
                         strc = (char *) inet_ntop( AF_INET6, &sock6->sin6_addr, st, (sizeof display_ip));
                         if( !strc) strcat( display_ip, INVALID_IP);
-                        fprintf( out->info_out, "Picked an IPV6 record (%s)\n", st);
+                        fprintf( out->info_out, "%sPicked an IPV6 record (%s)\n", disp->line_pref, st);
 		    }
 		}
                 else if( match4)
@@ -565,7 +573,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                         st = display_ip;
                         strc = (char *) inet_ntop( AF_INET, &sock4->sin_addr, st, (sizeof display_ip));
                         if( !strc) strcat( display_ip, INVALID_IP);
-                        fprintf( out->info_out, "Picked an IPV4 record (%s)\n", st);
+                        fprintf( out->info_out, "%sPicked an IPV4 record (%s)\n", disp->line_pref, st);
 		    }
 		}
                 else
@@ -575,11 +583,11 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                     if( out->debug_level >= DEBUG_MEDIUM2)
                     {
                         if( runex->client_ip_type == IP_V6) fprintf( out->info_out,
-                          "IPV6 host record required, none found.\n");
+                          "%sIPV6 host record required, none found.\n", disp->line_pref);
                         else if( runex->client_ip_type == IP_V4) fprintf( out->info_out,
-                          "IPV4 host record required, none found.\n");
+                          "%sIPV4 host record required, none found.\n", disp->line_pref);
                         else fprintf( out->info_out,
-                          "No IPV4 or IPV6 host records found.\n");
+                          "%sNo IPV4 or IPV6 host records found.\n", disp->line_pref);
 		    }
 		}
 
@@ -594,7 +602,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         if( *rc == RC_NORMAL && status->ip_type == IP_UNKNOWN)
         {
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Oops! no idea what to lookup.\n");
+              "%sOops! no idea what to lookup.\n", disp->line_pref);
             status->err_msg = strdup( EMSG_NOTHING_TO_LOOKUP);
             *rc = ERR_UNSUPPORTED;
 	}
@@ -623,6 +631,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
     struct exec_controls *runex = 0;
     struct sockaddr_in sock4;
     struct sockaddr_in6 sock6;
+    struct display_settings *disp = 0;
 
     memset( &sock4, EOS_CH, sizeof sock4);
     memset( &sock6, EOS_CH, sizeof sock6);
@@ -632,6 +641,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
         status = plan->status;
         out = plan->out;
         runex = plan->run;
+        disp = plan->disp;
     }
 
     if( *rc == RC_NORMAL)
@@ -747,10 +757,10 @@ void connect_to_server( int *rc, struct plan_data *plan)
             netbox.events = POLL_EVENTS_WRITE;
             netbox.revents = 0;
 
-            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre connect-to-server");
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Pre connect-to-server");
             sysrc = poll( &netbox, 1, runex->conn_timeout);
 
-            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft connect-to-server");
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Aft connect-to-server");
             if( sysrc == 0)
             {
                 status->err_msg = strdup( EMSG_CONNECT_POLL_TIMEOUT);
@@ -765,7 +775,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
             else
             {
                if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-                 "Connect worked, sock=%d, type=%d\n", sock, status->ip_type);
+                 "%sConnect worked, sock=%d, type=%d\n", disp->line_pref, sock, status->ip_type);
                status->last_state |= LS_ESTAB_CONNECT;
             }
 	}
@@ -791,12 +801,14 @@ void send_request( int *rc, struct plan_data *plan)
 {
     int sysrc;
     struct fetch_status *status;
-    struct output_options *out;
+    struct output_options *out = 0;
+    struct display_settings *disp = 0;
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         out = plan->out;
+        disp = plan->disp;
     }
 
     if( *rc == RC_NORMAL)
@@ -805,7 +817,7 @@ void send_request( int *rc, struct plan_data *plan)
         if( sysrc == status->request_len)
         {
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Wrote the entire request successfully.\n");
+              "%sWrote the entire request successfully.\n", disp->line_pref);
             status->last_state |= LS_SENT_REQUEST;
 	}
         else
@@ -832,12 +844,14 @@ void wait_for_reply( int *rc, struct plan_data *plan)
     struct fetch_status *status;
     struct output_options *out;
     struct exec_controls *runex = 0;
+    struct display_settings *disp = 0;
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         out = plan->out;
         runex = plan->run;
+        disp = plan->disp;
     }
 
     if( *rc == RC_NORMAL)
@@ -846,9 +860,9 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         netbox.events = POLL_EVENTS_READ;
         netbox.revents = 0;
 
-        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre wait-for-reply");
+        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Pre wait-for-reply");
         sysrc = poll( &netbox, 1, runex->conn_timeout);
-        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft wait-for-reply");
+        if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Aft wait-for-reply");
         if( sysrc == 0)
         {
             status->err_msg = strdup( EMSG_REPLY_POLL_TIMEOUT);
@@ -865,7 +879,7 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         else
         {
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "Socket is ready for read() calls.\n");
+              "%sSocket is ready for read() calls.\n", disp->line_pref);
             status->last_state |= LS_READ_READY;
             *rc = capture_checkpoint( status, EVENT_FIRST_RESPONSE);
 	}
@@ -885,6 +899,7 @@ void pull_response( int *rc, struct plan_data *plan)
     struct fetch_status *status;
     struct output_options *out;
     struct exec_controls *runex = 0;
+    struct display_settings *disp = 0;
 
     buff = (char *) malloc( buffsize);
     if( !buff) *rc = ERR_MALLOC_FAILED;
@@ -894,6 +909,7 @@ void pull_response( int *rc, struct plan_data *plan)
         status = plan->status;
         out = plan->out;
         runex = plan->run;
+        disp = plan->disp;
     }
 
     if( *rc == RC_NORMAL)
@@ -904,9 +920,9 @@ void pull_response( int *rc, struct plan_data *plan)
 
         for( done = 0; !done && *rc == RC_NORMAL; )
         {
-            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Pre pull-response");
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Pre pull-response");
             sysrc = poll( &netbox, 1, runex->conn_timeout);
-            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( "Aft pull-response");
+            if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Aft pull-response");
             if( sysrc == 0)
             {
                 status->err_msg = strdup( EMSG_READ_POLL_TIMEOUT);
@@ -926,7 +942,7 @@ void pull_response( int *rc, struct plan_data *plan)
                     if( errno == EINTR)
                     {
                         if( out->debug_level >= DEBUG_MEDIUM2) fprintf(
-                          out->info_out, "Ignoring EINTR return from poll()\n");
+                          out->info_out, "%sIgnoring EINTR return from poll()\n", disp->line_pref);
 		    }
                     else
                     {
@@ -945,7 +961,7 @@ void pull_response( int *rc, struct plan_data *plan)
                 {
                     if( out->debug_level >= DEBUG_HIGH3)
                     {
-                        fprintf( out->info_out, "Read %d bytes (", packlen);
+                        fprintf( out->info_out, "%sRead %d bytes (", disp->line_pref, packlen);
                         for( pos = buff; pos < buff + packlen; pos++)
                           if( isprint( *pos) || *pos == LF_CH) fputc( *pos, out->info_out);
                           else fprintf( out->info_out, "<%02X>", *pos);
@@ -1153,6 +1169,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                 if( elap > readlag_max) readlag_max = elap;
 	    }
 
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+            if( out->out_html) printf( HTML_PREFORMAT_START);
+#endif
             /* Per packet transfer rates only make sense for the 2nd to next to last packets */
             if( off && !is_last_data)
             {
@@ -1205,6 +1224,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
         printf( "dbg:: - - -\n");
 #endif
+
         for( off = 0; off < npackets; off++)
         {
             if( packsize_max)
@@ -1391,6 +1411,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
 
+#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
+        if( out->out_html) printf( HTML_PREFORMAT_END);
+#endif
         profile->packsize_mean = packsize_mean;
         profile->readlag_mean = readlag_mean;
         profile->xfrate_mean = xfrate_mean;
@@ -1491,7 +1514,8 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
 
 /* --- */
 
-int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout)
+int split_out_header_lines( struct ckpt_chain *chain, struct payload_breakout *breakout,
+  char *prefix)
 
 {
     int result = RC_NORMAL, nhead, datalen, off;
@@ -1534,17 +1558,17 @@ struct data_block *dbg_xx = 0;
         {
 /*
 dbg_size = (sizeof *headset);
-printf( "dbg:: headers:%d data-block-size:%d total:%d\n", nhead, dbg_size, dbg_size * nhead);
+printf( "%sdbg:: headers:%d data-block-size:%d total:%d\n", prefix, nhead, dbg_size, dbg_size * nhead);
  */
             headset = (struct data_block *) malloc( (sizeof *headset) * nhead);
-/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "dbg:: pre--set %d. address:%p data:%p len:%d \n", off, dbg_xx, dbg_xx->data, dbg_xx->len); */
+/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "%sdbg:: pre--set %d. address:%p data:%p len:%d \n", prefix, off, dbg_xx, dbg_xx->data, dbg_xx->len); */
             if( !headset) result = ERR_MALLOC_FAILED;
             else for( off = 0; off < nhead; off++)
             {
                 (headset + off)->len = 0;
                 (headset + off)->data = 0;
 	    }
-/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "dbg:: post-set %d. address:%p data:%p len:%d \n", off, dbg_xx, dbg_xx->data, dbg_xx->len); */
+/* for( off = 0, dbg_xx = headset; off < nhead; off++, dbg_xx++) printf( "%sdbg:: post-set %d. address:%p data:%p len:%d \n", prefix, off, dbg_xx, dbg_xx->data, dbg_xx->len); */
 	}
 
         walk = chain;
@@ -1690,11 +1714,13 @@ void parse_payload( int *rc, struct plan_data *plan)
     struct fetch_status *status = 0;
     struct payload_breakout *breakout = 0;
     struct data_block *header;
+    struct display_settings *disp = 0;
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         breakout = plan->partlist;
+        disp = plan->disp;
 
         breakout->head_spot = find_header_break( status->checkpoint);
         if( !breakout->head_spot)
@@ -1704,7 +1730,7 @@ void parse_payload( int *rc, struct plan_data *plan)
 	}
     }
 
-    if( *rc == RC_NORMAL) *rc = split_out_header_lines( status->checkpoint, breakout);
+    if( *rc == RC_NORMAL) *rc = split_out_header_lines( status->checkpoint, breakout, disp->line_pref);
 
     if( *rc == RC_NORMAL)
     {
@@ -1712,7 +1738,7 @@ void parse_payload( int *rc, struct plan_data *plan)
         header = breakout->header_line;
 
         if( plan->out->debug_level >= DEBUG_MEDIUM2) for( off = 0; off < nh; off++)
-          fprintf( plan->out->info_out, "%d. Header '%s'\n", off, (header + off)->data);
+          fprintf( plan->out->info_out, "%s%d. Header '%s'\n", disp->line_pref, off, (header + off)->data);
     }
 
     if( *rc == RC_NORMAL) *rc = parse_http_response( breakout);
@@ -1785,15 +1811,15 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         {
             if( display->show_number)
             {
-                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_1, TIME_SUMMARY_HEADER_1);
-                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_2, TIME_SUMMARY_HEADER_2);
-                fprintf( out->info_out, "%s%s", TIME_SUMMARY_HEADER_SEQ_3, TIME_SUMMARY_HEADER_3);
+                fprintf( out->info_out, "%s%s\n", TIME_SUMMARY_HEADER_SEQ_1, TIME_SUMMARY_HEADER_1);
+                fprintf( out->info_out, "%s%s\n", TIME_SUMMARY_HEADER_SEQ_2, TIME_SUMMARY_HEADER_2);
+                fprintf( out->info_out, "%s%s\n", TIME_SUMMARY_HEADER_SEQ_3, TIME_SUMMARY_HEADER_3);
 	    }
             else
             {
-                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_1);
-                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_2);
-                fprintf( out->info_out, "%s", TIME_SUMMARY_HEADER_3);
+                fprintf( out->info_out, "%s\n", TIME_SUMMARY_HEADER_1);
+                fprintf( out->info_out, "%s\n", TIME_SUMMARY_HEADER_2);
+                fprintf( out->info_out, "%s\n", TIME_SUMMARY_HEADER_3);
 	    }
 	}
 
@@ -2093,8 +2119,13 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL) fetch->request_len = strlen( fetch->request);
 
-    if( rc == RC_NORMAL) if( out->debug_level >= DEBUG_HIGH2) fprintf( out->info_out,
-      "- - - HTTP request - - -\n%s\n- - -\n", fetch->request);
+    if( rc == RC_NORMAL) if( out->debug_level >= DEBUG_HIGH2)
+    {
+        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
+        fprintf( out->info_out,
+          "- - - HTTP request - - -\n%s\n- - -\n", fetch->request);
+        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
+    }
 
     if( rc == RC_NORMAL) fetch->last_state |= LS_GEN_REQUEST;
 
@@ -2239,6 +2270,7 @@ struct plan_data *allocate_plan_data()
         disp->show_help = 0;
         disp->show_complete = 0;
         disp->show_number = 0;
+        disp->line_pref = strdup( BLANK_STRING);
 
         runex->loop_count = 0;
         runex->loop_pause = 0;
@@ -2321,7 +2353,8 @@ struct plan_data *allocate_plan_data()
 
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
-    int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0;
+    int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0,
+      is_cgi = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -2383,15 +2416,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         if( called_as_cgi())
         {
-/*            is_cgi = 1; */
+            is_cgi = 1;
             out->info_out = stdout;
             out->err_out = stdout;
-            fprintf( out->info_out, "%s\n", HTML_RESP_HEADER);
+            out->out_html = 1;
             cgi_data = get_cgi_data( &rc);
             if( !cgi_data) show_form = 1;
             else if( !*cgi_data) show_form = 1;
             if( show_form)
             {
+                fprintf( out->info_out, "%s\n", HTML_RESP_HEADER);
                 display_entry_form();
                 status->last_state |= LS_HTML_FORM_SENT;
                 show_form = 1;
@@ -2412,15 +2446,33 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
         if(( co = cond_get_matching_option( &rc, OP_DEBUG, opset, nflags))) out->debug_level = *((int *) co->parsed);
 
+        if(( co = cond_get_matching_option( &rc, OP_HTML, opset, nflags)))
+        {
+            if( is_cgi && !(co->flags & OP_FL_FOUND)) out->out_html = 1;
+            else out->out_html = *((int *) co->parsed);
+
+            if( out->out_html) display->line_pref = strdup( HTML_BREAK);
+	}
+
         if(( co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags)))
         {
             in_val = *((int *) co->parsed);
-            if( in_val) out->info_out = stderr;
-            SHOW_OPT_IF_DEBUG( "use-stderr")
-            if( out->debug_level >= DEBUG_HIGH1) fprintf( out->info_out, "Opt #%d, debug '%d'\n",
-              co->opt_num, *((int *) co->parsed));
+            if( in_val && !is_cgi) out->info_out = stderr;
         }
 
+        if( rc != ERR_NOTHING_LEFT && out->out_html) fprintf( out->info_out, "%s\n", HTML_RESP_HEADER);
+
+        if( rc == RC_NORMAL && out->debug_level >= DEBUG_HIGH1)
+        {
+            co = cond_get_matching_option( &rc, OP_DEBUG, opset, nflags);
+            SHOW_OPT_IF_DEBUG( display->line_pref, "debug")
+
+            co = cond_get_matching_option( &rc, OP_HTML, opset, nflags);
+            SHOW_OPT_IF_DEBUG( display->line_pref, "html")
+
+            co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags);
+            SHOW_OPT_IF_DEBUG( display->line_pref, "use-stderr")
+	}
     }
 
 
@@ -2467,7 +2519,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
         if( out->debug_level >= DEBUG_HIGH1)
         {
-            fprintf( out->info_out, "rc=%d extra(", rc);
+            fprintf( out->info_out, "%src=%d extra(", display->line_pref, rc);
             sep = "";
             for( walk = extra_opts; walk; )
             {
@@ -2478,7 +2530,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
             }
             fprintf( out->info_out, ")\n");
 
+            if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
             print_option_settings( out->info_out, nflags, opset);
+            if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
         }
     }
 
@@ -2487,130 +2541,124 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
     if(( co = cond_get_matching_option( &rc, OP_HEADER, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "header")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "header")
         display->show_head = *((int *) co->parsed);
         nop_head = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_OUTPUT, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "all-output")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "all-output")
         display->show_complete = *((int *) co->parsed);
         nop_comp = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_URI, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "URI")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "URI")
         target->conn_uri = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_CONNHOST, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "connhost")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "connhost")
         target->conn_host = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_WEBSERVER, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "webhost")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "webhost")
         target->http_host = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_URL, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "URL")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "URL")
         target->conn_url = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PORT, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "port")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "port")
         target->conn_port = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_TIMERS, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "timers")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "timers")
         display->show_timers = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_DATA, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "data")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "data")
         display->show_data = *((int *) co->parsed);
         nop_data = co->opt_num;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_LOOP, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "loop")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "loop")
         runex->loop_count = *((int *) co->parsed);
-    }
-
-    if(( co = cond_get_matching_option( &rc, OP_HTML, opset, nflags)))
-    {
-        SHOW_OPT_IF_DEBUG( "HTML")
-        out->out_html = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_NUMBER, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "show-number")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "show-number")
         display->show_number = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PAUSE, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "pause")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "pause")
         runex->loop_pause = *((int *) co->parsed) * 1000;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_TIMERHEADERS, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "timerheaders")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "timerheaders")
         display->show_timerheaders = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_TIMEOUT, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "timeout")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "timeout")
         runex->conn_timeout = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PROXY, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "proxy")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "proxy")
         target->proxy_url = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PACKETIME, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "show-packet")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "show-packet")
         display->show_packetime = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_CLIENTIP, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "client-ip")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "client-ip")
         runex->client_ip = (char *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PTHRU, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "passthru")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "passthru")
         target->conn_pthru = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_XHEADER, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "extra-header")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "extra-header")
         target->extra_headers = (struct value_chain *) co->parsed;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_AUTH, opset, nflags)))
     {
-        SHOW_OPT_IF_DEBUG( "auth")
+        SHOW_OPT_IF_DEBUG( display->line_pref, "auth")
         target->auth_user = strdup( (char *) co->parsed);
         st = index( target->auth_user, COLON_CH);
         if( st)
@@ -2775,6 +2823,7 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL) if( plan->out->debug_level >= DEBUG_HIGH2)
     {
+        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
         fprintf( out->info_out, "- - Target:\n");
         fprintf( out->info_out, "- - - - ipv4: (%s)\n", SPSP( target->ipv4));
         fprintf( out->info_out, "- - - - ipv6: (%s)\n", SPSP( target->ipv6));
@@ -2821,6 +2870,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);
         fprintf( out->info_out, "- - - - errmsg: (%s)\n", SPSP( fetch->err_msg));
         fprintf( out->info_out, "- - - - request: (%s)\n", SPSP( fetch->request));
+        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
     }
 
     if( rc == RC_NORMAL) rc = execute_fetch_plan( plan);
@@ -2835,11 +2885,11 @@ int main( int narg, char **opts)
         if( !emsg) emsg = UNDEFINED_ERROR;
         else if( !*emsg) emsg = UNDEFINED_ERROR;
 
-        fprintf( out->err_out, "Error(%d/%06x): %s. %s\n", rc, fetch->last_state, cli_strerror( rc), emsg);
+        fprintf( out->err_out, "%sError(%d/%06x): %s. %s\n", disp->line_pref, rc, fetch->last_state, cli_strerror( rc), emsg);
     }
 
     if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
-      "End state: %06X, End err: %d\n", fetch->last_state, fetch->end_errno);
+      "%sEnd state: %06X, End err: %d\n", disp->line_pref, fetch->last_state, fetch->end_errno);
 
     /* --- */
 
