@@ -18,7 +18,7 @@
  * - For CGI calls, use "iframes" with "srcdoc=" to display the fetched page
  * - Should have an option to follow redirects
  *
- * - Options: html, auth, proxy, connthru
+ * - Options: auth, proxy, connthru
  */
 
 #include <stdio.h>
@@ -314,8 +314,6 @@ int execute_fetch_plan( struct plan_data *plan)
 
     entry_state = status->last_state;
 
-    if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
-
     for( seq = 1; rc == RC_NORMAL && seq <= runex->loop_count; seq++)
     {
         if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sLoop start: %d of %d\n",
@@ -345,8 +343,6 @@ int execute_fetch_plan( struct plan_data *plan)
 
         if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
     }
-
-    if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
 
     /* --- */
 
@@ -963,7 +959,17 @@ void pull_response( int *rc, struct plan_data *plan)
                     {
                         fprintf( out->info_out, "%sRead %d bytes (", disp->line_pref, packlen);
                         for( pos = buff; pos < buff + packlen; pos++)
-                          if( isprint( *pos) || *pos == LF_CH) fputc( *pos, out->info_out);
+                          if( *pos == GT_CH)
+                          {
+                              if( out->out_html) fprintf( out->info_out, HTML_GT_ESCAPE);
+                              else fputc( *pos, out->info_out);
+			  }
+                          else if( *pos == LT_CH)
+                          {
+                              if( out->out_html) fprintf( out->info_out, HTML_LT_ESCAPE);
+                              else fputc( *pos, out->info_out);
+			  }
+                          else if( isprint( *pos) || *pos == LF_CH) fputc( *pos, out->info_out);
                           else fprintf( out->info_out, "<%02X>", *pos);
                         fprintf( out->info_out, ")\n");
 		    }
@@ -1169,9 +1175,6 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                 if( elap > readlag_max) readlag_max = elap;
 	    }
 
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-            if( out->out_html) printf( HTML_PREFORMAT_START);
-#endif
             /* Per packet transfer rates only make sense for the 2nd to next to last packets */
             if( off && !is_last_data)
             {
@@ -1411,9 +1414,6 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
 
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-        if( out->out_html) printf( HTML_PREFORMAT_END);
-#endif
         profile->packsize_mean = packsize_mean;
         profile->readlag_mean = readlag_mean;
         profile->xfrate_mean = xfrate_mean;
@@ -1980,7 +1980,7 @@ int construct_request( struct plan_data *plan)
 
 {
     int rc = RC_NORMAL, empty, ex_len;
-    char *blank = "", *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
+    char *blank = EMPTY_STRING, *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
       *uri = 0, *ex_headers = 0, *st = 0;
     struct target_info *target = 0;
     struct fetch_status *fetch = 0;
@@ -2121,10 +2121,8 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL) if( out->debug_level >= DEBUG_HIGH2)
     {
-        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
         fprintf( out->info_out,
           "- - - HTTP request - - -\n%s\n- - -\n", fetch->request);
-        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
     }
 
     if( rc == RC_NORMAL) fetch->last_state |= LS_GEN_REQUEST;
@@ -2136,7 +2134,7 @@ int construct_request( struct plan_data *plan)
 
 /* --- */
 
-struct plan_data *allocate_plan_data()
+struct plan_data *allocate_hf_plan_data()
 
 {
     int error = 0;
@@ -2270,7 +2268,7 @@ struct plan_data *allocate_plan_data()
         disp->show_help = 0;
         disp->show_complete = 0;
         disp->show_number = 0;
-        disp->line_pref = strdup( BLANK_STRING);
+        disp->line_pref = strdup( EMPTY_STRING);
 
         runex->loop_count = 0;
         runex->loop_pause = 0;
@@ -2397,7 +2395,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
     /* --- */
 
-    plan = allocate_plan_data();
+    plan = allocate_hf_plan_data();
     if( !plan) rc = ERR_MALLOC_FAILED;
     {
         target = plan->target;
@@ -2451,7 +2449,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
             if( is_cgi && !(co->flags & OP_FL_FOUND)) out->out_html = 1;
             else out->out_html = *((int *) co->parsed);
 
-            if( out->out_html) display->line_pref = strdup( HTML_BREAK);
+            if( out->out_html) display->line_pref = strdup( HTML_BREAK_NOOP);
 	}
 
         if(( co = cond_get_matching_option( &rc, OP_USESTDERR, opset, nflags)))
@@ -2460,7 +2458,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
             if( in_val && !is_cgi) out->info_out = stderr;
         }
 
-        if( rc != ERR_NOTHING_LEFT && out->out_html) fprintf( out->info_out, "%s\n", HTML_RESP_HEADER);
+        if( rc != ERR_NOTHING_LEFT && out->out_html) fprintf( out->info_out, "%s\n%s\n", HTML_RESP_HEADER, HTML_PREFORMAT_START);
 
         if( rc == RC_NORMAL && out->debug_level >= DEBUG_HIGH1)
         {
@@ -2500,7 +2498,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
                 {
                     if( walk->opt) strcat( unrecognized, walk->opt);
                     walk = walk->next;
-                    if( walk) if( walk->opt) strcat( unrecognized, " ");
+                    if( walk) if( walk->opt) strcat( unrecognized, SPACE_STRING);
 		}
 
                 errlen += strlen( ERRMSG_UNRECOG_OPTIONS);
@@ -2520,19 +2518,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         if( out->debug_level >= DEBUG_HIGH1)
         {
             fprintf( out->info_out, "%src=%d extra(", display->line_pref, rc);
-            sep = "";
+            sep = EMPTY_STRING;
             for( walk = extra_opts; walk; )
             {
                 fprintf( out->info_out, "%s%s", sep, walk->opt);
                 walk = walk->next;
-                if( walk) sep = " ";
-                else sep = "";
+                if( walk) sep = SPACE_STRING;
+                else sep = EMPTY_STRING;
             }
             fprintf( out->info_out, ")\n");
-
-            if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
             print_option_settings( out->info_out, nflags, opset);
-            if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
         }
     }
 
@@ -2823,7 +2818,6 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL) if( plan->out->debug_level >= DEBUG_HIGH2)
     {
-        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_START);
         fprintf( out->info_out, "- - Target:\n");
         fprintf( out->info_out, "- - - - ipv4: (%s)\n", SPSP( target->ipv4));
         fprintf( out->info_out, "- - - - ipv6: (%s)\n", SPSP( target->ipv6));
@@ -2870,7 +2864,6 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);
         fprintf( out->info_out, "- - - - errmsg: (%s)\n", SPSP( fetch->err_msg));
         fprintf( out->info_out, "- - - - request: (%s)\n", SPSP( fetch->request));
-        if( out->out_html) fprintf( out->info_out, HTML_PREFORMAT_END);
     }
 
     if( rc == RC_NORMAL) rc = execute_fetch_plan( plan);
@@ -2890,6 +2883,8 @@ int main( int narg, char **opts)
 
     if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
       "%sEnd state: %06X, End err: %d\n", disp->line_pref, fetch->last_state, fetch->end_errno);
+
+    if( out->out_html) fprintf( out->info_out, "%s\n%s\n", HTML_PREFORMAT_END, HTML_RESP_END);
 
     /* --- */
 

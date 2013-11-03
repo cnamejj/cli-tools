@@ -132,14 +132,23 @@ Content-type: text/html\r\n\
 <HEAD>\n\
 "
 
+#define HTML_RESP_END "\
+</body>\n\
+</html>\n\
+"
+
 #define HTML_PREFORMAT_START "<pre>"
 #define HTML_PREFORMAT_END "</pre>"
 #define HTML_FIXEDLINE_START "<br><tt>"
 #define HTML_FIXEDLINE_END "</tt>"
 #define HTML_BREAK "<br>"
+#define HTML_BREAK_NOOP "<!-- <br> -->"
+#define HTML_GT_ESCAPE "&gt;"
+#define HTML_LT_ESCAPE "&lt;"
 
-#define BLANK_STRING ""
+#define EMPTY_STRING ""
 #define EOL_STRING "\n"
+#define SPACE_STRING " "
 
 #define HTTP_HEADER_XPREF "X-"
 
@@ -518,7 +527,7 @@ Options are:\n\
 
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts);
 
-struct plan_data *allocate_plan_data();
+struct plan_data *allocate_hf_plan_data();
 
 int find_connection( struct plan_data *plan);
 

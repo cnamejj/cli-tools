@@ -68,6 +68,8 @@
 #define LF_CH '\n'
 #define CR_CH '\r'
 #define COLON_CH ':'
+#define GT_CH '>'
+#define LT_CH '<'
 
 #define CGI_OPT_DELIM '&'
 #define CGI_OPT_EQUAL '='
