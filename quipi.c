@@ -403,11 +403,11 @@ int main( int narg, char **opts )
 
             quipi_exit( RC_NORMAL, is_cgi );
 	}
+
+        printf( "%s", HTML_RESP_START);
     }
 
     /* --- */
-
-    printf( "%s", HTML_RESP_START);
 
     for( walk = extra_opts; walk; walk = walk->next )
     {
