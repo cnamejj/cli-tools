@@ -264,6 +264,11 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDe
 #define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
 #define TIME_DISPLAY_SIZE 15
 
+#define HTTP_HEAD_TRANSFER_ENCODING "Transfer-Encoding"
+#define HTTP_HEAD_CONTENT_TYPE "Content-Type"
+
+#define ENC_TYPE_CHUNKED "chunked"
+
 #define HTTP_FORM_TEMPLATE "\
 <!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n\
 <html><head><title>Http-Fetch tester form</title>\n\
@@ -489,6 +494,7 @@ struct fetch_status {
 
 struct payload_breakout {
   int n_headers;
+  char *content_type, *trans_encoding;
   struct data_block *header_line;
   struct chain_position *head_spot;
   struct http_status_response *response_status;

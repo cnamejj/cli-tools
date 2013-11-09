@@ -10,7 +10,6 @@
  * Features:
  * ---
  * - Add an option to control HTTP/1.0 or HTTP/1.1
- * - Understand and parse "chunked" content
  * - Allow saving raw or parsed (as in chunked) content
  * - Add an option to select IPv4 or IPv6 address from DNS results
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
@@ -1703,6 +1702,12 @@ int parse_http_response( struct payload_breakout *breakout)
 	}
     }
 
+    if( result == RC_NORMAL)
+    {
+        breakout->trans_encoding = find_http_header( breakout, HTTP_HEAD_TRANSFER_ENCODING);
+        breakout->content_type = find_http_header( breakout, HTTP_HEAD_CONTENT_TYPE);
+    }
+
     return( result);
 }
 
@@ -1773,7 +1778,14 @@ void parse_payload( int *rc, struct plan_data *plan)
           fprintf( plan->out->info_out, "%s%d. Header '%s'\n", disp->line_pref, off, (header + off)->data);
     }
 
-    if( *rc == RC_NORMAL) *rc = parse_http_response( breakout);
+    if( *rc == RC_NORMAL)
+    {
+        *rc = parse_http_response( breakout);
+
+        if( plan->out->debug_level >= DEBUG_MEDIUM2) fprintf( plan->out->info_out,
+          "- - - Parsed HTTP headers:\nContent-Type: '%s'\nTransfer-Encoding: '%s'\n",
+          SPSP( breakout->content_type), SPSP( breakout->trans_encoding));
+    }
 
     return;
 }
@@ -1785,12 +1797,13 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 {
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-      xfer_mean = 0, http_rc;
+      xfer_mean = 0, http_rc, is_chunked = 0, chunk_left, build_len,
+      inc_len;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
     char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark;
-    char disp_time[ TIME_DISPLAY_SIZE];
+    char disp_time[ TIME_DISPLAY_SIZE], xdig_conv[ 2] = { '\0', '\0'};
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct exec_controls *runex = 0;
@@ -1819,6 +1832,15 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         in_head = 1;
         walk = status->checkpoint;
 
+        if( display->show_data && breakout->trans_encoding)
+          is_chunked = !strcasecmp( breakout->trans_encoding, ENC_TYPE_CHUNKED);
+
+        if( is_chunked)
+        {
+            chunk_left = 0;
+            build_len = 0;
+	}
+
         if( out->out_html)
         {
             if( display->show_head)
@@ -1829,7 +1851,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
             else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
 	}
 
-        for( ; walk; walk = walk->next)
+        for( ; walk && *rc == RC_NORMAL; walk = walk->next)
         {
             detail = walk->detail;
             if( detail) if( detail->len)
@@ -1841,10 +1863,40 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                     if( in_head && display->show_head) fputc( *pos, stdout);
                     else if( !in_head && display->show_data)
                     {
-                        if( !out->out_html) fputc( *pos, stdout);
-                        else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
-                        else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
-                        else fputc( *pos, stdout);
+                        if( is_chunked && !chunk_left)
+                        {
+                            if( *pos == LF_CH)
+                            {
+                                chunk_left = build_len;
+                                build_len = 0;
+			    }
+                            else if( isxdigit( *pos))
+                            {
+                                xdig_conv[ 0] = *pos;
+                                errno = 0;
+                                inc_len = strtoul( xdig_conv, 0, HEX_BASE);
+                                if( errno) *rc = ERR_SYS_CALL;
+                                else
+                                {
+/*
+int dbg_build;
+dbg_build = (build_len * 16) + inc_len;
+printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_build,
+  build_len * 16, inc_len);
+ */
+                                    build_len = (build_len * 16) + inc_len;
+				}
+			    }
+                            else if( *pos != CR_CH) *rc = ERR_BAD_FORMAT;
+			}
+                        else
+                        {
+                            if( !out->out_html) fputc( *pos, stdout);
+                            else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
+                            else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
+                            else fputc( *pos, stdout);
+                            if( is_chunked) chunk_left--;
+			}
 		    }
 
                     if( pos == head_spot->position)
@@ -2362,6 +2414,8 @@ struct plan_data *allocate_hf_plan_data()
         breakout->head_spot = 0;
         breakout->n_headers = 0;
         breakout->header_line = 0;
+        breakout->content_type = 0;
+        breakout->trans_encoding = 0;
 
         resp_status->code = 0;
         resp_status->version = 0;
