@@ -137,6 +137,14 @@ Content-type: text/html\r\n\
 </html>\n\
 "
 
+/* #define HTML_RESP_IFRAME_START "<iframe seamless sandbox srcdoc=\"" */
+
+#define HTML_HEIGHT_HEAD ""
+#define HTML_HEIGHT_DATA " height=\"100%\""
+
+#define HTML_RESP_IFRAME_START "<iframe seamless%s width=\"100%%\" sandbox srcdoc=\""
+#define HTML_RESP_IFRAME_END "\"></iframe>\n"
+
 #define HTML_PREFORMAT_START "<pre>"
 #define HTML_PREFORMAT_END "</pre>"
 #define HTML_FIXEDLINE_START "<br><tt>"
@@ -145,10 +153,14 @@ Content-type: text/html\r\n\
 #define HTML_BREAK_NOOP "<!-- <br> -->"
 #define HTML_GT_ESCAPE "&gt;"
 #define HTML_LT_ESCAPE "&lt;"
+#define HTML_DQ_ESCAPE "&quot;"
+#define HTML_AM_ESCAPE "&amp;"
 
 #define EMPTY_STRING ""
 #define EOL_STRING "\n"
 #define SPACE_STRING " "
+#define AMPER_STRING "&"
+#define DQUOTE_STRING "\""
 
 #define HTTP_HEADER_XPREF "X-"
 
@@ -276,12 +288,12 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDe
 \n\
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
   <tr><td colspan=2>What to display:</td></tr>\n\
-  <tr><td>Show HTTP header:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"header\">\n\
+<!--  <tr><td>Show complete results:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"output\">\n\
+No<input type=\"radio\" value=\"no\" name=\"output\" checked></td></tr>\n\
+-->  <tr><td>Show HTTP header:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"header\">\n\
 No<input type=\"radio\" value=\"no\" name=\"header\" checked></td></tr>\n\
   <tr><td>Show HTTP data:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"data\">\n\
 No<input type=\"radio\" value=\"no\" name=\"data\" checked></td></tr>\n\
-  <tr><td>Show complete results:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"output\">\n\
-No<input type=\"radio\" value=\"no\" name=\"output\" checked></td></tr>\n\
   <tr><td>Show summary stats:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"timers\" checked>\n\
 No<input type=\"radio\" value=\"no\" name=\"timers\"></td></tr>\n\
   <tr><td>Number summary stats:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"num\" checked>\n\
@@ -575,6 +587,8 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
 int parse_http_response( struct payload_breakout *breakout);
 
 struct http_status_response *parse_http_status( char *line);
+
+char *find_http_header( struct payload_breakout *breakout, char *which);
 
 /* --- */
 

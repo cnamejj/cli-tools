@@ -15,10 +15,11 @@
  * - Add an option to select IPv4 or IPv6 address from DNS results
  * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
  * - Display both total bytes transfered and payload bytes with "-time" option
- * - For CGI calls, use "iframes" with "srcdoc=" to display the fetched page
  * - Should have an option to follow redirects
  *
  * - Options: auth, proxy, connthru
+ *
+ * Notes:
  */
 
 #include <stdio.h>
@@ -1707,6 +1708,37 @@ int parse_http_response( struct payload_breakout *breakout)
 
 /* --- */
 
+char *find_http_header( struct payload_breakout *breakout, char *which)
+
+{
+    int hsize, off;
+    char *result = 0, *st = 0;
+    struct data_block *headset;
+
+    if( which) if( *which)
+    {
+        hsize = strlen( which);
+
+        headset = breakout->header_line;
+        for( off = 0; !result && off < breakout->n_headers; off++)
+        {
+            if( !strncasecmp( which, (headset + off)->data, hsize))
+            {
+                st = (headset + off)->data + hsize;
+                if( *st == COLON_CH)
+                {
+                    for( st++; *st == BLANK_CH; st++) ;
+                    if( *st) result = st;
+		}
+	    }
+	}
+    }
+
+    return( result);
+}
+
+/* --- */
+
 void parse_payload( int *rc, struct plan_data *plan)
 
 {
@@ -1787,6 +1819,16 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         in_head = 1;
         walk = status->checkpoint;
 
+        if( out->out_html)
+        {
+            if( display->show_head)
+            {
+                printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_HEAD);
+                printf( "%s", HTML_PREFORMAT_START);
+	    }
+            else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+	}
+
         for( ; walk; walk = walk->next)
         {
             detail = walk->detail;
@@ -1797,12 +1839,28 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 for( ; pos < last_pos; pos++)
                 {
                     if( in_head && display->show_head) fputc( *pos, stdout);
-                    else if( !in_head && display->show_data) fputc( *pos, stdout);
+                    else if( !in_head && display->show_data)
+                    {
+                        if( !out->out_html) fputc( *pos, stdout);
+                        else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
+                        else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
+                        else fputc( *pos, stdout);
+		    }
 
-                    if( pos == head_spot->position) in_head = 0;
+                    if( pos == head_spot->position)
+                    {
+                        in_head = 0;
+                        if( out->out_html && display->show_head && display->show_data)
+                        {
+                            printf( "%s%s", HTML_PREFORMAT_END, HTML_RESP_IFRAME_END);
+                            printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+			}
+		    }
 		}
 	    }
  	}
+
+        if( out->out_html) printf( "%s", HTML_RESP_IFRAME_END);
     }
 
     if( *rc == RC_NORMAL && display->show_timers)

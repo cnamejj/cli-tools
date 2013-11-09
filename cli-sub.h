@@ -70,6 +70,8 @@
 #define COLON_CH ':'
 #define GT_CH '>'
 #define LT_CH '<'
+#define DQUOTE_CH '"'
+#define AMPER_CH '&'
 
 #define CGI_OPT_DELIM '&'
 #define CGI_OPT_EQUAL '='
