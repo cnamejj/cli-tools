@@ -1827,94 +1827,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         head_spot = breakout->head_spot;
     }
 
-    if( *rc == RC_NORMAL && (display->show_head || display->show_data))
-    {
-        in_head = 1;
-        walk = status->checkpoint;
-
-        if( display->show_data && breakout->trans_encoding)
-          is_chunked = !strcasecmp( breakout->trans_encoding, ENC_TYPE_CHUNKED);
-
-        if( is_chunked)
-        {
-            chunk_left = 0;
-            build_len = 0;
-	}
-
-        if( out->out_html)
-        {
-            if( display->show_head)
-            {
-                printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_HEAD);
-                printf( "%s", HTML_PREFORMAT_START);
-	    }
-            else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
-	}
-
-        for( ; walk && *rc == RC_NORMAL; walk = walk->next)
-        {
-            detail = walk->detail;
-            if( detail) if( detail->len)
-            {
-                pos = detail->data;
-                last_pos = pos + detail->len;
-                for( ; pos < last_pos; pos++)
-                {
-                    if( in_head && display->show_head) fputc( *pos, stdout);
-                    else if( !in_head && display->show_data)
-                    {
-                        if( is_chunked && !chunk_left)
-                        {
-                            if( *pos == LF_CH)
-                            {
-                                chunk_left = build_len;
-                                build_len = 0;
-			    }
-                            else if( isxdigit( *pos))
-                            {
-                                xdig_conv[ 0] = *pos;
-                                errno = 0;
-                                inc_len = strtoul( xdig_conv, 0, HEX_BASE);
-                                if( errno) *rc = ERR_SYS_CALL;
-                                else
-                                {
-/*
-int dbg_build;
-dbg_build = (build_len * 16) + inc_len;
-printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_build,
-  build_len * 16, inc_len);
- */
-                                    build_len = (build_len * 16) + inc_len;
-				}
-			    }
-                            else if( *pos != CR_CH) *rc = ERR_BAD_FORMAT;
-			}
-                        else
-                        {
-                            if( !out->out_html) fputc( *pos, stdout);
-                            else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
-                            else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
-                            else fputc( *pos, stdout);
-                            if( is_chunked) chunk_left--;
-			}
-		    }
-
-                    if( pos == head_spot->position)
-                    {
-                        in_head = 0;
-                        if( out->out_html && display->show_head && display->show_data)
-                        {
-                            printf( "%s%s", HTML_PREFORMAT_END, HTML_RESP_IFRAME_END);
-                            printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
-			}
-		    }
-		}
-	    }
- 	}
-
-        if( out->out_html) printf( "%s", HTML_RESP_IFRAME_END);
-    }
-
     if( *rc == RC_NORMAL && display->show_timers)
     {
         if( iter == 1 && display->show_timerheaders)
@@ -2079,6 +1991,94 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
               profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
               profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
         }
+    }
+
+    if( *rc == RC_NORMAL && (display->show_head || display->show_data))
+    {
+        in_head = 1;
+        walk = status->checkpoint;
+
+        if( display->show_data && breakout->trans_encoding)
+          is_chunked = !strcasecmp( breakout->trans_encoding, ENC_TYPE_CHUNKED);
+
+        if( is_chunked)
+        {
+            chunk_left = 0;
+            build_len = 0;
+	}
+
+        if( out->out_html)
+        {
+            if( display->show_head)
+            {
+                printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_HEAD);
+                printf( "%s", HTML_PREFORMAT_START);
+	    }
+            else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+	}
+
+        for( ; walk && *rc == RC_NORMAL; walk = walk->next)
+        {
+            detail = walk->detail;
+            if( detail) if( detail->len)
+            {
+                pos = detail->data;
+                last_pos = pos + detail->len;
+                for( ; pos < last_pos; pos++)
+                {
+                    if( in_head && display->show_head) fputc( *pos, stdout);
+                    else if( !in_head && display->show_data)
+                    {
+                        if( is_chunked && !chunk_left)
+                        {
+                            if( *pos == LF_CH)
+                            {
+                                chunk_left = build_len;
+                                build_len = 0;
+			    }
+                            else if( isxdigit( *pos))
+                            {
+                                xdig_conv[ 0] = *pos;
+                                errno = 0;
+                                inc_len = strtoul( xdig_conv, 0, HEX_BASE);
+                                if( errno) *rc = ERR_SYS_CALL;
+                                else
+                                {
+/*
+int dbg_build;
+dbg_build = (build_len * 16) + inc_len;
+printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_build,
+  build_len * 16, inc_len);
+ */
+                                    build_len = (build_len * 16) + inc_len;
+				}
+			    }
+                            else if( *pos != CR_CH) *rc = ERR_BAD_FORMAT;
+			}
+                        else
+                        {
+                            if( !out->out_html) fputc( *pos, stdout);
+                            else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
+                            else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
+                            else fputc( *pos, stdout);
+                            if( is_chunked) chunk_left--;
+			}
+		    }
+
+                    if( pos == head_spot->position)
+                    {
+                        in_head = 0;
+                        if( out->out_html && display->show_head && display->show_data)
+                        {
+                            printf( "%s%s", HTML_PREFORMAT_END, HTML_RESP_IFRAME_END);
+                            printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+			}
+		    }
+		}
+	    }
+ 	}
+
+        if( out->out_html) printf( "%s", HTML_RESP_IFRAME_END);
     }
 
     return;
