@@ -47,6 +47,10 @@
 #define FL_CLIENTIP       "clip"
 #define FL_PTHRU          "connthru"
 #define FL_DEBUG          "debug"
+#define FL_TCP4           "tcp4"
+#define FL_TCP4_2         "4"
+#define FL_TCP6           "tcp6"
+#define FL_TCP6_2         "6"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -71,6 +75,8 @@
 #define OP_CLIENTIP       21
 #define OP_PTHRU          22
 #define OP_DEBUG          23
+#define OP_TCP4           24
+#define OP_TCP6           25
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -99,6 +105,10 @@
 #define DEF_CLIENTIP       ""
 #define DEF_PTHRU          "0"
 #define DEF_DEBUG          "0"
+#define DEF_TCP4           "0"
+#define DEF_TCP4_2         "0"
+#define DEF_TCP6           "0"
+#define DEF_TCP6_2         "0"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -459,7 +469,7 @@ struct target_info {
   char *ipv4, *ipv6;
   char *auth_user, *auth_passwd;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
-  int conn_port, proxy_port, conn_pthru;
+  int conn_port, proxy_port, conn_pthru, pref_protocol;
   struct value_chain *extra_headers;
 };
 
@@ -539,6 +549,8 @@ Options are:\n\
   <--clip ip-address\n\
   <--connthru>\n\
   <--debug debug-level>\n\
+  <--tcp4> | <--4>\n\
+  <--tcp6> | <--6>\n\
 "
 
 /* --- */

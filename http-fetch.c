@@ -6,6 +6,7 @@
 /*
  * Bugs:
  * ---
+ * - the "help" info doesn't ever show, something's broken...
  *
  * Features:
  * ---
@@ -542,6 +543,8 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                  */
                 if( runex->client_ip_type == IP_V6) match4 = 0;
                 else if( runex->client_ip_type == IP_V4) match6 = 0;
+                else if( target->pref_protocol == IP_V6) match4 = 0;
+                else if( target->pref_protocol == IP_V4) match6 = 0;
 
                 if( match6)
                 {
@@ -2364,6 +2367,7 @@ struct plan_data *allocate_hf_plan_data()
         target->conn_port = NO_PORT;
         target->proxy_port = NO_PORT;
         target->conn_pthru = 0;
+        target->pref_protocol = 0;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -2464,7 +2468,7 @@ struct plan_data *allocate_hf_plan_data()
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
     int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0,
-      is_cgi = 0;
+      is_cgi = 0, nop_prefprot = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -2494,6 +2498,10 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_CLIENTIP,     OP_TYPE_CHAR, OP_FL_BLANK,   FL_CLIENTIP,       0, DEF_CLIENTIP,     0, 0 },
       { OP_PTHRU,        OP_TYPE_FLAG, OP_FL_BLANK,   FL_PTHRU,          0, DEF_PTHRU,        0, 0 },
       { OP_DEBUG,        OP_TYPE_INT,  OP_FL_BLANK,   FL_DEBUG,          0, DEF_DEBUG,        0, 0 },
+      { OP_TCP4,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP4,           0, DEF_TCP4,         0, 0 },
+      { OP_TCP4,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP4_2,         0, DEF_TCP4,         0, 0 },
+      { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6,           0, DEF_TCP6,         0, 0 },
+      { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6_2,         0, DEF_TCP6,         0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -2763,6 +2771,28 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         target->extra_headers = (struct value_chain *) co->parsed;
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_TCP4, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "tcp4")
+        if( co->opt_num > nop_prefprot)
+        {
+            if( *((int *) co->parsed)) target->pref_protocol = IP_V4;
+            else target->pref_protocol = IP_V6;
+            nop_prefprot = co->opt_num;
+	}
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_TCP6, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "tcp6")
+        if( co->opt_num > nop_prefprot)
+        {
+            if( *((int *) co->parsed)) target->pref_protocol = IP_V6;
+            else target->pref_protocol = IP_V4;
+            nop_prefprot = co->opt_num;
+	}
+    }
+
     if(( co = cond_get_matching_option( &rc, OP_AUTH, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "auth")
@@ -2948,6 +2978,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - conn-port: (%d)\n", target->conn_port);
         fprintf( out->info_out, "- - - - proxy-port: (%d)\n", target->proxy_port);
         fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
+        fprintf( out->info_out, "- - - - pref-protocol: (%d)\n", target->pref_protocol);
 
         fprintf( out->info_out, "\n- - Display:\n");
         fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);
