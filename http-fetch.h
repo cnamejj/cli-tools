@@ -325,6 +325,8 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
   <tr><td>Pause time between fetches:</td><td><input type=\"text\" name=\"wait\" value=\"2000\"></td></tr>\n\
   <tr><td>Debug level:</td><td><input type=\"text\" name=\"debug\" value=\"0\"></td></tr>\n\
   <tr><td>Client IP address:</td><td><input type=\"text\" name=\"clip\"></td></tr>\n\
+  <tr><td>Prefered protocol:</td><td> IPv6<input type=\"radio\" value=\"yes\" name=\"tcp6\" checked>\n\
+IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\"></td></tr>\n\
 \n\
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
   <tr><td>&nbsp;</td><td><input type=\"submit\" value=\"Fetch\"></td></tr>\n\
