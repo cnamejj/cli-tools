@@ -6,11 +6,9 @@
 /*
  * Bugs:
  * ---
- * - the "help" info doesn't ever show, something's broken...
  *
  * Features:
  * ---
- * - Add an option to control HTTP/1.0 or HTTP/1.1
  * - Allow saving raw or parsed (as in chunked) content
  * - Let the user pick the bind IP by interface name
  * - Display both total bytes transfered and payload bytes with "-time" option
