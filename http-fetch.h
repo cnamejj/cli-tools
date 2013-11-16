@@ -264,13 +264,13 @@ DNT: 1\n\
 /* --- */
 
 #define TIME_SUMMARY_HEADER_1 "\
--Date--Time-     -------- Elapsed Time ------- Total ----- Transfer ----- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\
+-Date--Time-     -------- Elapsed Time ------- Total -------- Transfer --------- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\
 "
 #define TIME_SUMMARY_HEADER_2 "\
-YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time  Bytes Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time AllByt PayByt Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\
 "
 #define TIME_SUMMARY_HEADER_3 "\
------------- --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\
 "
 
 #define TIME_SUMMARY_HEADER_SEQ_1 "     "
@@ -402,7 +402,7 @@ struct http_status_response {
 };
 
 struct summary_stats {
-  int xfer_sum;
+  int xfer_sum, payload_sum;
   float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
     response_time, response_sum, close_sum, complete_time, complete_sum;
   float packsize_mean, readlag_mean, xfrate_mean,
@@ -474,7 +474,7 @@ struct fetch_status {
 };
 
 struct payload_breakout {
-  int n_headers;
+  int n_headers, header_size;
   char *content_type, *trans_encoding;
   struct data_block *header_line;
   struct chain_position *head_spot;
@@ -577,6 +577,8 @@ int parse_http_response( struct payload_breakout *breakout);
 struct http_status_response *parse_http_status( char *line);
 
 char *find_http_header( struct payload_breakout *breakout, char *which);
+
+int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *checkpoint);
 
 /* --- */
 

@@ -9,9 +9,7 @@
  *
  * Features:
  * ---
- * - Allow saving raw or parsed (as in chunked) content
  * - Let the user pick the bind IP by interface name
- * - Display both total bytes transfered and payload bytes with "-time" option
  * - Should have an option to follow redirects
  *
  * - Options: auth, proxy, connthru
@@ -1076,12 +1074,14 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     struct display_settings *display = 0;
     struct fetch_status *status = 0;
     struct ckpt_chain *walk = 0, *start = 0, *prevpack = 0;
+    struct payload_breakout *breakout = 0;
 
     if( *rc == RC_NORMAL)
     {
         display = plan->disp;
         profile = plan->profile;
         status = plan->status;
+        breakout = plan->partlist;
     }
 
     if( *rc == RC_NORMAL) if( display->show_timers)
@@ -1101,6 +1101,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             profile->close_sum = 0.0;
             profile->complete_sum = 0.0;
             profile->xfer_sum = 0;
+            profile->payload_sum = 0;
         }
 
         walk = status->checkpoint;
@@ -1424,6 +1425,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         profile->close_sum += profile->complete_time - profile->response_time;
         profile->complete_sum += profile->complete_time;
         profile->xfer_sum += status->response_len;
+        profile->payload_sum += status->response_len - breakout->header_size;
         profile->packsize_stdev_sum += profile->packsize_norm_stdev;
         profile->packsize_skew_sum += profile->packsize_norm_skew;
         profile->packsize_kurt_sum += profile->packsize_norm_kurt;
@@ -1744,6 +1746,29 @@ char *find_http_header( struct payload_breakout *breakout, char *which)
 
 /* --- */
 
+int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *chain)
+
+{
+    int size = 0;
+    char *fence = 0;
+    struct ckpt_chain *walk = 0, *last = 0;
+
+    if( breakout && chain) if( breakout->head_spot)
+    {
+        last = breakout->head_spot->chain;
+        fence = breakout->head_spot->position;
+
+        for( walk = chain; walk && walk != last; walk = walk->next)
+          if( walk->detail) size += walk->detail->len;
+
+        if( walk == last) size += fence - walk->detail->data;
+    }
+
+    return( size);
+}
+
+/* --- */
+
 void parse_payload( int *rc, struct plan_data *plan)
 
 {
@@ -1764,6 +1789,10 @@ void parse_payload( int *rc, struct plan_data *plan)
         {
             status->err_msg = strdup( EMSG_HTTP_HEADER_NO_END);
             *rc = ERR_UNSUPPORTED;
+	}
+        else
+        {
+            breakout->header_size = find_header_size( breakout, status->checkpoint);
 	}
     }
 
@@ -1798,7 +1827,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
       xfer_mean = 0, http_rc, is_chunked = 0, chunk_left, build_len,
-      inc_len;
+      inc_len, payload_mean = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
@@ -1888,9 +1917,10 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         else http_rc = plan->partlist->response_status->code;
 
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
-        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
           disp_time, http_rc, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-          status->response_len, totrate, totrate_mark, datarate, datarate_mark,
+          status->response_len, status->response_len - breakout->header_size,
+          totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_norm_stdev, profile->packsize_norm_skew, profile->packsize_norm_kurt,
           profile->readlag_norm_stdev, profile->readlag_norm_skew, profile->readlag_norm_kurt,
           profile->xfrate_norm_stdev, profile->xfrate_norm_skew, profile->xfrate_norm_kurt);
@@ -1949,6 +1979,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 close_ms = 0;
                 complete_ms = 0;
                 xfer_mean = 0;
+                payload_mean = 0;
 	    }
             else
             {
@@ -1959,6 +1990,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 close_ms = lroundf( profile->close_sum / nloop);
                 complete_ms = lroundf( profile->complete_sum / nloop);
                 xfer_mean = profile->xfer_sum / runex->loop_count;
+                payload_mean = profile->payload_sum / runex->loop_count;
 	    }
 
             if( !profile->complete_sum)
@@ -1984,9 +2016,9 @@ void display_output( int *rc, struct plan_data *plan, int iter)
             nloop = (float) runex->loop_count;
             fprintf( out->info_out, "Average values: ");
             if( display->show_number) fprintf( out->info_out, "  ---");
-            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
               dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-              xfer_mean, totrate, totrate_mark, datarate, datarate_mark,
+              xfer_mean, payload_mean, totrate, totrate_mark, datarate, datarate_mark,
               profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
               profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
               profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
@@ -2423,18 +2455,20 @@ struct plan_data *allocate_hf_plan_data()
         status->checkpoint = checkpoint;
         status->lastcheck = checkpoint;
 
-        breakout->head_spot = 0;
-        breakout->n_headers = 0;
-        breakout->header_line = 0;
-        breakout->content_type = 0;
-        breakout->trans_encoding = 0;
-
         resp_status->code = 0;
         resp_status->version = 0;
         resp_status->reason = 0;
+
+        breakout->head_spot = 0;
+        breakout->n_headers = 0;
+        breakout->header_size = 0;
+        breakout->header_line = 0;
+        breakout->content_type = 0;
+        breakout->trans_encoding = 0;
         breakout->response_status = resp_status;
 
         profile->xfer_sum = 0;
+        profile->payload_sum = 0;
         profile->lookup_time = 0.0;
         profile->lookup_sum = 0.0;
         profile->connect_time = 0.0;
