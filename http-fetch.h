@@ -333,6 +333,8 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
   <tr><td>Client IP address:</td><td><input type=\"text\" name=\"clip\"></td></tr>\n\
   <tr><td>Prefered protocol:</td><td> IPv6<input type=\"radio\" value=\"yes\" name=\"tcp6\" checked>\n\
 IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\"></td></tr>\n\
+  <tr><td>HTTP protocol:</td><td> 1.1<input type=\"radio\" value=\"yes\" name=\"http1.1\" checked>\n\
+1.0<input type=\"radio\" value=\"no\" name=\"http1.1\"></td></tr>\n\
 \n\
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
   <tr><td>&nbsp;</td><td><input type=\"submit\" value=\"Fetch\"></td></tr>\n\
