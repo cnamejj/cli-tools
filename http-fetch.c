@@ -12,8 +12,7 @@
  * ---
  * - Add an option to control HTTP/1.0 or HTTP/1.1
  * - Allow saving raw or parsed (as in chunked) content
- * - Add an option to select IPv4 or IPv6 address from DNS results
- * - Let the user pick the bind IP by interface name (and prot 6/4 choice)
+ * - Let the user pick the bind IP by interface name
  * - Display both total bytes transfered and payload bytes with "-time" option
  * - Should have an option to follow redirects
  *
@@ -2210,6 +2209,16 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
+        walk->from = PATT_HTTP_PROTOCOL;
+        if( target->http_protocol == USE_HTTP11) walk->to = PROT_HTTP11;
+        else walk->to = PROT_HTTP10;
+        walk->next = (struct sub_list *) malloc( sizeof *walk);
+        if( !walk->next) rc = ERR_MALLOC_FAILED;
+        else walk = walk->next;
+    }
+
+    if( rc == RC_NORMAL)
+    {
         walk->from = PATT_HOST_NAME;
         walk->to = webhost;
         walk->next = (struct sub_list *) malloc( sizeof *walk);
@@ -2368,6 +2377,7 @@ struct plan_data *allocate_hf_plan_data()
         target->proxy_port = NO_PORT;
         target->conn_pthru = 0;
         target->pref_protocol = 0;
+        target->http_protocol = USE_HTTP11;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -2468,7 +2478,7 @@ struct plan_data *allocate_hf_plan_data()
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
     int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0,
-      is_cgi = 0, nop_prefprot = 0;
+      is_cgi = 0, nop_prefprot = 0, nop_httpprot = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -2502,6 +2512,8 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_TCP4,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP4_2,         0, DEF_TCP4,         0, 0 },
       { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6,           0, DEF_TCP6,         0, 0 },
       { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6_2,         0, DEF_TCP6,         0, 0 },
+      { OP_HTTP10,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP10,         0, DEF_HTTP10,      0, 0 },
+      { OP_HTTP11,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP11,         0, DEF_HTTP11,      0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -2793,6 +2805,28 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 	}
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_HTTP10, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "http1.0")
+        if( co->opt_num > nop_httpprot)
+        {
+            if( *((int *) co->parsed)) target->http_protocol = USE_HTTP10;
+            else target->http_protocol = USE_HTTP11;
+            nop_httpprot = co->opt_num;
+	}
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_HTTP11, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "http1.1")
+        if( co->opt_num > nop_httpprot)
+        {
+            if( *((int *) co->parsed)) target->http_protocol = USE_HTTP11;
+            else target->http_protocol = USE_HTTP10;
+            nop_httpprot = co->opt_num;
+	}
+    }
+
     if(( co = cond_get_matching_option( &rc, OP_AUTH, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "auth")
@@ -2951,6 +2985,12 @@ int main( int narg, char **opts)
         runex = plan->run;
         out = plan->out;
         fetch = plan->status;
+    }
+
+    if( rc == RC_NORMAL) if( disp->show_help)
+    {
+        fprintf( out->info_out, "%s", MSG_SHOW_SYNTAX);
+        rc = ERR_NOTHING_LEFT;
     }
 
     if( rc == RC_NORMAL) rc = find_connection( plan);

@@ -51,6 +51,8 @@
 #define FL_TCP4_2         "4"
 #define FL_TCP6           "tcp6"
 #define FL_TCP6_2         "6"
+#define FL_HTTP10         "http1.0"
+#define FL_HTTP11         "http1.1"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -77,6 +79,8 @@
 #define OP_DEBUG          23
 #define OP_TCP4           24
 #define OP_TCP6           25
+#define OP_HTTP10         26
+#define OP_HTTP11         27
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -109,6 +113,8 @@
 #define DEF_TCP4_2         "0"
 #define DEF_TCP6           "0"
 #define DEF_TCP6_2         "0"
+#define DEF_HTTP10         "0"
+#define DEF_HTTP11         "1"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -236,7 +242,7 @@ Content-type: text/html\r\n\
 /* --- */
 
 #define FETCH_REQUEST_TEMPLATE "\
-GET %uri% HTTP/1.1\r\n\
+GET %uri% %httpprot%\r\n\
 %hostcomment%Host: %webhost%\r\n\
 User-Agent: %agent%\r\n\
 Accept: */*\r\n\
@@ -246,7 +252,7 @@ DNT: 1\r\n\
 \r\n"
 
 #define NO_CR_FETCH_REQUEST_TEMPLATE "\
-GET %uri% HTTP/1.1\n\
+GET %uri% %httpprot%\n\
 %hostcomment%Host: %webhost%\n\
 User-Agent: %agent%\n\
 Accept: */*\n\
@@ -351,6 +357,13 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\"></td></tr>\n\
 #define PATT_HOST_NAME "%webhost%"
 #define PATT_USER_AGENT "%agent%"
 #define PATT_EXTRA_HEADERS "%exheaders%"
+#define PATT_HTTP_PROTOCOL "%httpprot%"
+
+#define USE_HTTP11 0
+#define USE_HTTP10 1
+
+#define PROT_HTTP11 "HTTP/1.1"
+#define PROT_HTTP10 "HTTP/1.0"
 
 #define EMSG_INVALID_PROXY "Invalid URL given for proxy server."
 #define EMSG_INVALID_URL "The URL requested is invalid."
@@ -378,52 +391,6 @@ if( out->debug_level >= DEBUG_HIGH1 && (co->flags & OP_FL_FOUND)) \
   fprintf( out->info_out, "%sOpt #%d, %s '%s'\n", PREFIX, co->opt_num, NAME, co->val);
 
 #define SPSP( ST) ST ? ST : "\0"
-
-/*
- * ---
-
-The run plan needs to have these fields:
-
-1. Target info
- HTTP hostname
- connect target, hostname or ip, port
- URI
- list of extra headers
- user/password auth info
- http proxy yes/no, hostname or ip, port
- use proxy w/ passthru yes/no
-    char *http_host, *conn_host, *conn_ip, *conn_uri;
-    char *auth_user, *auth_passwd;
-    char *proxy_host, *proxy_ip;
-    int conn_port, proxy_port, conn_pthru;
-    struct value_chain *extra_headers;
-
-2. Display settings
- show http header yes/no
- show http data yes/no
- number summary info yes/no
- show timer info yes/no
- show packet time data yes/no
-    int show_head, show_data, show_timers, show_packetime, show_complete, show_number;
-
-3. Execution controls
- loop #
- pause between loop #
- timeout # value
- client IP to bind to
-    int loop_count, loop_pause, conn_timeout;
-    char *client_ip;
-
-4. Output options
- display as HTML yes/no
- debug level
- fprintf() file descriptor for informational output (stdout by default, switch to stderr optionally)
-    int out_html, debug_level;
-    FILE *info_out, *err_out;
-
- * ---
- */
-
 
 /* --- */
 
@@ -471,7 +438,7 @@ struct target_info {
   char *ipv4, *ipv6;
   char *auth_user, *auth_passwd;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
-  int conn_port, proxy_port, conn_pthru, pref_protocol;
+  int conn_port, proxy_port, conn_pthru, pref_protocol, http_protocol;
   struct value_chain *extra_headers;
 };
 
@@ -524,35 +491,34 @@ struct plan_data {
 
 /* --- */
 
-#define MSG_SHOW_SYNTAX "\n\
+#define MSG_SHOW_SYNTAX "\
 Syntax is: %s <options>\n\
 Options are:\n\
-\n\
-  <--header> | <--h>\n\
-  <--output> | <--pe>\n\
-  <--uri uri>\n\
-  <--connhost hostname\n\
-  <--webhost hostname\n\
-  <--url url>\n\
-  <--port port>\n\
-  <--timers> | <--time>\n\
-  <--data>\n\
-  <--loop number-of-fetches>\n\
-  <--html>\n\
-  <--num>\n\
-  <--wait seconds>\n\
-  <--hfield 'Field: value'\n\
-  <--stderr>\n\
-  <--auth user:password\n\
-  <--timeheaders> | <--timeh>\n\
-  <--timeout seconds>\n\
-  <--proxy hostname:port>\n\
-  <--packetime>\n\
-  <--clip ip-address\n\
-  <--connthru>\n\
-  <--debug debug-level>\n\
-  <--tcp4> | <--4>\n\
-  <--tcp6> | <--6>\n\
+    <--header> | <--h>\n\
+    <--output> | <--pe>\n\
+    <--uri uri>\n\
+    <--connhost hostname>\n\
+    <--webhost hostname>\n\
+    <--url url>\n\
+    <--port port>\n\
+    <--timers> | <--time>\n\
+    <--data>\n\
+    <--loop number-of-fetches>\n\
+    <--html>\n\
+    <--num>\n\
+    <--wait seconds>\n\
+    <--hfield 'Field: value'>\n\
+    <--stderr>\n\
+    <--auth user:password>\n\
+    <--timeheaders> | <--timeh>\n\
+    <--timeout seconds>\n\
+    <--proxy hostname:port>\n\
+    <--packetime>\n\
+    <--clip ip-address>\n\
+    <--connthru>\n\
+    <--debug debug-level>\n\
+    <--tcp4> | <--4> | <--tcp6> | <--6>\n\
+    <--http1.0> | <--http1.1>\n\
 "
 
 /* --- */
