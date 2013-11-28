@@ -111,13 +111,13 @@ int get_destination_ip( struct task_details *plan)
                         else walk = walk->ai_next;
                     }
 
-                    if( plan->use_ip & DO_IPV4 && match4)
+                    if( (plan->use_ip & DO_IPV4) && match4)
                     {
                         sa4 = (struct sockaddr_in *) match4->ai_addr;
                         plan->dest4.sin_addr = sa4->sin_addr;
                         plan->found_family = AF_INET;
                     }
-                    else if( plan->use_ip & DO_IPV6 && match6)
+                    else if( (plan->use_ip & DO_IPV6) && match6)
                     {
                         sa6 = (struct sockaddr_in6 *) match6->ai_addr;
                         plan->dest6.sin6_addr = sa6->sin6_addr;
