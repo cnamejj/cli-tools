@@ -541,7 +541,21 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                 else if( target->pref_protocol == IP_V6) match4 = 0;
                 else if( target->pref_protocol == IP_V4) match6 = 0;
 
-                if( match6)
+                if( match4)
+                {
+                    status->ip_type = IP_V4;
+                    sock4 = (struct sockaddr_in *) match4->ai_addr;
+                    status->sock4.sin_addr = sock4->sin_addr;
+                    status->sock4.sin_port = htons( target->conn_port);
+                    if( out->debug_level >= DEBUG_MEDIUM2)
+                    {
+                        st = display_ip;
+                        strc = (char *) inet_ntop( AF_INET, &sock4->sin_addr, st, (sizeof display_ip));
+                        if( !strc) strcat( display_ip, INVALID_IP);
+                        fprintf( out->info_out, "%sPicked an IPV4 record (%s)\n", disp->line_pref, st);
+		    }
+		}
+                else if( match6)
                 {
                     status->ip_type = IP_V6;
                     sock6 = (struct sockaddr_in6 *) match6->ai_addr;
@@ -554,20 +568,6 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                         strc = (char *) inet_ntop( AF_INET6, &sock6->sin6_addr, st, (sizeof display_ip));
                         if( !strc) strcat( display_ip, INVALID_IP);
                         fprintf( out->info_out, "%sPicked an IPV6 record (%s)\n", disp->line_pref, st);
-		    }
-		}
-                else if( match4)
-                {
-                    status->ip_type = IP_V4;
-                    sock4 = (struct sockaddr_in *) match4->ai_addr;
-                    status->sock4.sin_addr = sock4->sin_addr;
-                    status->sock4.sin_port = htons( target->conn_port);
-                    if( out->debug_level >= DEBUG_MEDIUM2)
-                    {
-                        st = display_ip;
-                        strc = (char *) inet_ntop( AF_INET, &sock4->sin_addr, st, (sizeof display_ip));
-                        if( !strc) strcat( display_ip, INVALID_IP);
-                        fprintf( out->info_out, "%sPicked an IPV4 record (%s)\n", disp->line_pref, st);
 		    }
 		}
                 else
