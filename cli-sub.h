@@ -21,6 +21,14 @@
 #include <sys/stat.h>
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
+/*
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+ */
 
 /* --- */
 
@@ -148,6 +156,11 @@ struct url_breakout {
     char *protocol, *target, *user, *host, *ip4, *ip6, *uri, *query;
 };
 
+struct interface_info {
+    char *name;
+    unsigned int flags;
+    struct sockaddr *addr;
+};
 
 /* --- */
 
@@ -231,6 +244,9 @@ char *sys_call_fail_msg( const char *routine);
 
 char *errmsg_with_string( const char *emsg_template, const char *detail);
 
+struct interface_info *get_matching_interface( const char *if_name, int protocol, unsigned int flags);
+
 /* --- */
 
 #endif
+
