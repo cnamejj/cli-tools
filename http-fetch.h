@@ -337,8 +337,9 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
   <tr><td>Pause time between fetches:</td><td><input type=\"text\" name=\"wait\" value=\"2000\"></td></tr>\n\
   <tr><td>Debug level:</td><td><input type=\"text\" name=\"debug\" value=\"0\"></td></tr>\n\
   <tr><td>Client IP address:</td><td><input type=\"text\" name=\"clip\"></td></tr>\n\
-  <tr><td>Prefered protocol:</td><td> IPv6<input type=\"radio\" value=\"yes\" name=\"tcp6\" checked>\n\
-IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\"></td></tr>\n\
+  <tr><td>Bind to interface:</td><td><input type=\"text\" name=\"interface\"></td></tr>\n\
+  <tr><td>Prefered protocol:</td><td> IPv6<input type=\"radio\" value=\"yes\" name=\"tcp6\">\n\
+IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
   <tr><td>HTTP protocol:</td><td> 1.1<input type=\"radio\" value=\"yes\" name=\"http1.1\" checked>\n\
 1.0<input type=\"radio\" value=\"no\" name=\"http1.1\"></td></tr>\n\
 \n\
