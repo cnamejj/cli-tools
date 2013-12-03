@@ -20,7 +20,7 @@ OS=$(shell uname)
 LD_OPTS_Linux = -L/usr/lib/x86_64-linux-gnu -lrt
 CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
-CC = gcc $(DEBUG_DEFS)
+CC = gcc $(DEBUG_DEFS) -Wall
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
 LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS))

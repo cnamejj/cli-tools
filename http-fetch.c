@@ -9,7 +9,6 @@
  *
  * Features:
  * ---
- * - Let the user pick the bind IP by interface name
  * - Should have an option to follow redirects
  *
  * - Options: auth, proxy, connthru
@@ -27,6 +26,7 @@
 #include <fcntl.h>
 #endif
 #include <math.h>
+#include <net/if.h>
 
 #include "http-fetch.h"
 #include "cli-sub.h"
@@ -613,10 +613,11 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 void connect_to_server( int *rc, struct plan_data *plan)
 
 {
-    int sock_type, sock, sysrc, salen;
+    int sock_type, sock, sysrc, salen = 0, dev_prot;
 #ifndef linux
     int flags;
 #endif
+    char display_ip[ INET6_ADDRSTRLEN + 1], *st, *strc;
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct sockaddr *sa = 0;
@@ -690,16 +691,55 @@ void connect_to_server( int *rc, struct plan_data *plan)
                 *rc = ERR_INVALID_DATA;
 	    }
 	}
+    }
 
-        if( *rc == RC_NORMAL)
+    if( *rc == RC_NORMAL && runex->device_summ && !sa)
+    {
+        dev_prot = runex->device_summ->addr->sa_family;
+        if( dev_prot == AF_INET6)
         {
-            sysrc = bind( sock, sa, salen);
-            if( sysrc == -1)
+            sa = (struct sockaddr *) &sock6;
+            memcpy( &sock6, (struct sockaddr_in6 *) runex->device_summ->addr, sizeof sock6);
+            sock6.sin6_port = 0;
+            sock6.sin6_flowinfo = 0;
+            salen = sizeof sock6;
+            if( out->debug_level >= DEBUG_MEDIUM3)
             {
-                status->end_errno = errno;
-                status->err_msg = sys_call_fail_msg( "bind");
-                *rc = ERR_SYS_CALL;
-	    }
+                st = display_ip;
+                memset( display_ip, EOS_CH, (sizeof display_ip));
+                strc = (char *) inet_ntop( AF_INET6, &sock6.sin6_addr, st, (sizeof display_ip));
+                if( !strc) strcat( display_ip, INVALID_IP);
+                fprintf( out->info_out, "Bind to interface /dev/%s ipv6: %s\n",
+                  runex->device_summ->name, st);
+            }
+        }
+        else if( dev_prot == AF_INET)
+        {
+            sa = (struct sockaddr *) &sock4;
+            memcpy( &sock4, (struct sockaddr_in *) runex->device_summ->addr, sizeof sock4);
+            sock4.sin_port = 0;
+            salen = sizeof sock4;
+            if( out->debug_level >= DEBUG_MEDIUM3)
+            {
+                st = display_ip;
+                memset( display_ip, EOS_CH, (sizeof display_ip));
+                strc = (char *) inet_ntop( AF_INET, &sock4.sin_addr, st, (sizeof display_ip));
+                if( !strc) strcat( display_ip, INVALID_IP);
+                fprintf( out->info_out, "Bind to interface /dev/%s ipv4: %s\n",
+                  runex->device_summ->name, st);
+            }
+        }
+        else *rc = ERR_UNSUPPORTED; /* should never happen, but set an error message just in case */
+    }
+
+    if( *rc == RC_NORMAL && sa)
+    {
+        sysrc = bind( sock, sa, salen);
+        if( sysrc == -1)
+        {
+            status->end_errno = errno;
+            status->err_msg = sys_call_fail_msg( "bind");
+            *rc = ERR_SYS_CALL;
 	}
     }
 
@@ -2429,6 +2469,8 @@ struct plan_data *allocate_hf_plan_data()
         runex->conn_timeout = 0;
         runex->client_ip_type = IP_UNKNOWN;
         runex->client_ip = 0;
+        runex->bind_interface = 0;
+        runex->device_summ = 0;
 
         status->response_len = 0;
         status->ip_type = IP_UNKNOWN;
@@ -2510,7 +2552,7 @@ struct plan_data *allocate_hf_plan_data()
 struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 {
     int rc = RC_NORMAL, errlen, in_val, nop_head = 0, nop_data = 0, nop_comp = 0, show_form = 0,
-      is_cgi = 0, nop_prefprot = 0, nop_httpprot = 0;
+      is_cgi = 0, nop_prefprot = 0, nop_httpprot = 0, ip_pref, has_pref_clip = 0;
     char *sep = 0, *cgi_data = 0, *unrecognized = 0, *st = 0;
     struct option_set opset[] = {
       { OP_HEADER,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HEADER,         0, DEF_HEADER,       0, 0 },
@@ -2544,8 +2586,10 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_TCP4,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP4_2,         0, DEF_TCP4,         0, 0 },
       { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6,           0, DEF_TCP6,         0, 0 },
       { OP_TCP6,         OP_TYPE_FLAG, OP_FL_BLANK,   FL_TCP6_2,         0, DEF_TCP6,         0, 0 },
-      { OP_HTTP10,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP10,         0, DEF_HTTP10,      0, 0 },
-      { OP_HTTP11,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP11,         0, DEF_HTTP11,      0, 0 },
+      { OP_HTTP10,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP10,         0, DEF_HTTP10,       0, 0 },
+      { OP_HTTP11,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP11,         0, DEF_HTTP11,       0, 0 },
+      { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE,      0, DEF_INTERFACE,    0, 0 },
+      { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE_2,    0, DEF_INTERFACE,    0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -2556,6 +2600,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
+    struct interface_info *dev_info = 0;
 
     /* --- */
 
@@ -2877,6 +2922,12 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         if( !target->auth_passwd) rc = ERR_MALLOC_FAILED;
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_INTERFACE, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "interface")
+        runex->bind_interface = (char *) co->parsed;
+    }
+
     /* ---
      * If the options controlling which parts of the response conflict, then
      *   check where each was given on the command line to decide which
@@ -2902,9 +2953,32 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         if( runex->client_ip) if( *runex->client_ip)
         {
+            has_pref_clip = 1;
+
             if( is_ipv6_address( runex->client_ip)) runex->client_ip_type = IP_V6;
             else if( is_ipv4_address( runex->client_ip)) runex->client_ip_type = IP_V4;
+
+            if( runex->client_ip_type != IP_UNKNOWN && target->pref_protocol != IP_UNKNOWN
+              && runex->client_ip_type != target->pref_protocol) rc = ERR_UNSUPPORTED;  /* Conflicting options... Set an error message */
 	}
+    }
+
+    /* ---
+     * If the user asked to bind to a specific interface, lookup the
+     *   correct IP for that device based on the name and the IP protocol
+     *   (IPv4 or IPv6) if a preference was stated explicitly.  Use IPv4
+     *   by default since it's more likely to work.
+     */
+
+    if( rc == RC_NORMAL && !has_pref_clip && runex->bind_interface) if( *runex->bind_interface)
+    {
+        if( target->pref_protocol == IP_V4) ip_pref = AF_INET;
+        else if( target->pref_protocol == IP_V6) ip_pref = AF_INET6;
+        else ip_pref = AF_INET;
+
+        dev_info = get_matching_interface( runex->bind_interface, ip_pref, IFF_UP);
+        if( !dev_info) rc = ERR_UNSUPPORTED; /* No device matching name/protocol... Set an error message */
+        else runex->device_summ = dev_info;
     }
 
     /* --- */
@@ -3074,6 +3148,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - conn-timeout: %d\n", runex->conn_timeout);
         fprintf( out->info_out, "- - - - client-ip-type: %d\n", runex->client_ip_type);
         fprintf( out->info_out, "- - - - client-ip: (%s)\n", SPSP( runex->client_ip));
+        fprintf( out->info_out, "- - - - interface: (%s)\n", SPSP( runex->bind_interface));
 
         fprintf( out->info_out, "\n- - FetchStatus:\n");
         fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);

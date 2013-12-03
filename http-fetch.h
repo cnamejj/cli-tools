@@ -18,6 +18,8 @@
 #  define FRAC_RESOLUTION 0.000001
 #endif
 
+#pragma GCC diagnostic ignored "-Woverlength-strings"
+
 /* --- */
 
 #define FL_HEADER         "h"
@@ -53,6 +55,8 @@
 #define FL_TCP6_2         "6"
 #define FL_HTTP10         "http1.0"
 #define FL_HTTP11         "http1.1"
+#define FL_INTERFACE      "interface"
+#define FL_INTERFACE_2    "if"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -81,6 +85,7 @@
 #define OP_TCP6           25
 #define OP_HTTP10         26
 #define OP_HTTP11         27
+#define OP_INTERFACE      28
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -115,6 +120,7 @@
 #define DEF_TCP6_2         "0"
 #define DEF_HTTP10         "0"
 #define DEF_HTTP11         "1"
+#define DEF_INTERFACE      ""
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -457,7 +463,8 @@ struct display_settings {
 
 struct exec_controls {
   int loop_count, loop_pause, conn_timeout, client_ip_type;
-  char *client_ip;
+  char *client_ip, *bind_interface;
+  struct interface_info *device_summ;
 };
 
 struct fetch_status {
@@ -470,7 +477,6 @@ struct fetch_status {
   struct sockaddr_in6 sock6;
   struct ckpt_chain *checkpoint, *lastcheck;
   time_t wall_start;
-
 };
 
 struct payload_breakout {
@@ -521,6 +527,7 @@ Options are:\n\
     <--debug debug-level>\n\
     <--tcp4> | <--4> | <--tcp6> | <--6>\n\
     <--http1.0> | <--http1.1>\n\
+    <--if device>\n\
 "
 
 /* --- */
