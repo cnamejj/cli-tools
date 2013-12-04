@@ -2090,7 +2090,11 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_HEAD);
                 printf( "%s", HTML_PREFORMAT_START);
 	    }
-            else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+            else
+            {
+                if( is_image) printf( HTML_RESP_INLINE_IMAGE_START, breakout->content_type);
+                else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+	    }
 	}
 
         for( ; walk && *rc == RC_NORMAL; walk = walk->next)
