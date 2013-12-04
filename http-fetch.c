@@ -1867,7 +1867,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
       xfer_mean = 0, http_rc, is_chunked = 0, chunk_left, build_len,
-      inc_len, payload_mean = 0;
+      inc_len, payload_mean = 0, is_image = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
@@ -1894,6 +1894,10 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         profile = plan->profile;
         top = (long) (1.0 / status->clock_res);
         head_spot = breakout->head_spot;
+
+        is_image = !strncmp( breakout->content_type, CONTENT_IMAGE_PREF, strlen( CONTENT_IMAGE_PREF));
+        if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
+          "is-image? content-type'%s' comp'%s' res:%d\n", breakout->content_type, CONTENT_IMAGE_PREF, is_image);
     }
 
     if( *rc == RC_NORMAL && display->show_timers)
@@ -2134,6 +2138,11 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
                         else
                         {
                             if( !out->out_html) fputc( *pos, stdout);
+                            else if( is_image)
+                            {
+                                if( is_reserved_uri_char( *pos)) printf( "%%%02x", *pos & 0xff);
+                                else fputc( *pos, stdout);
+			    }
                             else if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
                             else if( *pos == AMPER_CH) printf( "%s", HTML_AM_ESCAPE);
                             else fputc( *pos, stdout);
@@ -2147,14 +2156,19 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
                         if( out->out_html && display->show_head && display->show_data)
                         {
                             printf( "%s%s", HTML_PREFORMAT_END, HTML_RESP_IFRAME_END);
-                            printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
+                            if( is_image) printf( HTML_RESP_INLINE_IMAGE_START, breakout->content_type);
+                            else printf( HTML_RESP_IFRAME_START, HTML_HEIGHT_DATA);
 			}
 		    }
 		}
 	    }
  	}
 
-        if( out->out_html) printf( "%s", HTML_RESP_IFRAME_END);
+        if( out->out_html)
+        {
+            if( is_image && display->show_data) printf( HTML_RESP_INLINE_IMAGE_END);
+            else printf( "%s", HTML_RESP_IFRAME_END);
+	}
     }
 
     return;

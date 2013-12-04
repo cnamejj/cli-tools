@@ -246,6 +246,8 @@ char *errmsg_with_string( const char *emsg_template, const char *detail);
 
 struct interface_info *get_matching_interface( const char *if_name, int protocol, unsigned int flags);
 
+int is_reserved_uri_char( int spot);
+
 /* --- */
 
 #endif

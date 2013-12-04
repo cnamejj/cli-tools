@@ -167,6 +167,9 @@ Content-type: text/html\r\n\
 #define HTML_RESP_IFRAME_START "<iframe seamless%s width=\"100%%\" sandbox srcdoc=\""
 #define HTML_RESP_IFRAME_END "\"></iframe>\n"
 
+#define HTML_RESP_INLINE_IMAGE_START "\n<br><img src=\"data:%s,"
+#define HTML_RESP_INLINE_IMAGE_END "\">\n<br>\n"
+
 #define HTML_PREFORMAT_START "<pre>"
 #define HTML_PREFORMAT_END "</pre>"
 #define HTML_FIXEDLINE_START "<br><tt>"
@@ -286,10 +289,12 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time AllByt PayByt Tot#/S Dat#/S
 #define TIME_DISPLAY_FORMAT "%y%m%d%H%M%S"
 #define TIME_DISPLAY_SIZE 15
 
+
 #define HTTP_HEAD_TRANSFER_ENCODING "Transfer-Encoding"
 #define HTTP_HEAD_CONTENT_TYPE "Content-Type"
 
 #define ENC_TYPE_CHUNKED "chunked"
+#define CONTENT_IMAGE_PREF "image/"
 
 #define HTTP_FORM_TEMPLATE "\
 <!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n\
