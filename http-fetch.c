@@ -2098,7 +2098,11 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 last_pos = pos + detail->len;
                 for( ; pos < last_pos; pos++)
                 {
-                    if( in_head && display->show_head) fputc( *pos, stdout);
+                    if( in_head && display->show_head)
+                    {
+                        if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
+                        else fputc( *pos, stdout);
+		    }
                     else if( !in_head && display->show_data)
                     {
                         if( is_chunked && !chunk_left)
