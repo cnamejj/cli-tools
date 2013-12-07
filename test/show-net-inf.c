@@ -1,4 +1,6 @@
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
 #include <ifaddrs.h>
 #include <errno.h>
 #include <stdio.h>
@@ -6,7 +8,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <net/if.h>
 
 /* IFF_UP flag */
 
@@ -129,10 +130,12 @@ int main( int narg, char **opts)
             if( !strc) strcat( display_ip, "N/A(v4)");
             printf( "It's an IPv4 interface, address (%s)\n", display_ip);
         }
+#ifndef __APPLE__
         else if( sa == AF_PACKET)
         {
             printf( "It's a PACKET interface\n");
         }
+#endif
         else printf( "Socket Family %d\n", sa);
     }
 
