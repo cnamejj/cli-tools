@@ -26,6 +26,9 @@
 #include <fcntl.h>
 #endif
 #include <math.h>
+#ifdef __APPLE__
+#include <sys/socket.h>
+#endif
 #include <net/if.h>
 
 #include "http-fetch.h"
