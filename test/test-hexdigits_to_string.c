@@ -2,7 +2,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#include "cli-sub.h"
+#include "../cli-sub.h"
 
 int main( int narg, char **opts)
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cli-sub.h"
+#include "../cli-sub.h"
 
 /* --- */
 
