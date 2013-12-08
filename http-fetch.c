@@ -10,8 +10,8 @@
  * Features:
  * ---
  * - Should have an option to follow redirects
- *
- * - Options: auth, proxy, connthru
+ * - Figure how to "do the right thing" when called as CLI from a CGI script
+ * - Add support for ptions: auth, proxy, connthru
  *
  * Notes:
  */
@@ -2111,7 +2111,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
                 {
                     if( in_head && display->show_head)
                     {
-                        if( *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
+                        if( out->out_html && *pos == DQUOTE_CH) printf( "%s", HTML_DQ_ESCAPE);
                         else fputc( *pos, stdout);
 		    }
                     else if( !in_head && display->show_data)
