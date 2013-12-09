@@ -172,8 +172,6 @@ Content-type: text/html\r\n\
 
 #define HTML_PREFORMAT_START "<pre>"
 #define HTML_PREFORMAT_END "</pre>"
-#define HTML_FIXEDLINE_START "<br><tt>"
-#define HTML_FIXEDLINE_END "</tt>"
 #define HTML_BREAK "<br>"
 #define HTML_BREAK_NOOP "<!-- <br> -->"
 #define HTML_GT_ESCAPE "&gt;"
@@ -296,7 +294,7 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time AllByt PayByt Tot#/S Dat#/S
 #define ENC_TYPE_CHUNKED "chunked"
 #define CONTENT_IMAGE_PREF "image/"
 
-#define HTTP_SCRIPT_FORM_TEMPLATE "\
+#define HTML_SCRIPT_FORM_TEMPLATE "\
 <!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n\
 <html><head><title>Http-Fetch tester form</title>\n\
 </head>\n\
@@ -358,69 +356,7 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 </html>\n\
 "
 
-#define HTTP_FORM_TEMPLATE "\
-<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n\
-<html><head><title>Http-Fetch tester form</title>\n\
-</head>\n\
-<body bgcolor=\"#ffffff\">\n\
-\n\
-<form action=\"http://%s%s%s%s\" method=\"GET\">\n\
-\n\
-<!-- These options aren't useful in a CGI: stderr -->\n\
-<!-- Options that are't implemented yet: html, auth, proxy, connthru -->\n\
-\n\
-<table>\n\
-  <tr><td colspan=2>What to fetch:</td></tr>\n\
-  <tr><td>Full URL:</td><td><input type=\"text\" name=\"url\"></td></tr>\n\
-  <tr><td>Connect to host/ip:</td><td><input type=\"text\" name=\"connhost\"></td></tr>\n\
-  <tr><td>Name of webserver:</td><td><input type=\"text\" name=\"webhost\"></td></tr>\n\
-  <tr><td>Connect to this port:</td><td><input type=\"text\" name=\"port\" value=\"80\"></td></tr>\n\
-  <tr><td>URI to request:</td><td><input type=\"text\" name=\"uri\"></td></tr>\n\
-  <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
-  <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
-  <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
-\n\
-  <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
-  <tr><td colspan=2>What to display:</td></tr>\n\
-<!--  <tr><td>Show complete results:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"output\">\n\
-No<input type=\"radio\" value=\"no\" name=\"output\" checked></td></tr>\n\
--->  <tr><td>Show HTTP header:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"header\">\n\
-No<input type=\"radio\" value=\"no\" name=\"header\" checked></td></tr>\n\
-  <tr><td>Show HTTP data:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"data\">\n\
-No<input type=\"radio\" value=\"no\" name=\"data\" checked></td></tr>\n\
-  <tr><td>Show summary stats:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"timers\" checked>\n\
-No<input type=\"radio\" value=\"no\" name=\"timers\"></td></tr>\n\
-  <tr><td>Number summary stats:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"num\" checked>\n\
-No<input type=\"radio\" value=\"no\" name=\"num\"></td></tr>\n\
-  <tr><td>Show column headers:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"timeheaders\" checked>\n\
-No<input type=\"radio\" value=\"no\" name=\"timeheaders\"></td></tr>\n\
-  <tr><td>Show packet receipt times:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"packetime\">\n\
-No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
-\n\
-  <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
-  <tr><td colspan=2>Recipe:</td></tr>\n\
-  <tr><td>Network timeout:</td><td><input type=\"text\" name=\"timeout\" value=\"30000\"></td></tr>\n\
-  <tr><td>How many times to fetch:</td><td><input type=\"text\" name=\"loop\" value=\"1\"></td></tr>\n\
-  <tr><td>Pause time between fetches:</td><td><input type=\"text\" name=\"wait\" value=\"2000\"></td></tr>\n\
-  <tr><td>Debug level:</td><td><input type=\"text\" name=\"debug\" value=\"0\"></td></tr>\n\
-  <tr><td>Client IP address:</td><td><input type=\"text\" name=\"clip\"></td></tr>\n\
-  <tr><td>Bind to interface:</td><td><input type=\"text\" name=\"interface\"></td></tr>\n\
-  <tr><td>Prefered protocol:</td><td> IPv6<input type=\"radio\" value=\"yes\" name=\"tcp6\">\n\
-IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
-  <tr><td>HTTP protocol:</td><td> 1.1<input type=\"radio\" value=\"yes\" name=\"http1.1\" checked>\n\
-1.0<input type=\"radio\" value=\"no\" name=\"http1.1\"></td></tr>\n\
-\n\
-  <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
-  <tr><td>&nbsp;</td><td><input type=\"submit\" value=\"Fetch\"></td></tr>\n\
-</table>\n\
-\n\
-</form>\n\
-\n\
-</body>\n\
-</html>\n\
-"
-
-#define HTTP_FORM_GEN_ERROR "CGI environment error, can't determine server info required to generate input form.\n"
+#define HTML_FORM_GEN_ERROR "CGI environment error, can't determine server info required to generate input form.\n"
 
 #ifdef USE_CLOCK_GETTIME
 #  define TIME_OUTPUT_FORMAT " %d. type: %d time: %ld.%09ld elap: %ld.%09ld data: %d elap: %.4f\n"

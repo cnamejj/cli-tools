@@ -75,13 +75,13 @@ void display_entry_form()
 {
     char *entry_form = 0;
 
-    entry_form = construct_entry_form( HTTP_SCRIPT_FORM_TEMPLATE);
+    entry_form = construct_entry_form( HTML_SCRIPT_FORM_TEMPLATE);
     if( entry_form)
     {
         printf( "%s\n", entry_form);
         free( entry_form);
     }
-    else printf( "%s\n", HTTP_FORM_GEN_ERROR);
+    else printf( "%s\n", HTML_FORM_GEN_ERROR);
 
     return;
 }
