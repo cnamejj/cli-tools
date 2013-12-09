@@ -11,7 +11,7 @@
  * ---
  * - Should have an option to follow redirects
  * - Figure how to "do the right thing" when called as CLI from a CGI script
- * - Add support for ptions: auth, proxy, connthru
+ * - Add support for options: auth, proxy, connthru
  *
  * Notes:
  */
@@ -73,30 +73,15 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
 void display_entry_form()
 
 {
-    int complete = 0;
-    char *server_name = 0, *server_port = 0, *script_name = 0, *sep = COLON_ST;
+    char *entry_form = 0;
 
-    server_name = getenv( ENV_SERVER_NAME);
-    server_port = getenv( ENV_SERVER_PORT);
-    script_name = getenv( ENV_SCRIPT_NAME);
-
-    if( !server_name || !server_port || !script_name) complete = 0;
-    else if( !*server_name || !*server_port || !*script_name) complete = 0;
-    else
+    entry_form = construct_entry_form( HTTP_SCRIPT_FORM_TEMPLATE);
+    if( entry_form)
     {
-        complete = 1;
-
-        if( !strcmp( server_port, DEFAULT_HTTP_PORT))
-        {
-            sep = EMPTY_ST;
-            server_port = EMPTY_ST;
-        }
+        printf( "%s\n", entry_form);
+        free( entry_form);
     }
-
-    if( complete ) printf( HTTP_FORM_TEMPLATE, server_name, sep, server_port, script_name);
     else printf( "%s\n", HTTP_FORM_GEN_ERROR);
-
-    /* --- */
 
     return;
 }
@@ -457,6 +442,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
               "%sFound an IPV6 address to use (%s)\n", disp->line_pref, target->ipv6);
             status->ip_type = IP_V6;
+            status->sock6.sin6_port = htons( target->conn_port);
             sysrc = inet_pton( AF_INET6, target->ipv6, &status->sock6.sin6_addr);
             if( sysrc != 1)
             {
@@ -476,6 +462,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
               "%sFound an IPV4 address to use (%s)\n", disp->line_pref, target->ipv4);
             status->ip_type = IP_V4;
+            status->sock4.sin_port = htons( target->conn_port);
             sysrc = inet_pton( AF_INET, target->ipv4, &status->sock4.sin_addr);
             if( sysrc != 1)
             {
@@ -811,9 +798,9 @@ void connect_to_server( int *rc, struct plan_data *plan)
 	    }
             else
             {
-               if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-                 "%sConnect worked, sock=%d, type=%d\n", disp->line_pref, sock, status->ip_type);
-               status->last_state |= LS_ESTAB_CONNECT;
+                if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
+                  "%sConnect worked, sock=%d, type=%d\n", disp->line_pref, sock, status->ip_type);
+                status->last_state |= LS_ESTAB_CONNECT;
             }
 	}
         else
@@ -826,7 +813,6 @@ void connect_to_server( int *rc, struct plan_data *plan)
         if( *rc != RC_NORMAL) status->last_state |= LS_NO_CONNECTION;
         if( *rc == RC_NORMAL) *rc = capture_checkpoint( status, EVENT_CONNECT_SERVER);
     }
-   
 
     return;
 }
@@ -1307,22 +1293,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                 xfrate_mfo_norm += adj;
 	    }
 
-/*
-            mean_diff = ((float) *(packsize + off)) - packsize_mean;
-            packsize_msd_sum += (mean_diff * mean_diff);
-
-            mean_diff = *(readlag + off) - readlag_mean;
-            readlag_msd_sum += (mean_diff * mean_diff);
-
-            if( off < npackets - 1)
-            {
-                mean_diff = *(xfrate + off) - xfrate_mean;
-                xfrate_msd_sum += (mean_diff * mean_diff);
-	    }
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
             printf( "dbg:: Xf_RMS %3d. %f %f\n", off, mean_diff * mean_diff, xfrate_msd_sum);
 #endif
- */
 	}
 
 #ifdef SHOW_DEBUG_STATS_CALCS
@@ -1379,9 +1352,6 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                 if( !adj2) profile->readlag_norm_skew = 0.0;
                 else profile->readlag_norm_skew = adj * (readlag_mth_norm / adj2);
 
-/*              profile->packsize_norm_skew = adj * (packsize_mth_norm / pow( profile->packsize_norm_stdev, 3.0));
- *              profile->readlag_norm_skew = adj * (readlag_mth_norm / pow( profile->readlag_norm_stdev, 3.0));
- */
                 if( npackets < 4) profile->xfrate_norm_skew = 0.0;
                 else
                 {
@@ -1390,9 +1360,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                     adj2 = pow( profile->xfrate_norm_stdev, 3.0);
                     if( !adj2) profile->xfrate_norm_skew = 0.0;
                     else profile->xfrate_norm_skew = adj * (xfrate_mth_norm / adj2);
-
-/*                  profile->xfrate_norm_skew = adj * (xfrate_mth_norm / pow( profile->xfrate_norm_stdev, 3.0));
- */		}
+                }
 
                 if( npackets < 4)
                 {
@@ -1671,59 +1639,6 @@ printf( "%sdbg:: headers:%d data-block-size:%d total:%d\n", prefix, nhead, dbg_s
     }
 
     return( result);
-}
-
-/* --- */
-
-struct http_status_response *parse_http_status( char *line)
-
-{
-    int code, err = 0;
-    char *st = 0, *delim = 0, *pos = 0;
-    struct http_status_response *resp = 0;
-
-    resp = (struct http_status_response *) malloc( sizeof *resp);
-    if( resp)
-    {
-        resp->code = 0;
-        resp->version = 0;
-        resp->reason = 0;
-
-        delim = index( line, BLANK_CH);
-        st = dup_memory( line, delim - 1);
-        if( st)
-        {
-            resp->version = st;
-
-            pos = delim + 1;
-            delim = index( pos, BLANK_CH);
-            st = dup_memory( pos, delim - 1);
-            if( st)
-            {
-                code = strtol( st, &pos, 10);
-                if( !pos) err = 1;
-                else if( *pos) err = 1;
-                else
-                {
-                    resp->code = code;
-                    pos = strdup( delim + 1);
-                    if( pos) resp->reason = pos;
-		}
-
-                free( st);
-	    }
-        }
-
-        if( !resp->version || !resp->reason || err)
-        {
-            if( resp->version) free( resp->version);
-            if( resp->reason) free( resp->reason);
-            free( resp);
-            resp = 0;
-	}
-    }
-
-    return( resp);
 }
 
 /* --- */
@@ -2188,7 +2103,7 @@ int construct_request( struct plan_data *plan)
 {
     int rc = RC_NORMAL, empty, ex_len;
     char *blank = EMPTY_STRING, *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
-      *uri = 0, *ex_headers = 0, *st = 0;
+      *uri = 0, *ex_headers = 0, *st = 0, *added_headers = 0;
     struct target_info *target = 0;
     struct fetch_status *fetch = 0;
     struct output_options *out = 0;
@@ -2251,6 +2166,7 @@ int construct_request( struct plan_data *plan)
         if( !ex_headers) rc = ERR_MALLOC_FAILED;
         else
         {
+            added_headers = ex_headers;
             *ex_headers = EOS_CH;
 
             chain = target->extra_headers;
@@ -2343,6 +2259,14 @@ int construct_request( struct plan_data *plan)
     }
 
     if( rc == RC_NORMAL) fetch->last_state |= LS_GEN_REQUEST;
+
+    if( added_headers) free( added_headers);
+    for( walk = subs; !walk; )
+    {
+        subs = walk->next;
+        free( walk);
+        walk = subs;
+    }
 
     /* --- */
 
@@ -3193,7 +3117,7 @@ int main( int narg, char **opts)
         if( !emsg) emsg = UNDEFINED_ERROR;
         else if( !*emsg) emsg = UNDEFINED_ERROR;
 
-        fprintf( out->err_out, "%sError(%d/%06x): %s. %s\n", disp->line_pref, rc, fetch->last_state, cli_strerror( rc), emsg);
+        fprintf( out->err_out, "%sError(%d/%d/%06x): %s. %s\n", disp->line_pref, rc, fetch->end_errno, fetch->last_state, cli_strerror( rc), emsg);
     }
 
     if( out) if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,

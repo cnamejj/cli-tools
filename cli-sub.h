@@ -114,6 +114,10 @@
 
 #define BASE10 10
 
+#define SC_FORM_PATT_SERVER "<:SERVER:>"
+#define SC_FORM_PATT_SCRIPT "<:SCRIPT:>"
+#define SC_FORM_PATT_PORT "<:PORT:>"
+
 /* --- */
 
 struct value_chain {
@@ -160,6 +164,11 @@ struct interface_info {
     char *name;
     unsigned int flags;
     struct sockaddr *addr;
+};
+
+struct http_status_response {
+  int code;
+  char *version, *reason;
 };
 
 /* --- */
@@ -247,6 +256,10 @@ char *errmsg_with_string( const char *emsg_template, const char *detail);
 struct interface_info *get_matching_interface( const char *if_name, int protocol, unsigned int flags);
 
 int is_reserved_uri_char( int spot);
+
+struct http_status_response *parse_http_status( char *line);
+
+char *construct_entry_form( char *template);
 
 /* --- */
 
