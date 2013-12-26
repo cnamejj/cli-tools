@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<dataTypeCollection totalCount="26" pageCount="1">
+
+<dataType>
+  <id>HLY-CLDH-NORMAL</id>
+  <description>Cooling degree hours</description>
+</dataType>
+
+<dataType>
+  <id>HLY-CLOD-PCTBKN</id>
+  <description>Clouds broken percentage</description>
+</dataType>
+
+
+<dataType><id>HLY-CLOD-PCTCLR</id><description>Clouds clear percentage</description></dataType>
+<dataType><id>HLY-CLOD-PCTFEW</id><description>Clouds few percentage</description></dataType>
+<dataType><id>HLY-CLOD-PCTOVC</id><description>Clouds overcast percentage</description></dataType>
+<dataType><id>HLY-CLOD-PCTSCT</id><description>Clouds scattered percentage</description></dataType>
+<dataType><id>HLY-DEWP-10PCTL</id><description>Dew point 10th percentile</description></dataType>
+<dataType><id>HLY-DEWP-90PCTL</id><description>Dew point 90th percentile</description></dataType>
+<dataType><id>HLY-DEWP-NORMAL</id><description>Dew point mean</description></dataType>
+<dataType><id>HLY-HIDX-NORMAL</id><description>Heat index mean</description></dataType>
+<dataType><id>HLY-HTDH-NORMAL</id><description>Heating degree hours</description></dataType>
+<dataType><id>HLY-PRES-10PCTL</id><description>Sea level pressure 10th percentile</description></dataType>
+<dataType><id>HLY-PRES-90PCTL</id><description>Sea level pressure 90th percentile</description></dataType>
+<dataType><id>HLY-PRES-NORMAL</id><description>Sea level pressure mean</description></dataType>
+<dataType><id>HLY-TEMP-10PCTL</id><description>Temperature 10th percentile</description></dataType>
+<dataType><id>HLY-TEMP-90PCTL</id><description>Temperature 90th percentile</description></dataType>
+<dataType><id>HLY-TEMP-NORMAL</id><description>Temperature mean</description></dataType>
+<dataType><id>HLY-WCHL-NORMAL</id><description>Wind chill mean</description></dataType>
+<dataType><id>HLY-WIND-1STDIR</id><description>Prevailing wind direction (1-8)</description></dataType>
+<dataType><id>HLY-WIND-1STPCT</id><description>Prevailing wind percentage</description></dataType>
+<dataType><id>HLY-WIND-2NDDIR</id><description>Secondary wind direction (1-8)</description></dataType>
+<dataType><id>HLY-WIND-2NDPCT</id><description>Secondary wind percentage</description></dataType>
+<dataType><id>HLY-WIND-AVGSPD</id><description>Average wind speed</description></dataType>
+<dataType><id>HLY-WIND-PCTCLM</id><description>Percentage calm</description></dataType>
+<dataType><id>HLY-WIND-VCTDIR</id><description>Mean wind vector direction</description></dataType>
+<dataType><id>HLY-WIND-VCTSPD</id><description>Mean wind vector magnitude</description></dataType>
+</dataTypeCollection>
