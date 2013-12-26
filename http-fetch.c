@@ -12,6 +12,7 @@
  * - Should have an option to follow redirects
  * - Figure how to "do the right thing" when called as CLI from a CGI script
  * - Add support for options: auth, proxy, connthru
+ * - Add "wait timeout" option and connect the wires to use it
  *
  * Notes:
  */
@@ -66,6 +67,85 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
     prev.tv_usec = now.tv_usec;
 
     return;
+}
+
+/* --- */
+
+void map_target_to_redirect( int *rc, struct plan_data *plan)
+
+{
+    struct target_info *red = 0, *target = 0;
+    struct fetch_status *fetch = 0;
+
+    if( *rc == RC_NORMAL && plan->target && plan->redirect)
+    {
+        red = plan->redirect;
+        target = plan->target;
+        fetch = plan->status;
+
+        /* the "conn_url" char pointer references an HTTP header and should not be free()'d */
+        if( red->http_host) free( red->http_host);
+        if( red->conn_host) free( red->conn_host);
+        if( red->conn_uri) free( red->conn_uri);
+        if( red->ipv4) free( red->ipv4);
+        if( red->ipv6) free( red->ipv6);
+
+        red->http_host = 0;
+        red->conn_host = 0;
+        red->conn_uri = 0;
+        red->conn_url = 0;
+        if( target->ipv4) if( *target->ipv4)
+        {
+            red->ipv4 = strdup( target->ipv4);
+            if( !red->ipv4) *rc = ERR_MALLOC_FAILED;
+	}
+        if( target->ipv6) if( *target->ipv6)
+        {
+            red->ipv6 = strdup( target->ipv6);
+            if( !red->ipv6) *rc = ERR_MALLOC_FAILED;
+	}
+        red->conn_port = NO_PORT;
+        red->pref_protocol = target->pref_protocol;
+        red->http_protocol = target->http_protocol;
+
+        if( fetch->redirect_request)
+        {
+            free( fetch->redirect_request);
+            fetch->redirect_request = 0;
+            fetch->request = fetch->primary_request;
+	}
+
+        if( *rc == ERR_MALLOC_FAILED)
+        {
+            plan->status->end_errno = errno;
+            plan->status->err_msg = sys_call_fail_msg( "malloc");
+	}
+    }
+
+    return;
+}
+
+/* --- */
+
+char *get_redirect_location( int *rc, struct plan_data *plan)
+
+{
+    int httprc = 0;
+    char *location = 0;
+
+    if( *rc == RC_NORMAL) if( plan) if( plan->partlist) if( plan->partlist->response_status)
+    {
+        httprc = plan->partlist->response_status->code;
+        if( httprc == HTTP_RC_MULTI_CH || httprc == HTTP_RC_MOVE_PERM
+          || httprc == HTTP_RC_FOUND || httprc == HTTP_RC_SEE_OTHER
+          || httprc == HTTP_RC_TEMP_RED || httprc == HTTP_RC_PERM_RED)
+        {
+            location = find_http_header( plan->partlist, HTTP_HEAD_LOCATION);
+            if( location) if( !*location) location = 0;
+	}
+    }
+
+    return( location);
 }
 
 /* --- */
@@ -164,13 +244,14 @@ int find_connection( struct plan_data *plan)
 {
     int rc = RC_NORMAL, uri_len, empty;
     char *proxy_req = 0, *url = 0;
-    struct target_info *target = 0;
+    struct target_info *req = 0;
     struct url_breakout *parts = 0;
     struct fetch_status *status = 0;
 
-    target = plan->target;
-    proxy_req = target->proxy_url;
-    url = target->conn_url;
+    if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) req = plan->redirect;
+    if( !req) req = plan->target;
+    proxy_req = req->proxy_url;
+    url = req->conn_url;
     status = plan->status;
 
 /* ... maybe if there's a proxy requested we can just override the "conn_host" and set a flag in "last_state"? ... */
@@ -180,10 +261,10 @@ int find_connection( struct plan_data *plan)
         if( !parts) rc = ERR_MALLOC_FAILED;
         else if( parts->status == URL_VALID)
         {
-            target->proxy_host = parts->host;
-            target->proxy_ipv4 = parts->ip4;
-            target->proxy_ipv6 = parts->ip6;
-            target->proxy_port = parts->port;
+            req->proxy_host = parts->host;
+            req->proxy_ipv4 = parts->ip4;
+            req->proxy_ipv6 = parts->ip6;
+            req->proxy_port = parts->port;
 
             parts->host = 0;
             parts->ip4 = 0;
@@ -203,24 +284,24 @@ int find_connection( struct plan_data *plan)
         if( !parts) rc = ERR_MALLOC_FAILED;
         else if( parts->status == URL_VALID)
         {
-            target->ipv4 = parts->ip4;
+            req->ipv4 = parts->ip4;
             parts->ip4 = 0;
 
-            target->ipv6 = parts->ip6;
+            req->ipv6 = parts->ip6;
             parts->ip6 = 0;
 
-            if( target->conn_port == NO_PORT) target->conn_port = parts->port;
+            if( req->conn_port == NO_PORT) req->conn_port = parts->port;
 
-            if( !target->conn_host) empty = 1;
-            else if( !*target->conn_host) empty = 1;
+            if( !req->conn_host) empty = 1;
+            else if( !*req->conn_host) empty = 1;
             if( empty)
             {
-                target->conn_host = parts->host;
+                req->conn_host = parts->host;
                 parts->host = 0;
 	    }
 
-            if( !target->conn_uri) empty = 1;
-            else if( !*target->conn_uri) empty = 1;
+            if( !req->conn_uri) empty = 1;
+            else if( !*req->conn_uri) empty = 1;
             if( empty)
             {
                 if( parts->query)
@@ -229,19 +310,19 @@ int find_connection( struct plan_data *plan)
                     if( parts->uri) uri_len += strlen( parts->uri);
                     uri_len += strlen( parts->query) + strlen( QUERY_DELIM) + 1;
 
-                    target->conn_uri = (char *) malloc( uri_len);
-                    if( !target->conn_uri) rc = ERR_MALLOC_FAILED;
+                    req->conn_uri = (char *) malloc( uri_len);
+                    if( !req->conn_uri) rc = ERR_MALLOC_FAILED;
                     else
                     {
-                        *target->conn_uri = EOS_CH;
-                        if( parts->uri) strcat( target->conn_uri, parts->uri);
-                        strcat( target->conn_uri, QUERY_DELIM);
-                        strcat( target->conn_uri, parts->query);
+                        *req->conn_uri = EOS_CH;
+                        if( parts->uri) strcat( req->conn_uri, parts->uri);
+                        strcat( req->conn_uri, QUERY_DELIM);
+                        strcat( req->conn_uri, parts->query);
 		    }
 		}
                 else
                 {
-                    target->conn_uri = parts->uri;
+                    req->conn_uri = parts->uri;
                     parts->uri = 0;
 		}
 	    }
@@ -257,20 +338,20 @@ int find_connection( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
-        if( !target->http_host) empty = 1;
-        else if( !*target->http_host) empty = 1;
+        if( !req->http_host) empty = 1;
+        else if( !*req->http_host) empty = 1;
         else empty = 0;
 
         if( empty)
         {
-            if( target->conn_host) target->http_host = strdup( target->conn_host);
-            if( !target->http_host) rc = ERR_MALLOC_FAILED;
+            if( req->conn_host) req->http_host = strdup( req->conn_host);
+            if( !req->http_host) rc = ERR_MALLOC_FAILED;
 	}
     }
 
     if( rc == RC_NORMAL)
     {
-        if( target->conn_port == NO_PORT) target->conn_port = DEFAULT_FETCH_PORT;
+        if( req->conn_port == NO_PORT) req->conn_port = DEFAULT_FETCH_PORT;
         status->last_state |= LS_FIND_CONNECTION;
     }
 
@@ -283,11 +364,13 @@ int find_connection( struct plan_data *plan)
 int execute_fetch_plan( struct plan_data *plan)
 
 {
-    int rc = RC_NORMAL, seq, entry_state;
+    int rc = RC_NORMAL, seq, entry_state, red_level;
+    char *redirect_url = 0;
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
     struct fetch_status *status = 0;
     struct display_settings *disp = 0;
+    struct target_info *redirect = 0;
 
     /* --- */
 
@@ -295,15 +378,26 @@ int execute_fetch_plan( struct plan_data *plan)
     status = plan->status;
     out = plan->out;
     disp = plan->disp;
+    redirect = plan->redirect;
 
     entry_state = status->last_state;
 
-    for( seq = 1; rc == RC_NORMAL && seq <= runex->loop_count; seq++)
+    for( seq = 1; rc == RC_NORMAL && seq <= runex->loop_count; )
     {
         if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sLoop start: %d of %d\n",
           disp->line_pref, seq, runex->loop_count);
 
         status->last_state = entry_state;
+
+        map_target_to_redirect( &rc, plan);
+
+        if( rc == RC_NORMAL && red_level)
+        {
+            redirect->conn_url = redirect_url;
+            rc = find_connection( plan);
+
+            if( rc == RC_NORMAL) rc = construct_request( plan);
+	}
 
         clear_counters( &rc, plan);
 
@@ -325,8 +419,18 @@ int execute_fetch_plan( struct plan_data *plan)
 
         display_output( &rc, plan, seq);
 
-        if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
+        redirect_url = get_redirect_location( &rc, plan);
+
+        if( rc == RC_NORMAL && redirect_url && red_level < runex->redirect_depth) red_level++;
+        else
+        {
+            seq++;
+            red_level = 0;
+            if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
+	}
     }
+
+    display_average_stats( &rc, plan);
 
     /* --- */
 
@@ -414,7 +518,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 {
     int found = 0, sysrc;
     char display_ip[ INET6_ADDRSTRLEN + 1], *st = 0, *strc = 0;
-    struct target_info *target = 0;
+    struct target_info *req = 0;
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct exec_controls *runex = 0;
@@ -426,7 +530,9 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
     if( *rc == RC_NORMAL)
     {
         memset( display_ip, EOS_CH, (sizeof display_ip));
-        target = plan->target;
+        if( plan->redirect)
+          if( plan->redirect->conn_url) if( *plan->redirect->conn_url) req = plan->redirect;
+        if( !req) req = plan->target;
         status = plan->status;
         out = plan->out;
         runex = plan->run;
@@ -435,15 +541,15 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 
     if( *rc == RC_NORMAL)
     {
-        if( target->ipv6) if( *target->ipv6) found = 1;
+        if( req->ipv6) if( *req->ipv6) found = 1;
         if( found)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "%sFound an IPV6 address to use (%s)\n", disp->line_pref, target->ipv6);
+              "%sFound an IPV6 address to use (%s)\n", disp->line_pref, req->ipv6);
             status->ip_type = IP_V6;
-            status->sock6.sin6_port = htons( target->conn_port);
-            sysrc = inet_pton( AF_INET6, target->ipv6, &status->sock6.sin6_addr);
+            status->sock6.sin6_port = htons( req->conn_port);
+            sysrc = inet_pton( AF_INET6, req->ipv6, &status->sock6.sin6_addr);
             if( sysrc != 1)
             {
                 status->end_errno = errno;
@@ -455,15 +561,15 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 
     if( *rc == RC_NORMAL)
     {
-        if( target->ipv4) if( *target->ipv4) found = 1;
+        if( req->ipv4) if( *req->ipv4) found = 1;
         if( found)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "%sFound an IPV4 address to use (%s)\n", disp->line_pref, target->ipv4);
+              "%sFound an IPV4 address to use (%s)\n", disp->line_pref, req->ipv4);
             status->ip_type = IP_V4;
-            status->sock4.sin_port = htons( target->conn_port);
-            sysrc = inet_pton( AF_INET, target->ipv4, &status->sock4.sin_addr);
+            status->sock4.sin_port = htons( req->conn_port);
+            sysrc = inet_pton( AF_INET, req->ipv4, &status->sock4.sin_addr);
             if( sysrc != 1)
             {
                 status->end_errno = errno;
@@ -475,12 +581,12 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
 
     if( *rc == RC_NORMAL)
     {
-        if( target->conn_host) if( *target->conn_host) found = 1;
+        if( req->conn_host) if( *req->conn_host) found = 1;
         if( found)
         {
             found = 0;
             if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "%sFound a hostname to lookup (%s)\n", disp->line_pref, target->conn_host);
+              "%sFound a hostname to lookup (%s)\n", disp->line_pref, req->conn_host);
 
             hints.ai_flags = 0;
             hints.ai_family = AF_UNSPEC;
@@ -491,13 +597,13 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
             hints.ai_canonname = 0;
             hints.ai_next = 0;
 
-            sysrc = getaddrinfo( target->conn_host, 0, &hints, &hostrecs);
+            sysrc = getaddrinfo( req->conn_host, 0, &hints, &hostrecs);
             if( sysrc == EAI_NONAME)
             {
                 if( out->debug_level >= DEBUG_MEDIUM1) fprintf( out->info_out,
-                  "%sCan't lookup domain (%s)\n", disp->line_pref, target->conn_host);
+                  "%sCan't lookup domain (%s)\n", disp->line_pref, req->conn_host);
                 *rc = ERR_GETHOST_FAILED;
-                status->err_msg = errmsg_with_string( EMSG_TEMP_LOOKUP_NO_SUCH_HOST, target->conn_host);
+                status->err_msg = errmsg_with_string( EMSG_TEMP_LOOKUP_NO_SUCH_HOST, req->conn_host);
                 status->end_errno = sysrc;
                 status->last_state |= LS_NO_DNS_CONNECT | LS_USE_GAI_ERRNO;
 	    }
@@ -528,15 +634,15 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                  */
                 if( runex->client_ip_type == IP_V6) match4 = 0;
                 else if( runex->client_ip_type == IP_V4) match6 = 0;
-                else if( target->pref_protocol == IP_V6) match4 = 0;
-                else if( target->pref_protocol == IP_V4) match6 = 0;
+                else if( req->pref_protocol == IP_V6) match4 = 0;
+                else if( req->pref_protocol == IP_V4) match6 = 0;
 
                 if( match4)
                 {
                     status->ip_type = IP_V4;
                     sock4 = (struct sockaddr_in *) match4->ai_addr;
                     status->sock4.sin_addr = sock4->sin_addr;
-                    status->sock4.sin_port = htons( target->conn_port);
+                    status->sock4.sin_port = htons( req->conn_port);
                     if( out->debug_level >= DEBUG_MEDIUM2)
                     {
                         st = display_ip;
@@ -551,7 +657,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
                     sock6 = (struct sockaddr_in6 *) match6->ai_addr;
                     status->sock6.sin6_addr = sock6->sin6_addr;
                     status->sock6.sin6_scope_id = sock6->sin6_scope_id;
-                    status->sock6.sin6_port = htons( target->conn_port);
+                    status->sock6.sin6_port = htons( req->conn_port);
                     if( out->debug_level >= DEBUG_MEDIUM2)
                     {
                         st = display_ip;
@@ -1121,18 +1227,6 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         profile->response_time = 0.0;
         profile->complete_time = 0.0;
 
-        if( iter == 1)
-        {
-            profile->lookup_sum = 0.0;
-            profile->connect_sum = 0.0;
-            profile->request_sum = 0.0;
-            profile->response_sum = 0.0;
-            profile->close_sum = 0.0;
-            profile->complete_sum = 0.0;
-            profile->xfer_sum = 0;
-            profile->payload_sum = 0;
-        }
-
         walk = status->checkpoint;
 
         for( ; walk; walk = walk->next)
@@ -1446,6 +1540,8 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         profile->xfrate_stdev_sum += profile->xfrate_norm_stdev;
         profile->xfrate_skew_sum += profile->xfrate_norm_skew;
         profile->xfrate_kurt_sum += profile->xfrate_norm_kurt;
+
+        profile->fetch_count++;
     }
 
     if( packsize) free( packsize);
@@ -1782,18 +1878,17 @@ void parse_payload( int *rc, struct plan_data *plan)
 void display_output( int *rc, struct plan_data *plan, int iter)
 
 {
+    static int first = 1;
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
-      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-      xfer_mean = 0, http_rc, is_chunked = 0, chunk_left, build_len,
-      inc_len, payload_mean = 0, is_image = 0;
+      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, inc_len,
+      http_rc, is_chunked = 0, chunk_left, build_len, is_image = 0;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
-    float elap = 0.0, nloop = 0.0, totrate, datarate, pre_response;
-    char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark;
+    float elap = 0.0, totrate, datarate;
+    char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark, *url = 0;
     char disp_time[ TIME_DISPLAY_SIZE], xdig_conv[ 2] = { '\0', '\0'};
     struct fetch_status *status = 0;
     struct output_options *out = 0;
-    struct exec_controls *runex = 0;
     struct ckpt_chain *walk = 0, *before = 0;
     struct summary_stats *profile = 0;
     struct data_block *detail = 0;
@@ -1807,7 +1902,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         status = plan->status;
         out = plan->out;
         display = plan->disp;
-        runex = plan->run;
         breakout = plan->partlist;
         profile = plan->profile;
         top = (long) (1.0 / status->clock_res);
@@ -1820,8 +1914,10 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
     if( *rc == RC_NORMAL && display->show_timers)
     {
-        if( iter == 1 && display->show_timerheaders)
+        if( first && display->show_timerheaders)
         {
+            first = 0;
+
             if( display->show_number)
             {
                 fprintf( out->info_out, "%s%s\n", TIME_SUMMARY_HEADER_SEQ_1, TIME_SUMMARY_HEADER_1);
@@ -1878,14 +1974,20 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         if( !plan->partlist->response_status) http_rc = 999;
         else http_rc = plan->partlist->response_status->code;
 
+        if( plan->redirect) if( plan->redirect->conn_url) url = plan->redirect->conn_url;
+        if( !url) if( plan->target) if( plan->target->conn_url) url = plan->target->conn_url;
+        if( !url) url = UNKNOWN_URL;
+        else if( !*url) url = UNKNOWN_URL;
+
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
-        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
           disp_time, http_rc, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
           status->response_len, status->response_len - breakout->header_size,
           totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_norm_stdev, profile->packsize_norm_skew, profile->packsize_norm_kurt,
           profile->readlag_norm_stdev, profile->readlag_norm_skew, profile->readlag_norm_kurt,
-          profile->xfrate_norm_stdev, profile->xfrate_norm_skew, profile->xfrate_norm_kurt);
+          profile->xfrate_norm_stdev, profile->xfrate_norm_skew, profile->xfrate_norm_kurt,
+          url);
     }
 
     if( *rc == RC_NORMAL && display->show_packetime)
@@ -1924,67 +2026,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
         fprintf( out->info_out, "\n");
-    }
-
-    if( *rc == RC_NORMAL && display->show_timers)
-    {
-        if( iter == runex->loop_count)
-        {
-            nloop = runex->loop_count / 1000.0;
-
-            if( !nloop) 
-            {
-                dns_ms = 0;
-                conn_ms = 0;
-                send_ms = 0;
-                resp_ms = 0;
-                close_ms = 0;
-                complete_ms = 0;
-                xfer_mean = 0;
-                payload_mean = 0;
-	    }
-            else
-            {
-                dns_ms = lroundf( profile->lookup_sum / nloop);
-                conn_ms = lroundf( profile->connect_sum / nloop);
-                send_ms = lroundf( profile->request_sum / nloop);
-                resp_ms = lroundf( profile->response_sum / nloop);
-                close_ms = lroundf( profile->close_sum / nloop);
-                complete_ms = lroundf( profile->complete_sum / nloop);
-                xfer_mean = profile->xfer_sum / runex->loop_count;
-                payload_mean = profile->payload_sum / runex->loop_count;
-	    }
-
-            if( !profile->complete_sum)
-            {
-                totrate = 0.0;
-                totrate_mark = 'b';
-	    }
-            else totrate = get_scaled_number( &totrate_mark,
-              (float) profile->xfer_sum / profile->complete_sum);
-
-            if( !(profile->complete_sum - profile->response_sum))
-            {
-                datarate_mark = 'b';
-                datarate = 0.0;
-            }
-            else
-            {
-                pre_response = profile->lookup_sum + profile->connect_sum + profile->request_sum + profile->response_sum;
-                datarate = get_scaled_number( &datarate_mark,
-                  profile->xfer_sum / (profile->complete_sum - pre_response));
-	    }
-
-            nloop = (float) runex->loop_count;
-            fprintf( out->info_out, "Average values: ");
-            if( display->show_number) fprintf( out->info_out, "  ---");
-            fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
-              dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
-              xfer_mean, payload_mean, totrate, totrate_mark, datarate, datarate_mark,
-              profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
-              profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
-              profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
-        }
     }
 
     if( *rc == RC_NORMAL && (display->show_head || display->show_data))
@@ -2098,13 +2139,94 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
 
 /* --- */
 
+void display_average_stats( int *rc, struct plan_data *plan)
+
+{
+    int dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, xfer_mean = 0,
+      payload_mean = 0;
+    float nloop = 0.0, totrate, datarate, pre_response;
+    char totrate_mark, datarate_mark;
+    struct display_settings *display = 0;
+    struct summary_stats *profile = 0;
+    struct output_options *out = 0;
+
+    if( *rc == RC_NORMAL)
+    {
+        display = plan->disp;
+        profile = plan->profile;
+        out = plan->out;
+    }
+
+    /* --- */
+
+    if( *rc == RC_NORMAL && display->show_timers)
+    {
+        nloop = profile->fetch_count / 1000.0;
+
+        if( !nloop) 
+        {
+            dns_ms = 0;
+            conn_ms = 0;
+            send_ms = 0;
+            resp_ms = 0;
+            close_ms = 0;
+            complete_ms = 0;
+            xfer_mean = 0;
+            payload_mean = 0;
+        }
+        else
+        {
+            dns_ms = lroundf( profile->lookup_sum / nloop);
+            conn_ms = lroundf( profile->connect_sum / nloop);
+            send_ms = lroundf( profile->request_sum / nloop);
+            resp_ms = lroundf( profile->response_sum / nloop);
+            close_ms = lroundf( profile->close_sum / nloop);
+            complete_ms = lroundf( profile->complete_sum / nloop);
+            xfer_mean = profile->xfer_sum / profile->fetch_count;
+            payload_mean = profile->payload_sum / profile->fetch_count;
+        }
+
+        if( !profile->complete_sum)
+        {
+            totrate = 0.0;
+            totrate_mark = 'b';
+        }
+        else totrate = get_scaled_number( &totrate_mark,
+          (float) profile->xfer_sum / profile->complete_sum);
+
+        if( !(profile->complete_sum - profile->response_sum))
+        {
+            datarate_mark = 'b';
+            datarate = 0.0;
+        }
+        else
+        {
+            pre_response = profile->lookup_sum + profile->connect_sum + profile->request_sum + profile->response_sum;
+            datarate = get_scaled_number( &datarate_mark,
+              profile->xfer_sum / (profile->complete_sum - pre_response));
+        }
+
+        nloop = (float) profile->fetch_count;
+        fprintf( out->info_out, "Average values: ");
+        if( display->show_number) fprintf( out->info_out, "  ---");
+        fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+          dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+          xfer_mean, payload_mean, totrate, totrate_mark, datarate, datarate_mark,
+          profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
+          profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
+          profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
+    }
+}
+
+/* --- */
+
 int construct_request( struct plan_data *plan)
 
 {
-    int rc = RC_NORMAL, empty, ex_len;
+    int rc = RC_NORMAL, empty, ex_len, is_redir = 0;
     char *blank = EMPTY_STRING, *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
       *uri = 0, *ex_headers = 0, *st = 0, *added_headers = 0;
-    struct target_info *target = 0;
+    struct target_info *req = 0;
     struct fetch_status *fetch = 0;
     struct output_options *out = 0;
     struct sub_list *subs = 0, *walk = 0;
@@ -2112,19 +2234,24 @@ int construct_request( struct plan_data *plan)
 
     /* --- */
 
-    target = plan->target;
+    if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url)
+    {
+        req = plan->redirect;
+        is_redir = 1;
+    }
+    if( !req) req = plan->target;
     fetch = plan->status;
     out = plan->out;
 
     /* --
      * Need to figure out how to handle the "Host:" header (or skip it)
      */
-    webhost = target->http_host;
+    webhost = req->http_host;
     if( !webhost) empty = 1;
     else if( !*webhost) empty = 1;
     else empty = 0;
 
-    if( empty) webhost = target->conn_host;
+    if( empty) webhost = req->conn_host;
     if( !webhost) empty = 1;
     else if( !*webhost) empty = 1;
     else empty = 0;
@@ -2138,7 +2265,7 @@ int construct_request( struct plan_data *plan)
 
     /* --- */
 
-    uri = target->conn_uri;
+    uri = req->conn_uri;
     if( !uri) empty = 1;
     else if( !*uri) empty = 1;
     else empty = 0;
@@ -2149,7 +2276,7 @@ int construct_request( struct plan_data *plan)
 
     ex_len = 0;
 
-    chain = target->extra_headers;
+    chain = req->extra_headers;
     for( ; chain; chain = chain->next)
     {
         st = (char *) chain->parsed;
@@ -2169,7 +2296,7 @@ int construct_request( struct plan_data *plan)
             added_headers = ex_headers;
             *ex_headers = EOS_CH;
 
-            chain = target->extra_headers;
+            chain = req->extra_headers;
             for( ; chain; chain = chain->next)
             {
                 st = (char *) chain->parsed;
@@ -2221,7 +2348,7 @@ int construct_request( struct plan_data *plan)
     if( rc == RC_NORMAL)
     {
         walk->from = PATT_HTTP_PROTOCOL;
-        if( target->http_protocol == USE_HTTP11) walk->to = PROT_HTTP11;
+        if( req->http_protocol == USE_HTTP11) walk->to = PROT_HTTP11;
         else walk->to = PROT_HTTP10;
         walk->next = (struct sub_list *) malloc( sizeof *walk);
         if( !walk->next) rc = ERR_MALLOC_FAILED;
@@ -2249,6 +2376,8 @@ int construct_request( struct plan_data *plan)
 #else
     if( rc == RC_NORMAL) fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
 #endif
+    if( is_redir) fetch->redirect_request = fetch->request;
+    else fetch->primary_request = fetch->request;
 
     if( rc == RC_NORMAL) fetch->request_len = strlen( fetch->request);
 
@@ -2280,7 +2409,7 @@ struct plan_data *allocate_hf_plan_data()
 {
     int error = 0;
     struct plan_data *plan = 0;
-    struct target_info *target = 0;
+    struct target_info *target = 0, *redirect = 0;
     struct display_settings *disp = 0;
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
@@ -2299,6 +2428,12 @@ struct plan_data *allocate_hf_plan_data()
     {
         target = (struct target_info *) malloc( sizeof *target);
         if( !target) error = 1;
+    }
+
+    if( !error)
+    {
+        redirect = (struct target_info *) malloc( sizeof *redirect);
+        if( !redirect) error = 1;
     }
 
     if( !error)
@@ -2378,6 +2513,7 @@ struct plan_data *allocate_hf_plan_data()
         plan->status = status;
         plan->partlist = breakout;
         plan->profile = profile;
+        plan->redirect = redirect;
 
         target->http_host = 0;
         target->conn_host = 0;
@@ -2397,6 +2533,25 @@ struct plan_data *allocate_hf_plan_data()
         target->conn_pthru = 0;
         target->pref_protocol = 0;
         target->http_protocol = USE_HTTP11;
+
+        redirect->http_host = 0;
+        redirect->conn_host = 0;
+        redirect->conn_uri = 0;
+        redirect->conn_url = 0;
+        redirect->ipv4 = 0;
+        redirect->ipv6 = 0;
+        redirect->auth_user = 0;
+        redirect->auth_passwd = 0;
+        redirect->proxy_url = 0;
+        redirect->proxy_host = 0;
+        redirect->proxy_ipv4 = 0;
+        redirect->proxy_ipv6 = 0;
+        redirect->extra_headers = 0;
+        redirect->conn_port = NO_PORT;
+        redirect->proxy_port = NO_PORT;
+        redirect->conn_pthru = 0;
+        redirect->pref_protocol = 0;
+        redirect->http_protocol = USE_HTTP11;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -2420,6 +2575,7 @@ struct plan_data *allocate_hf_plan_data()
         runex->client_ip = 0;
         runex->bind_interface = 0;
         runex->device_summ = 0;
+        runex->redirect_depth = 0;
 
         status->response_len = 0;
         status->ip_type = IP_UNKNOWN;
@@ -2431,6 +2587,8 @@ struct plan_data *allocate_hf_plan_data()
         status->err_msg = 0;
         status->request = 0;
         status->clock_res = 0.0;
+        status->primary_request = 0;
+        status->redirect_request = 0;
 
         status->sock4.sin_family = AF_INET;
         status->sock4.sin_port = htons( DEFAULT_FETCH_PORT);
@@ -2460,6 +2618,7 @@ struct plan_data *allocate_hf_plan_data()
 
         profile->xfer_sum = 0;
         profile->payload_sum = 0;
+        profile->fetch_count = 0;
         profile->lookup_time = 0.0;
         profile->lookup_sum = 0.0;
         profile->connect_time = 0.0;
@@ -2472,6 +2631,7 @@ struct plan_data *allocate_hf_plan_data()
         profile->complete_time = 0.0;
         profile->complete_sum = 0.0;
         profile->packsize_mean = 0.0;
+        profile->readlag_mean = 0.0;
         profile->xfrate_mean = 0.0;
         profile->packsize_norm_stdev = 0.0;
         profile->readlag_norm_stdev = 0.0;
@@ -2539,6 +2699,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_HTTP11,       OP_TYPE_FLAG, OP_FL_BLANK,   FL_HTTP11,         0, DEF_HTTP11,       0, 0 },
       { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE,      0, DEF_INTERFACE,    0, 0 },
       { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE_2,    0, DEF_INTERFACE,    0, 0 },
+      { OP_MAX_REDIRECT, OP_TYPE_INT,  OP_FL_BLANK,   FL_MAX_REDIRECT,   0, DEF_MAX_REDIRECT, 0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -2753,6 +2914,12 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "loop")
         runex->loop_count = *((int *) co->parsed);
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_MAX_REDIRECT, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "redirect")
+        runex->redirect_depth = *((int *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_NUMBER, opset, nflags)))
@@ -3098,6 +3265,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - client-ip-type: %d\n", runex->client_ip_type);
         fprintf( out->info_out, "- - - - client-ip: (%s)\n", SPSP( runex->client_ip));
         fprintf( out->info_out, "- - - - interface: (%s)\n", SPSP( runex->bind_interface));
+        fprintf( out->info_out, "- - - - redirect: %d\n", runex->redirect_depth);
 
         fprintf( out->info_out, "\n- - FetchStatus:\n");
         fprintf( out->info_out, "- - - - last-state: %d\n", fetch->last_state);

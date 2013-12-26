@@ -57,6 +57,7 @@
 #define FL_HTTP11         "http1.1"
 #define FL_INTERFACE      "interface"
 #define FL_INTERFACE_2    "if"
+#define FL_MAX_REDIRECT   "redirect"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -86,6 +87,7 @@
 #define OP_HTTP10         26
 #define OP_HTTP11         27
 #define OP_INTERFACE      28
+#define OP_MAX_REDIRECT   29
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -121,6 +123,7 @@
 #define DEF_HTTP10         "0"
 #define DEF_HTTP11         "1"
 #define DEF_INTERFACE      ""
+#define DEF_MAX_REDIRECT   "0"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -193,6 +196,7 @@ Content-type: text/html\r\n\
 
 #define ROOT_URI "/"
 #define INVALID_IP "Invalid-IP"
+#define UNKNOWN_URL "--unknown-url--"
 
 #define IP_UNKNOWN 0
 #define IP_V4      1
@@ -271,13 +275,13 @@ DNT: 1\n\
 /* --- */
 
 #define TIME_SUMMARY_HEADER_1 "\
--Date--Time-     -------- Elapsed Time ------- Total -------- Transfer --------- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate ---\
+-Date--Time-     ---------- Elapsed Time ----------- -------- Transfer --------- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate --- ---\
 "
 #define TIME_SUMMARY_HEADER_2 "\
-YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time AllByt PayByt Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis\
+YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close Total AllByt PayByt Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis URL\
 "
 #define TIME_SUMMARY_HEADER_3 "\
------------- --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- ---------\
+------------ --- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- --------- ---\
 "
 
 #define TIME_SUMMARY_HEADER_SEQ_1 "     "
@@ -290,6 +294,17 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close  Time AllByt PayByt Tot#/S Dat#/S
 
 #define HTTP_HEAD_TRANSFER_ENCODING "Transfer-Encoding"
 #define HTTP_HEAD_CONTENT_TYPE "Content-Type"
+#define HTTP_HEAD_LOCATION "Location"
+
+#define HTTP_RC_MULTI_CH  300
+#define HTTP_RC_MOVE_PERM 301
+#define HTTP_RC_FOUND     302
+#define HTTP_RC_SEE_OTHER 303
+#define HTTP_RC_NO_CHANGE 304
+#define HTTP_RC_USE_PROXY 305
+#define HTTP_RC_SWI_PROXY 306
+#define HTTP_RC_TEMP_RED  307
+#define HTTP_RC_PERM_RED  308
 
 #define ENC_TYPE_CHUNKED "chunked"
 #define CONTENT_IMAGE_PREF "image/"
@@ -407,7 +422,7 @@ if( out->debug_level >= DEBUG_HIGH1 && (co->flags & OP_FL_FOUND)) \
 /* --- */
 
 struct summary_stats {
-  int xfer_sum, payload_sum;
+  int xfer_sum, payload_sum, fetch_count;
   float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
     response_time, response_sum, close_sum, complete_time, complete_sum;
   float packsize_mean, readlag_mean, xfrate_mean,
@@ -461,7 +476,7 @@ struct display_settings {
 };
 
 struct exec_controls {
-  int loop_count, loop_pause, conn_timeout, client_ip_type;
+  int loop_count, loop_pause, conn_timeout, client_ip_type, redirect_depth;
   char *client_ip, *bind_interface;
   struct interface_info *device_summ;
 };
@@ -470,7 +485,7 @@ struct fetch_status {
   long response_len;
   int ip_type, conn_sock, request_len, wait_timeout, last_state,
     end_errno;
-  char *err_msg, *request;
+  char *err_msg, *request, *primary_request, *redirect_request;
   float clock_res;
   struct sockaddr_in sock4;
   struct sockaddr_in6 sock6;
@@ -487,7 +502,7 @@ struct payload_breakout {
 };
 
 struct plan_data {
-  struct target_info *target;
+  struct target_info *target, *redirect;
   struct display_settings *disp;
   struct exec_controls *run;
   struct output_options *out;
@@ -583,6 +598,12 @@ int parse_http_response( struct payload_breakout *breakout);
 char *find_http_header( struct payload_breakout *breakout, char *which);
 
 int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *checkpoint);
+
+char *get_redirect_location( int *rc, struct plan_data *plan);
+
+void map_target_to_target( struct plan_data *plan);
+
+void display_average_stats( int *rc, struct plan_data *plan);
 
 /* --- */
 
