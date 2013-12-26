@@ -360,6 +360,7 @@ No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
 IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
   <tr><td>HTTP protocol:</td><td> 1.1<input type=\"radio\" value=\"yes\" name=\"http1.1\" checked>\n\
 1.0<input type=\"radio\" value=\"no\" name=\"http1.1\"></td></tr>\n\
+  <tr><td>Maximum redirects:</td><td><input type=\"text\" name=\"redirect\" value=\"0\"></td></tr>\n\
 \n\
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
   <tr><td>&nbsp;</td><td><input type=\"submit\" value=\"Fetch\"></td></tr>\n\
@@ -542,6 +543,7 @@ Options are:\n\
     <--tcp4> | <--4> | <--tcp6> | <--6>\n\
     <--http1.0> | <--http1.1>\n\
     <--if device>\n\
+    <--redirect max-levels>\n\
 "
 
 /* --- */

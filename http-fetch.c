@@ -9,7 +9,6 @@
  *
  * Features:
  * ---
- * - Should have an option to follow redirects
  * - Figure how to "do the right thing" when called as CLI from a CGI script
  * - Add support for options: auth, proxy, connthru
  * - Add "wait timeout" option and connect the wires to use it
