@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "cli-sub.h"
 #include "err_ref.h"
 #include "net-task-data.h"
 

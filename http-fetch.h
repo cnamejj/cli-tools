@@ -146,9 +146,6 @@
 
 #define NO_CR_HTTP_EOL "\r\n"
 
-#define NO_PORT -1
-#define NO_SOCK -1
-
 #define UNDEFINED_ERROR "A unspecified error halted execution of the program."
 
 #define HTML_RESP_HEADER "\
@@ -217,11 +214,6 @@ Content-type: text/html\r\n\
   #define SCOPE_SITE 0x05
   #define SCOPE_GLOBAL 0x0e
 #endif
-
-#define POLL_EVENTS_READ POLLIN | POLLRDNORM | POLLPRI
-#define POLL_EVENTS_WRITE POLLOUT | POLLWRNORM
-#define POLL_EVENTS_ANY POLL_EVENTS_READ | POLL_EVENTS_WRITE | POLLERR | POLLHUP | POLLNVAL | POLLRDBAND | POLLWRBAND
-#define POLL_EVENTS_ERROR POLLERR | POLLHUP | POLLNVAL
 
 #define LS_START           0x0000
 #define LS_PARSED_OPTIONS  0x0001

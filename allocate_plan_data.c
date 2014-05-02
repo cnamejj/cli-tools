@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include "cli-sub.h"
 #include "net-task-data.h"
 
 /* --- */

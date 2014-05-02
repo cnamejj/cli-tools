@@ -8,7 +8,7 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	is_option_set.o is_ipv4_address.o is_ipv6_address.o url_breakout_routines.o \
 	print_option_settings.o dup_memory.o get_scaled_number.o sys_call_fail_msg.o \
 	errmsg_with_string.o get_matching_interface.o is_reserved_uri_char.o \
-	parse_http_status.o construct_entry_form.o
+	parse_http_status.o construct_entry_form.o connect_host.o
 LIBS = libCLISUB.a
 UBIQ_H = err_ref.h net-task-data.h cli-sub.h
 

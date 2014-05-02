@@ -101,6 +101,7 @@
 #define DEFAULT_HTTP_PORT "80"
 
 #define NO_PORT -1
+#define NO_SOCK -1
 
 #define URL_VALID 1
 #define URL_ERROR 0
@@ -117,6 +118,30 @@
 #define SC_FORM_PATT_SERVER "<:SERVER:>"
 #define SC_FORM_PATT_SCRIPT "<:SCRIPT:>"
 #define SC_FORM_PATT_PORT "<:PORT:>"
+
+/* -- Can't use this constants from "in6.h", so hardcode tem
+#define SCOPE_LOOP __IPV6_ADDR_SCOPE_INTFACELOCAL
+#define SCOPE_LINK __IPV6_ADDR_SCOPE_LINKLOCAL
+#define SCOPE_SITE __IPV6_ADDR_SCOPE_SITELOCAL
+#define SCOPE_GLOBAL __IPV6_ADDR_SCOPE_GLOBAL
+ */
+#define SCOPE_LOOP 0x01
+#define SCOPE_LINK 0x02
+#define SCOPE_SITE 0x05
+#define SCOPE_GLOBAL 0x0e
+
+#define POLL_EVENTS_READ POLLIN | POLLRDNORM | POLLPRI
+#define POLL_EVENTS_WRITE POLLOUT | POLLWRNORM
+#define POLL_EVENTS_ANY POLL_EVENTS_READ | POLL_EVENTS_WRITE | POLLERR | POLLHUP | POLLNVAL | POLLRDBAND | POLLWRBAND
+#define POLL_EVENTS_ERROR POLLERR | POLLHUP | POLLNVAL
+
+#ifdef linux
+#define SOCKET_OPTS SOCK_STREAM | SOCK_NONBLOCK
+#else
+#define SOCKET_OPTS SOCK_STREAM
+#endif
+
+#define DEF_CLIENT_PORT 80
 
 /* --- */
 
@@ -260,6 +285,8 @@ int is_reserved_uri_char( int spot);
 struct http_status_response *parse_http_status( char *line);
 
 char *construct_entry_form( char *template);
+
+int connect_host( int *rc, char *host, int port, int timeout, int protocol);
 
 /* --- */
 
