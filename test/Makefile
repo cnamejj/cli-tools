@@ -11,13 +11,14 @@ DEBUG_DEFS =
 
 OS=$(shell uname)
 
-LD_OPTS_Linux = -L/usr/lib/x86_64-linux-gnu -lrt
+LD_OPTS_Linux = -L/usr/lib/x86_64-linux-gnu -lrt -lssl
 CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
-CC = gcc $(DEBUG_DEFS) -Wall
+CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
-LDFLAGS = -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS))
+#LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl
+LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS))
 ARCOMM = ar rlc
 LIBS = ../libCLISUB.a
 
