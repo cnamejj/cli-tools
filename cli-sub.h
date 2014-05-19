@@ -181,7 +181,7 @@ struct data_chunk {
 };
 
 struct url_breakout {
-    int status, port;
+    int status, port, use_ssl;
     char *protocol, *target, *user, *host, *ip4, *ip6, *uri, *query;
 };
 

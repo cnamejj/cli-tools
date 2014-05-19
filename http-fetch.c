@@ -93,6 +93,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         red->conn_host = 0;
         red->conn_uri = 0;
         red->conn_url = 0;
+        red->use_ssl = 0;
         if( target->ipv4) if( *target->ipv4)
         {
             red->ipv4 = strdup( target->ipv4);
@@ -106,6 +107,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         red->conn_port = NO_PORT;
         red->pref_protocol = target->pref_protocol;
         red->http_protocol = target->http_protocol;
+        red->secure_cert = target->secure_cert;
 
         if( fetch->redirect_request)
         {
@@ -264,6 +266,7 @@ int find_connection( struct plan_data *plan)
             req->proxy_ipv4 = parts->ip4;
             req->proxy_ipv6 = parts->ip6;
             req->proxy_port = parts->port;
+            req->use_ssl = parts->use_ssl;
 
             parts->host = 0;
             parts->ip4 = 0;
@@ -283,6 +286,8 @@ int find_connection( struct plan_data *plan)
         if( !parts) rc = ERR_MALLOC_FAILED;
         else if( parts->status == URL_VALID)
         {
+            req->use_ssl = parts->use_ssl;
+
             req->ipv4 = parts->ip4;
             parts->ip4 = 0;
 
@@ -2532,6 +2537,8 @@ struct plan_data *allocate_hf_plan_data()
         target->conn_pthru = 0;
         target->pref_protocol = 0;
         target->http_protocol = USE_HTTP11;
+        target->use_ssl = 0;
+        target->secure_cert = 1;
 
         redirect->http_host = 0;
         redirect->conn_host = 0;
@@ -2551,6 +2558,8 @@ struct plan_data *allocate_hf_plan_data()
         redirect->conn_pthru = 0;
         redirect->pref_protocol = 0;
         redirect->http_protocol = USE_HTTP11;
+        redirect->use_ssl = 0;
+        redirect->secure_cert = 1;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -2699,6 +2708,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE,      0, DEF_INTERFACE,    0, 0 },
       { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE_2,    0, DEF_INTERFACE,    0, 0 },
       { OP_MAX_REDIRECT, OP_TYPE_INT,  OP_FL_BLANK,   FL_MAX_REDIRECT,   0, DEF_MAX_REDIRECT, 0, 0 },
+      { OP_SSL_INSECURE, OP_TYPE_FLAG, OP_FL_BLANK,   FL_SSL_INSECURE,   0, DEF_SSL_INSECURE, 0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -3043,6 +3053,12 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         runex->bind_interface = (char *) co->parsed;
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_SSL_INSECURE, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "insecure")
+        target->secure_cert = *((int *) co->parsed);
+    }
+
     /* ---
      * If the options controlling which parts of the response conflict, then
      *   check where each was given on the command line to decide which
@@ -3240,6 +3256,8 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - proxy-port: (%d)\n", target->proxy_port);
         fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
         fprintf( out->info_out, "- - - - pref-protocol: (%d)\n", target->pref_protocol);
+        fprintf( out->info_out, "- - - - use-SSL: (%d)\n", target->use_ssl);
+        fprintf( out->info_out, "- - - - insecure-SSL: (%d)\n", target->secure_cert);
 
         fprintf( out->info_out, "\n- - Display:\n");
         fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);

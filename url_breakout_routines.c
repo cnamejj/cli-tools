@@ -5,6 +5,7 @@
 #include "cli-sub.h"
 #include "err_ref.h"
 
+#define SSL_PROT_PREFIX "https"
 /*
 ... need to deal with http://user@domain:port/uri-string?query-data
 ... as well, meaning the "user@" bit needs to be added
@@ -33,6 +34,7 @@ struct url_breakout *alloc_url_breakout()
 	parts->ip6 = 0;
 	parts->uri = 0;
 	parts->query = 0;
+        parts->use_ssl = 0;
     }
 
     return( parts);
@@ -316,6 +318,8 @@ struct url_breakout *parse_url_string( char *url)
             parts->target = domain;
             parts->uri = uri;
             parts->query = query;
+            if( protocol) parts->use_ssl = !strcasecmp( protocol, SSL_PROT_PREFIX);
+
             protocol = user = domain = uri = query = 0;
 	}
     }

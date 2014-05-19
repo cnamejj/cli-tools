@@ -58,6 +58,7 @@
 #define FL_INTERFACE      "interface"
 #define FL_INTERFACE_2    "if"
 #define FL_MAX_REDIRECT   "redirect"
+#define FL_SSL_INSECURE   "insecure"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -88,6 +89,7 @@
 #define OP_HTTP11         27
 #define OP_INTERFACE      28
 #define OP_MAX_REDIRECT   29
+#define OP_SSL_INSECURE   30
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -124,6 +126,7 @@
 #define DEF_HTTP11         "1"
 #define DEF_INTERFACE      ""
 #define DEF_MAX_REDIRECT   "0"
+#define DEF_SSL_INSECURE   "0"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -319,6 +322,8 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close Total AllByt PayByt Tot#/S Dat#/S
   <tr><td>Name of webserver:</td><td><input type=\"text\" name=\"webhost\"></td></tr>\n\
   <tr><td>Connect to this port:</td><td><input type=\"text\" name=\"port\" value=\"80\"></td></tr>\n\
   <tr><td>URI to request:</td><td><input type=\"text\" name=\"uri\"></td></tr>\n\
+  <tr><td>Accept insecure SSL certs:</td><td> Yes<input type=\"radio\" value=\"no\" name=\"insecure\">\n\
+No<input type=\"radio\" value=\"no\" name=\"insecure\" checked></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
@@ -453,7 +458,8 @@ struct target_info {
   char *ipv4, *ipv6;
   char *auth_user, *auth_passwd;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
-  int conn_port, proxy_port, conn_pthru, pref_protocol, http_protocol;
+  int conn_port, proxy_port, conn_pthru, pref_protocol,
+    http_protocol, use_ssl, secure_cert;
   struct value_chain *extra_headers;
 };
 
@@ -536,6 +542,7 @@ Options are:\n\
     <--http1.0> | <--http1.1>\n\
     <--if device>\n\
     <--redirect max-levels>\n\
+    <--insecure>\n\
 "
 
 /* --- */
