@@ -23,3 +23,6 @@ send-udp-message
 quipi
 dumb
 iso8859-collapse
+
+# temporary local backup directories
+BACKUP
