@@ -3,6 +3,8 @@ SOLOPROGS = test-gsub_string test-hexdigits_to_string test-string_to_hexdigits p
 	test-called-as-cgi test-get-cgi-data test-decode-url-string test-is-ip4-address \
 	test-is-ip6-address test-parse-url test-clock-calls test-pull-problems test-is-res-char \
         test-is-res-char2 show-net-inf test-ssl-client test-connect
+SOBJS = test-ssl-init-routines.o
+LIBS = libTESTCLI.a
 UBIQ_H = ../err_ref.h ../net-task-data.h ../cli-sub.h
 
 # ---
@@ -18,9 +20,8 @@ CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl
-LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS))
+LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -lxml2 -lm $(LD_OPTS_$(OS))
 ARCOMM = ar rlc
-LIBS = ../libCLISUB.a
 
 # ---
 
@@ -32,6 +33,8 @@ default:
 .PHONY: all libs
 
 all : $(PROGS) $(SOLOPROGS)
+
+libs: $(LIBS)
 
 # ---
 
@@ -45,6 +48,9 @@ $(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS)
 
 $(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
+
+libTESTCLI.a : $(SOBJS)
+	$(ARCOMM) $@ $(SOBJS)
 
 # ---
 

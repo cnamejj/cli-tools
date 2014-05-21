@@ -10,18 +10,21 @@
 #include "../cli-sub.h"
 #include "../err_ref.h"
 
+SSL_CTX *init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX *));
+SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st *, int, const char *, int, long, long));
+
 /* --- */
 
-#define CTX_MODES SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+/* #define CTX_MODES SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER */
 #define PAUSE 50000
 #define POLL_TIMEOUT 10000
 #define BUFFSIZE 2048
 
-#define SSL_TRUSTED_CERT_PATH "/etc/ssl/certs"
+/* #define SSL_TRUSTED_CERT_PATH "/etc/ssl/certs" */
 
 #define ERR_OUT stdout
 #define BUFFLEN 255
-#define MAX_READ_AHEAD 64 * 1024
+/* #define MAX_READ_AHEAD 64 * 1024 */
 
 #define NORMAL_REQ_TEMPLATE "\
 GET /%s HTTP/1.1\r\n\
@@ -61,6 +64,7 @@ GET /%s HTTP/1.1\r\n\
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/6.1.3 Safari/537.75.14\r\n\
 Host: %s\r\n\
 Accept: */*\r\n\
+Connection: close\r\n\
 DNT: 1\r\n\
 \r\n"
 
@@ -217,6 +221,7 @@ int verify_callback(int ok, X509_STORE_CTX *context)
     return(rc);
 }
 
+#ifdef USE_OLD_CODE
 /* --- */
 
 SSL_CTX *init_ssl_context(int *sysrc)
@@ -261,6 +266,7 @@ SSL *map_sock_to_ssl(int sock, SSL_CTX *context)
 
     return(ssl);
 }
+#endif
 
 /* --- */
 
@@ -390,13 +396,13 @@ int main(int narg, char **opts)
 
     sock = connect_host(&rc, host, port, timeout, AF_INET);
 
-    context = init_ssl_context(&sysrc);
-    if(!sysrc) err_exit("No ciphers could be loaded");
+    context = init_ssl_context(&sysrc, verify_callback);
+    if(sysrc) err_exit("No ciphers could be loaded");
 
     fprintf(ERR_OUT, "dbg:: post-conn host'%s' port=%d timeout=%d sock=%d rc=%d\n",
       host, port, timeout, sock, rc);
 
-    ssl = map_sock_to_ssl(sock, context);
+    ssl = map_sock_to_ssl(sock, context, handle_bio_callback);
 
     rc = do_ssl_handshake(ssl, sock);
     

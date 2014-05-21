@@ -21,14 +21,8 @@
 #include <sys/stat.h>
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
-/*
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ifaddrs.h>
-#include <net/if.h>
- */
+#include <openssl/ssl.h>
+#include <openssl/engine.h>
 
 /* --- */
 
@@ -142,6 +136,11 @@
 #endif
 
 #define DEF_CLIENT_PORT 80
+
+#define CTX_MODES SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+#define SSL_MAX_READ_AHEAD 64 * 1024
+#define SSL_TRUSTED_CERT_PATH "/etc/ssl/certs"
+
 
 /* --- */
 
@@ -287,6 +286,10 @@ struct http_status_response *parse_http_status( char *line);
 char *construct_entry_form( char *template);
 
 int connect_host( int *rc, char *host, int port, int timeout, int protocol);
+
+SSL_CTX *init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX *));
+
+SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st *, int, const char *, int, long, long));
 
 /* --- */
 
