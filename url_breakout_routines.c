@@ -5,7 +5,6 @@
 #include "cli-sub.h"
 #include "err_ref.h"
 
-#define SSL_PROT_PREFIX "https"
 /*
 ... need to deal with http://user@domain:port/uri-string?query-data
 ... as well, meaning the "user@" bit needs to be added

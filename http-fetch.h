@@ -8,6 +8,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <openssl/ssl.h>
+#include <openssl/engine.h>
 
 /* --- */
 
@@ -193,6 +195,7 @@ Content-type: text/html\r\n\
 #define DEFAULT_FETCH_USER_AGENT "Mozilla/5.0 Gecko/20100101 Firefox/23.0"
 
 #define DEFAULT_FETCH_PORT 80
+#define DEFAULT_SSL_FETCH_PORT 443
 
 #define ROOT_URI "/"
 #define INVALID_IP "Invalid-IP"
@@ -244,6 +247,12 @@ Content-type: text/html\r\n\
 #define EVENT_FIRST_RESPONSE 5
 #define EVENT_READ_PACKET    6
 #define EVENT_READ_ALL_DATA  7
+
+#define SSLERR_NORMAL    0
+#define SSLERR_FATAL     1
+#define SSLERR_RETRY     2
+#define SSLERR_HANDSHAKE 3
+#define SSLERR_CLOSED    4
 
 /* --- */
 
@@ -490,6 +499,8 @@ struct fetch_status {
   struct sockaddr_in6 sock6;
   struct ckpt_chain *checkpoint, *lastcheck;
   time_t wall_start;
+  SSL_CTX *ssl_context;
+  SSL *ssl_box;
 };
 
 struct payload_breakout {
@@ -605,6 +616,20 @@ char *get_redirect_location( int *rc, struct plan_data *plan);
 void map_target_to_target( struct plan_data *plan);
 
 void display_average_stats( int *rc, struct plan_data *plan);
+
+void setup_ssl_env( int *rc, struct plan_data *plan);
+
+void ssl_handshake( int *rc, struct plan_data *plan);
+
+SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *));
+
+SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st *, int, const char *, int, long, long));
+
+int verify_ssl_callback(int ok, X509_STORE_CTX *context);
+
+long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignore, long ret);
+
+int handle_ssl_error( int *sslerr, SSL *ssl, int io_rc, int sock, int max_wait);
 
 /* --- */
 

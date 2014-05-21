@@ -1,6 +1,6 @@
 /*
-#define SHOW_DEBUG_STATS_CALCS
-#define SHOW_GORY_XFRATE_CALC_DETAILS
+ * #define SHOW_DEBUG_STATS_CALCS
+ * #define SHOW_GORY_XFRATE_CALC_DETAILS
  */
 
 /*
@@ -355,7 +355,11 @@ int find_connection( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
-        if( req->conn_port == NO_PORT) req->conn_port = DEFAULT_FETCH_PORT;
+        if( req->conn_port == NO_PORT)
+        {
+            if( req->use_ssl) req->conn_port = DEFAULT_SSL_FETCH_PORT;
+            else req->conn_port = DEFAULT_FETCH_PORT;
+	}
         status->last_state |= LS_FIND_CONNECTION;
     }
 
@@ -403,6 +407,8 @@ int execute_fetch_plan( struct plan_data *plan)
             if( rc == RC_NORMAL) rc = construct_request( plan);
 	}
 
+        setup_ssl_env( &rc, plan); /* one time setup, subsquent calls just return */
+
         clear_counters( &rc, plan);
 
 /* ... need to lookup the proxy host too ... */
@@ -410,6 +416,16 @@ int execute_fetch_plan( struct plan_data *plan)
         lookup_connect_host( &rc, plan);
 
         connect_to_server( &rc, plan);
+
+        ssl_handshake( &rc, plan);
+
+if(plan->target->use_ssl)
+{
+    printf("dbg:: End of the road for SSL connections, code not done past here.\n");
+    fflush(stdout);
+    sleep(10);
+    exit(0);
+}
 
         send_request( &rc, plan);
 
@@ -2597,6 +2613,8 @@ struct plan_data *allocate_hf_plan_data()
         status->clock_res = 0.0;
         status->primary_request = 0;
         status->redirect_request = 0;
+        status->ssl_context = 0;
+        status->ssl_box = 0;
 
         status->sock4.sin_family = AF_INET;
         status->sock4.sin_port = htons( DEFAULT_FETCH_PORT);

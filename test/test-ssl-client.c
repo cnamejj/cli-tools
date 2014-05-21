@@ -10,9 +10,6 @@
 #include "../cli-sub.h"
 #include "../err_ref.h"
 
-SSL_CTX *init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX *));
-SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st *, int, const char *, int, long, long));
-
 /* --- */
 
 /* #define CTX_MODES SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER */
@@ -79,6 +76,7 @@ void err_exit(char *msg)
     exit(1);
 }
 
+#ifdef USE_OLD_CODE
 /* --- */
 
 int wait_until_sock_ready(sock, event, timeout)
@@ -96,6 +94,7 @@ int wait_until_sock_ready(sock, event, timeout)
 
     return(rc);
 }
+#endif
 
 /* --- */
 
@@ -220,53 +219,6 @@ int verify_callback(int ok, X509_STORE_CTX *context)
     rc = 1;
     return(rc);
 }
-
-#ifdef USE_OLD_CODE
-/* --- */
-
-SSL_CTX *init_ssl_context(int *sysrc)
-
-{
-    SSL_CTX *context = 0;
-    const SSL_METHOD *meth = 0;
-
-    SSL_load_error_strings();
-    SSL_library_init();
-    ENGINE_load_builtin_engines();
-
-    meth = SSLv23_client_method();
-    context = SSL_CTX_new(meth);
-
-    *sysrc = SSL_CTX_set_cipher_list(context, "ALL");
-/*    if(!sysrc) err_exit("No ciphers could be loaded"); */
-
-    (void) SSL_CTX_set_mode(context, CTX_MODES);
-    (void) SSL_CTX_set_read_ahead(context, MAX_READ_AHEAD);
-    (void) SSL_CTX_load_verify_locations(context, 0, SSL_TRUSTED_CERT_PATH);
-
-    SSL_CTX_set_verify(context, SSL_VERIFY_PEER, verify_callback);
-
-    return(context);
-}
-
-/* --- */
-
-SSL *map_sock_to_ssl(int sock, SSL_CTX *context)
-
-{
-    SSL *ssl;
-
-    ssl = SSL_new(context);
-
-    SSL_set_fd(ssl, sock);
-    SSL_set_connect_state(ssl);
-
-    BIO_set_callback(ssl->rbio, handle_bio_callback);
-    BIO_set_callback(ssl->wbio, handle_bio_callback);
-
-    return(ssl);
-}
-#endif
 
 /* --- */
 
@@ -396,8 +348,8 @@ int main(int narg, char **opts)
 
     sock = connect_host(&rc, host, port, timeout, AF_INET);
 
-    context = init_ssl_context(&sysrc, verify_callback);
-    if(sysrc) err_exit("No ciphers could be loaded");
+    context = init_ssl_context(verify_callback);
+    if(!context) err_exit("No ciphers could be loaded");
 
     fprintf(ERR_OUT, "dbg:: post-conn host'%s' port=%d timeout=%d sock=%d rc=%d\n",
       host, port, timeout, sock, rc);

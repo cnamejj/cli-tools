@@ -1,17 +1,11 @@
-#include "cli-sub.h"
-
-/*
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
 
-#define CTX_MODES SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
-#define MAX_READ_AHEAD 64 * 1024
-#define SSL_TRUSTED_CERT_PATH "/etc/ssl/certs"
- */
+#include "cli-sub.h"
 
 /* --- */
 
-SSL_CTX *init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX *))
+SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *))
 
 {
     int err = 0, rc;
@@ -45,7 +39,6 @@ SSL_CTX *init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX *))
         SSL_CTX_free(context);
         context = 0;
     }
-    *sysrc = err;
 
     return(context);
 }
