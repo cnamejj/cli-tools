@@ -27,6 +27,7 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             {
                 err = 1;
                 ret = ERR_SSL_ERROR;
+// printf("dbg:: ssl-handshake: map failed\n");
 	    }
 
 /* NOTE: timeout remainder should be re-calc'd each time through the loop 
@@ -35,12 +36,26 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             for( ; !done && !err; )
             {
                 io_rc = SSL_connect( ssl);
+// printf("dbg:: ssl-handshake: ssl-conn, rc=%d RESULT\n", io_rc);
                 if( io_rc == 1) done = 1;
                 else
                 {
+// const char *qerr_file;
+// unsigned long qerr;
+// int qerr_line;
+// 
+// qerr_file = (char *) malloc(2048);
+// 
+// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
+// for(; qerr; )
+// {
+//     printf("dbg:: ErrQueue: rc=%ld, line=%d, file'%s'\n", qerr, qerr_line, qerr_file);
+// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
+// }
+
                     ret = handle_ssl_error( &sslerr, ssl, io_rc, sock, runex->conn_timeout);
-                    if( ret == RC_NORMAL) done = 1;
-                    else if( sslerr != SSLERR_RETRY)
+// printf("dbg:: ssl-handshake: hse, rc=%d, serr=%d\n", ret, sslerr);
+                    if( sslerr != SSLACT_RETRY && sslerr != SSLACT_READ && sslerr != SSLACT_WRITE)
                     {
                         done = 1;
                         err = 1;
@@ -50,6 +65,8 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 	    }
 	}
     }
+
+// printf("dbg:: ssl-handshake: leaving... rc=%d err=%d\n", *rc, err);
 
     return;
 }

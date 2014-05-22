@@ -23,6 +23,12 @@ send-udp-message
 quipi
 dumb
 iso8859-collapse
+http-fetch
+extended-letters-collapse
+actor
 
 # temporary local backup directories
 BACKUP
+
+# local-only scripts, docs, etc...
+local

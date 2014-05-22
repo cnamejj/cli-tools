@@ -1,1 +1,0 @@
-./http-fetch -url 'http://digital.jawapos.com/' -time -wait 2000 -loop 4 -num -timeout 30000 +pe

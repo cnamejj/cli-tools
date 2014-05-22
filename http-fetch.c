@@ -408,6 +408,7 @@ int execute_fetch_plan( struct plan_data *plan)
 	}
 
         setup_ssl_env( &rc, plan); /* one time setup, subsquent calls just return */
+// printf("dbg:: setup-ssl-env: rc=%d\n", rc);
 
         clear_counters( &rc, plan);
 
@@ -418,14 +419,6 @@ int execute_fetch_plan( struct plan_data *plan)
         connect_to_server( &rc, plan);
 
         ssl_handshake( &rc, plan);
-
-if(plan->target->use_ssl)
-{
-    printf("dbg:: End of the road for SSL connections, code not done past here.\n");
-    fflush(stdout);
-    sleep(10);
-    exit(0);
-}
 
         send_request( &rc, plan);
 
@@ -948,33 +941,90 @@ void connect_to_server( int *rc, struct plan_data *plan)
 void send_request( int *rc, struct plan_data *plan)
 
 {
-    int sysrc;
+    int sysrc, done, reqlen, sslerr, sock;
+    unsigned long hold_err;
+    char *req;
     struct fetch_status *status;
     struct output_options *out = 0;
     struct display_settings *disp = 0;
+    struct target_info *target = 0;
+    struct exec_controls *runex = 0;
+    SSL *ssl;
 
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
         out = plan->out;
         disp = plan->disp;
+        target = plan->target;
+        runex = plan->run;
     }
 
     if( *rc == RC_NORMAL)
     {
-        sysrc = write( status->conn_sock, status->request, status->request_len);
-        if( sysrc == status->request_len)
+        req = status->request;
+        reqlen = status->request_len;
+        sock = status->conn_sock;
+        ssl = status->ssl_box;
+
+        for( done = 0; !done; )
         {
-            if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
-              "%sWrote the entire request successfully.\n", disp->line_pref);
-            status->last_state |= LS_SENT_REQUEST;
-	}
-        else
-        {
-            status->end_errno = errno;
-            status->last_state |= LS_NO_REQUEST;
-            status->err_msg = sys_call_fail_msg( "write");
-            *rc = ERR_WRITE_FAILED;
+            if( target->use_ssl) sysrc = SSL_write( ssl, req, reqlen);
+            else sysrc = write( sock, req, reqlen);
+
+            if( sysrc == reqlen)
+            {
+                if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
+                  "%sWrote the entire request successfully.\n", disp->line_pref);
+                status->last_state |= LS_SENT_REQUEST;
+                done = 1;
+            }
+            else if( sysrc > 0)
+            {
+                if( out->debug_level >= DEBUG_MEDIUM2) fprintf( out->info_out,
+                  "%sWrote partial request, %d of %d bytes.\n", disp->line_pref, sysrc, reqlen);
+                req += sysrc;
+                reqlen -= sysrc;
+	    }
+            else if( target->use_ssl)
+            {
+// int hold_sysrc = sysrc;
+// const char *qerr_file;
+// unsigned long qerr;
+// int qerr_line;
+//
+// qerr_file = (char *) malloc(2048);
+//
+// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
+// for(; qerr; )
+// {
+//     printf("dbg:: ErrQueue: rc=%ld, line=%d, file'%s'\n", qerr, qerr_line, qerr_file);
+// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
+/// }
+
+                hold_err = ERR_peek_error();
+
+                /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
+                sysrc = handle_ssl_error( &sslerr, ssl, sysrc, sock, runex->conn_timeout);
+// printf("dbg:: SR: SSL-write err, ret:%d, serr:%ld, hse:%d sslerr:%d\n", hold_sysrc, hold_err, sysrc, sslerr);
+
+                if( sslerr != SSLACT_RETRY)
+                {
+                    status->end_errno = hold_err;
+                    status->last_state |= LS_NO_REQUEST;
+                    status->err_msg = sys_call_fail_msg( "SSL_write");
+                    *rc = ERR_SSLWRITE_FAILED;
+                    done = 1;
+		}
+	    }
+            else
+            {
+                status->end_errno = errno;
+                status->last_state |= LS_NO_REQUEST;
+                status->err_msg = sys_call_fail_msg( "write");
+                *rc = ERR_WRITE_FAILED;
+                done = 1;
+            }
 	}
 
         if( *rc == RC_NORMAL) *rc = capture_checkpoint( status, EVENT_REQUEST_SENT);
@@ -1010,6 +1060,7 @@ void wait_for_reply( int *rc, struct plan_data *plan)
         netbox.revents = 0;
 
         if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Pre wait-for-reply");
+        /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
         sysrc = poll( &netbox, 1, runex->conn_timeout);
         if( out->debug_level >= DEBUG_HIGH3) debug_timelog( out->info_out, disp->line_pref, "Aft wait-for-reply");
         if( sysrc == 0)
@@ -1042,13 +1093,15 @@ void wait_for_reply( int *rc, struct plan_data *plan)
 void pull_response( int *rc, struct plan_data *plan)
 
 {
-    int done, sysrc, buffsize = READ_BUFF_SIZE, packlen = 0;
+    int done, sysrc, buffsize = READ_BUFF_SIZE, packlen = 0, sslerr, hold_err, sock;
     char *buff = 0, *pos = 0;
     struct pollfd netbox;
     struct fetch_status *status;
     struct output_options *out;
     struct exec_controls *runex = 0;
     struct display_settings *disp = 0;
+    struct target_info *target = 0;
+    SSL *ssl;
 
     buff = (char *) malloc( buffsize);
     if( !buff) *rc = ERR_MALLOC_FAILED;
@@ -1059,10 +1112,14 @@ void pull_response( int *rc, struct plan_data *plan)
         out = plan->out;
         runex = plan->run;
         disp = plan->disp;
+        target = plan->target;
     }
 
     if( *rc == RC_NORMAL)
     {
+        ssl = status->ssl_box;
+        sock = status->conn_sock;
+
         netbox.fd = status->conn_sock;
         netbox.events = POLL_EVENTS_READ;
         netbox.revents = 0;
@@ -1085,28 +1142,10 @@ void pull_response( int *rc, struct plan_data *plan)
 	    }
             else
             {
-                sysrc = packlen = read( status->conn_sock, buff, buffsize);
-                if( sysrc == -1)
-                {
-                    if( errno == EINTR)
-                    {
-                        if( out->debug_level >= DEBUG_MEDIUM2) fprintf(
-                          out->info_out, "%sIgnoring EINTR return from poll()\n", disp->line_pref);
-		    }
-                    else
-                    {
-                        status->end_errno = errno;
-                        status->err_msg = sys_call_fail_msg( "read");
-                        *rc = ERR_READ_FAILED;
-		    }
-		}
-                else if( !sysrc)
-                {
-                    status->last_state |= LS_GOT_RESPONSE;
-                    done = 1;
-                    *rc = capture_checkpoint( status, EVENT_READ_ALL_DATA);
-		}
-                else
+                if( target->use_ssl) sysrc = packlen = SSL_read( ssl, buff, buffsize);
+                else sysrc = packlen = read( sock, buff, buffsize);
+
+                if( sysrc > 0)
                 {
                     if( out->debug_level >= DEBUG_HIGH3)
                     {
@@ -1131,11 +1170,59 @@ void pull_response( int *rc, struct plan_data *plan)
                     *rc = capture_checkpoint( status, EVENT_READ_PACKET);
                     if( *rc == RC_NORMAL) *rc = add_data_block( status->lastcheck, sysrc, buff);
 		}
+                else if( !sysrc)
+                {
+                    status->last_state |= LS_GOT_RESPONSE;
+                    done = 1;
+                    *rc = capture_checkpoint( status, EVENT_READ_ALL_DATA);
+		}
+                else if( target->use_ssl)
+                {
+                    hold_err = ERR_peek_error();
+                    /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
+                    sysrc = handle_ssl_error( &sslerr, ssl, sysrc, sock, runex->conn_timeout);
+                    if( sslerr == SSLACT_RETRY || sslerr == SSLACT_READ)
+                    {
+                        netbox.events = POLL_EVENTS_READ;
+		    }
+                    else if( sslerr == SSLACT_WRITE)
+                    {
+                        netbox.events = POLL_EVENTS_WRITE;
+		    }
+                    else
+                    {
+                        status->end_errno = hold_err;
+                        status->last_state |= LS_NO_REQUEST;
+                        status->err_msg = sys_call_fail_msg( "SSL_read");
+                        *rc = ERR_SSLWRITE_FAILED;
+                        done = 1;
+                    }
+                }
+                else
+                {
+                    if( errno == EINTR)
+                    {
+                        if( out->debug_level >= DEBUG_MEDIUM2) fprintf(
+                          out->info_out, "%sIgnoring EINTR return from poll()\n", disp->line_pref);
+		    }
+                    else
+                    {
+                        status->end_errno = errno;
+                        status->err_msg = sys_call_fail_msg( "read");
+                        *rc = ERR_READ_FAILED;
+		    }
+		}
 	    }
 	}
 
         if( status->conn_sock)
         {
+            if( target->use_ssl)
+            {
+                (void) SSL_shutdown( ssl);
+                SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
+                SSL_free(ssl);
+	    }
             close( status->conn_sock);
             status->conn_sock = NO_SOCK;
 	}

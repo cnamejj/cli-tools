@@ -26,6 +26,7 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
+#LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG
 LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
 ARCOMM = ar rlc
 

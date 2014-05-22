@@ -55,4 +55,4 @@ libTESTCLI.a : $(SOBJS)
 # ---
 
 clean:
-	rm $(PROGS) $(SOLOPROGS) *.o
+	rm $(PROGS) $(SOLOPROGS) *.o *.a

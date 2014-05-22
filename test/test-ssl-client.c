@@ -9,6 +9,7 @@
 
 #include "../cli-sub.h"
 #include "../err_ref.h"
+#include "../http-fetch.h"
 
 /* --- */
 
@@ -58,8 +59,8 @@ User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:29.0) Gecko/20100101
 
 #define DEBUG_REQ_TEMPLATE "\
 GET /%s HTTP/1.1\r\n\
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/6.1.3 Safari/537.75.14\r\n\
 Host: %s\r\n\
+User-Agent: Mozilla/5.0 Gecko/20100101 Firefox/23.0\r\n\
 Accept: */*\r\n\
 Connection: close\r\n\
 DNT: 1\r\n\
@@ -222,7 +223,7 @@ int verify_callback(int ok, X509_STORE_CTX *context)
 
 /* --- */
 
-int handle_ssl_error(SSL *ssl, int io_rc, int sock, int max_wait)
+int debug_handle_ssl_error(SSL *ssl, int io_rc, int sock, int max_wait)
 
 {
     int off = 0, sysrc, sslerr, rc = 0, event;
@@ -281,7 +282,7 @@ int do_ssl_handshake(SSL *ssl, int sock)
     {
         sysrc = SSL_connect(ssl);
         if(sysrc == 1) done = 1;
-        else done = handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
+        else done = debug_handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
     }
 
     return(rc);
@@ -386,7 +387,7 @@ int main(int narg, char **opts)
 	}
         else
         {
-            done = handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
+            done = debug_handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
             if(done) err_exit("SSL error sending HTTP request");
 	}
     }
@@ -450,7 +451,7 @@ fprintf(ERR_OUT, "dbg:: post-SSL_read, rc=%d, sslerr=%d, errno=%d\n", sysrc, ssl
                 }
                 else
                 {
-                    done = handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
+                    done = debug_handle_ssl_error(ssl, sysrc, sock, POLL_TIMEOUT);
                     if(done) err_exit("Unrecoverable error in read loop");
 		}
 	    }

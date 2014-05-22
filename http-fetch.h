@@ -248,11 +248,13 @@ Content-type: text/html\r\n\
 #define EVENT_READ_PACKET    6
 #define EVENT_READ_ALL_DATA  7
 
-#define SSLERR_NORMAL    0
-#define SSLERR_FATAL     1
-#define SSLERR_RETRY     2
-#define SSLERR_HANDSHAKE 3
-#define SSLERR_CLOSED    4
+#define SSLACT_NORMAL        0
+#define SSLACT_ERR_FATAL     1
+#define SSLACT_RETRY         2
+#define SSLACT_ERR_HANDSHAKE 3
+#define SSLACT_ERR_CLOSED    4
+#define SSLACT_WRITE         5
+#define SSLACT_READ          6
 
 /* --- */
 
