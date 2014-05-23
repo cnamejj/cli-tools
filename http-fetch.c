@@ -3303,6 +3303,18 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
 
 /* --- */
 
+struct plan_data *register_current_plan( struct plan_data *update)
+
+{
+    static struct plan_data *current_plan = 0;
+
+    if( update) current_plan = update;
+
+    return( current_plan);
+}
+
+/* --- */
+
 int main( int narg, char **opts)
 
 {
@@ -3327,6 +3339,8 @@ int main( int narg, char **opts)
         runex = plan->run;
         out = plan->out;
         fetch = plan->status;
+
+        register_current_plan( plan);
     }
 
     if( rc == RC_NORMAL) if( disp->show_help)

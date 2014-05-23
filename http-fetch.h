@@ -633,6 +633,8 @@ long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignor
 
 int handle_ssl_error( int *sslerr, SSL *ssl, int io_rc, int sock, int max_wait);
 
+struct plan_data *register_current_plan( struct plan_data *update);
+
 /* --- */
 
 #endif
