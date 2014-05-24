@@ -10,9 +10,9 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	errmsg_with_string.o get_matching_interface.o is_reserved_uri_char.o \
 	parse_http_status.o construct_entry_form.o connect_host.o ssl_init_routines.o \
 	verify_ssl_callback.o setup_ssl_env.o bio_ssl_callback.o handle_ssl_error.o \
-	ssl_handshake.o wait_until_sock_ready.o
+	ssl_handshake.o wait_until_sock_ready.o stash_ssl_err_info.o
 LIBS = libCLISUB.a
-UBIQ_H = err_ref.h net-task-data.h cli-sub.h
+UBIQ_H = err_ref.h net-task-data.h cli-sub.h http-fetch.h
 
 # ---
 

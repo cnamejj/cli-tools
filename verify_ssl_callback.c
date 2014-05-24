@@ -27,16 +27,14 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
     out = plan->out;
     disp = plan->disp;
 
-    if( ok) rc = 1;
-    else
+    if( !ok) 
     {
         /* Get the cert, the error code and the depth at which the error was detected */
         x509_err = X509_STORE_CTX_get_error( context);
         x509_depth = X509_STORE_CTX_get_error_depth( context);
 
         if( x509_err == X509_V_OK) rc = 1;
-        else if( !plan->target->secure_cert) rc = 1;
-        else rc = 0;
+        else if( plan->target->insecure_cert) rc = 1;
 
         if( out->debug_level >= DEBUG_MEDIUM1)
         {

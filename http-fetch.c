@@ -107,7 +107,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         red->conn_port = NO_PORT;
         red->pref_protocol = target->pref_protocol;
         red->http_protocol = target->http_protocol;
-        red->secure_cert = target->secure_cert;
+        red->insecure_cert = target->insecure_cert;
 
         if( fetch->redirect_request)
         {
@@ -408,7 +408,6 @@ int execute_fetch_plan( struct plan_data *plan)
 	}
 
         setup_ssl_env( &rc, plan); /* one time setup, subsquent calls just return */
-// printf("dbg:: setup-ssl-env: rc=%d\n", rc);
 
         clear_counters( &rc, plan);
 
@@ -988,25 +987,10 @@ void send_request( int *rc, struct plan_data *plan)
 	    }
             else if( target->use_ssl)
             {
-// int hold_sysrc = sysrc;
-// const char *qerr_file;
-// unsigned long qerr;
-// int qerr_line;
-//
-// qerr_file = (char *) malloc(2048);
-//
-// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
-// for(; qerr; )
-// {
-//     printf("dbg:: ErrQueue: rc=%ld, line=%d, file'%s'\n", qerr, qerr_line, qerr_file);
-// qerr = ERR_get_error_line(&qerr_file, &qerr_line);
-/// }
-
                 hold_err = ERR_peek_error();
 
                 /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
                 sysrc = handle_ssl_error( &sslerr, ssl, sysrc, sock, runex->conn_timeout);
-// printf("dbg:: SR: SSL-write err, ret:%d, serr:%ld, hse:%d sslerr:%d\n", hold_sysrc, hold_err, sysrc, sslerr);
 
                 if( sslerr != SSLACT_RETRY)
                 {
@@ -2641,7 +2625,7 @@ struct plan_data *allocate_hf_plan_data()
         target->pref_protocol = 0;
         target->http_protocol = USE_HTTP11;
         target->use_ssl = 0;
-        target->secure_cert = 1;
+        target->insecure_cert = 1;
 
         redirect->http_host = 0;
         redirect->conn_host = 0;
@@ -2662,7 +2646,7 @@ struct plan_data *allocate_hf_plan_data()
         redirect->pref_protocol = 0;
         redirect->http_protocol = USE_HTTP11;
         redirect->use_ssl = 0;
-        redirect->secure_cert = 1;
+        redirect->insecure_cert = 1;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -3161,7 +3145,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_SSL_INSECURE, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "insecure")
-        target->secure_cert = *((int *) co->parsed);
+        target->insecure_cert = *((int *) co->parsed);
     }
 
     /* ---
@@ -3376,7 +3360,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - conn-thru: (%d)\n", target->conn_pthru);
         fprintf( out->info_out, "- - - - pref-protocol: (%d)\n", target->pref_protocol);
         fprintf( out->info_out, "- - - - use-SSL: (%d)\n", target->use_ssl);
-        fprintf( out->info_out, "- - - - insecure-SSL: (%d)\n", target->secure_cert);
+        fprintf( out->info_out, "- - - - insecure-SSL: (%d)\n", target->insecure_cert);
 
         fprintf( out->info_out, "\n- - Display:\n");
         fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);

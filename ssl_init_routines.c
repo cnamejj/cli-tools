@@ -40,8 +40,6 @@ SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *))
         context = 0;
     }
 
-// printf("dbg:: init-ssl-context: err:%d\n", err);
-
     return(context);
 }
 
@@ -76,8 +74,6 @@ SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st 
         SSL_free(ssl);
         ssl = 0;
     }
-
-// printf("dbg:: map-sock-to-ssl: err:%d\n", err);
 
     return(ssl);
 }

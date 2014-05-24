@@ -416,6 +416,8 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define EMSG_READ_POLL_TIMEOUT "Timeout waiting to retrieve content from the server."
 #define EMSG_HTTP_HEADER_NO_END "Response from the server did not include a complete HTTP header."
 #define EMSG_UNRECOG_OPTIONS "One or more unrecognized options specified."
+#define EMSG_SSL_SETUP_FAIL "Can't setup SSL session."
+#define EMSG_SSL_CONN_FAIL "Failed to complete SSL connection/handshake."
 
 #define EMSG_TEMP_LOOKUP_NO_SUCH_HOST "No such hostname '%s'."
 #define EMSG_TEMP_LOOKUP_BAD_RC "Call to getaddrinfo failed with error, '%s'."
@@ -470,7 +472,7 @@ struct target_info {
   char *auth_user, *auth_passwd;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
   int conn_port, proxy_port, conn_pthru, pref_protocol,
-    http_protocol, use_ssl, secure_cert;
+    http_protocol, use_ssl, insecure_cert;
   struct value_chain *extra_headers;
 };
 
@@ -634,6 +636,8 @@ long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignor
 int handle_ssl_error( int *sslerr, SSL *ssl, int io_rc, int sock, int max_wait);
 
 struct plan_data *register_current_plan( struct plan_data *update);
+
+int stash_ssl_err_info( struct fetch_status *fetch, unsigned long sslerr);
 
 /* --- */
 

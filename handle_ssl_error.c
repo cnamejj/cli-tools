@@ -13,16 +13,18 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
 
     err = SSL_get_error( ssl, io_rc);
 
-// if(err==SSL_ERROR_WANT_READ) printf("dbg:: HSE, err=want-read");
-// else if(err==SSL_ERROR_WANT_WRITE) printf("dbg:: HSE, err=want-write");
-// else if(err==SSL_ERROR_WANT_CONNECT) printf("dbg:: HSE, err=want-connect");
-// else if(err==SSL_ERROR_WANT_ACCEPT) printf("dbg:: HSE, err=want-accept");
-// else if(err==SSL_ERROR_WANT_X509_LOOKUP) printf("dbg:: HSE, err=want-X509");
-// else if(err==SSL_ERROR_SYSCALL) printf("dbg:: HSE, err=syscall");
-// else if(err ==SSL_ERROR_ZERO_RETURN) printf("dbg:: HSE, err=zero");
-// else if(err ==SSL_ERROR_SSL) printf("dbg:: HSE, err=ssl");
-// else printf("dbg:: HSE, err=other");
-// printf(" s:%d e:%d\n", err, errno);
+#ifdef DEV_DEBUGGING
+ if(err==SSL_ERROR_WANT_READ) printf("dbg:: HSE, err=want-read");
+ else if(err==SSL_ERROR_WANT_WRITE) printf("dbg:: HSE, err=want-write");
+ else if(err==SSL_ERROR_WANT_CONNECT) printf("dbg:: HSE, err=want-connect");
+ else if(err==SSL_ERROR_WANT_ACCEPT) printf("dbg:: HSE, err=want-accept");
+ else if(err==SSL_ERROR_WANT_X509_LOOKUP) printf("dbg:: HSE, err=want-X509");
+ else if(err==SSL_ERROR_SYSCALL) printf("dbg:: HSE, err=syscall");
+ else if(err ==SSL_ERROR_ZERO_RETURN) printf("dbg:: HSE, err=zero");
+ else if(err ==SSL_ERROR_SSL) printf("dbg:: HSE, err=ssl");
+ else printf("dbg:: HSE, err=other");
+ printf(" s:%d e:%d\n", err, errno);
+#endif
 
     if( err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
     {
@@ -67,8 +69,6 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
         rc = ERR_SSL_ERROR;
         *sslact = SSLACT_ERR_FATAL;
     }
-
-// printf("dbg:: HSE: leaving with rc=%d\n", rc);
 
     return( rc);    
 }

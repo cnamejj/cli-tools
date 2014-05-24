@@ -21,7 +21,11 @@ void setup_ssl_env( int *rc, struct plan_data *plan)
         else if(target->use_ssl && !fetch->ssl_context)
         {
             fetch->ssl_context = init_ssl_context( verify_ssl_callback);
-            if( !fetch->ssl_context) *rc = ERR_SSL_INIT_FAILED;
+            if( !fetch->ssl_context)
+            {
+                *rc = ERR_SSL_INIT_FAILED;
+                (void) stash_ssl_err_info( fetch, ERR_peek_error());
+	    }
 	}
     }
 
