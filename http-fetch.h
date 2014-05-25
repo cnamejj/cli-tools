@@ -247,6 +247,8 @@ Content-type: text/html\r\n\
 #define EVENT_FIRST_RESPONSE 5
 #define EVENT_READ_PACKET    6
 #define EVENT_READ_ALL_DATA  7
+#define EVENT_SSL_NET_READ   8
+#define EVENT_SSL_NET_WRITE  9
 
 #define SSLACT_NORMAL        0
 #define SSLACT_ERR_FATAL     1

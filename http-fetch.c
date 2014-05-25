@@ -1383,14 +1383,18 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
         for( off = 0; walk; walk = walk->next) if( walk->event == EVENT_READ_PACKET && walk->detail)
         {
+#ifdef DONT_USE_PACKET_COUNT
             if( !walk->next) is_last_data = 1;
             else if( walk->next->event != EVENT_READ_PACKET) is_last_data = 1;
+#else
+            is_last_data = (off + 1) >= npackets;
+#endif
 
             /* The last packet is usually partial, so it should be ignored */
             if( !is_last_data)
             {
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-                if( !off) initial_size = walk->detail->len;
+                if( off) initial_size = walk->detail->len;
 #endif
                 packsize_sum += walk->detail->len;
                 *(packsize + off) = walk->detail->len;

@@ -40,11 +40,14 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
         else if( plan->target->insecure_cert) rc = 1;
         else
         {
+            x509_emsg = X509_verify_cert_error_string( x509_err);
+            if( x509_emsg) if( !*x509_emsg) x509_emsg = 0;
             hold_err = ERR_peek_error();
-            if( hold_err)
+            if( hold_err || x509_emsg)
             {
                 status->end_errno = hold_err;
-                (void) stash_ssl_err_info( status, hold_err);
+                if( x509_emsg) status->err_msg = strdup( x509_emsg);
+                else (void) stash_ssl_err_info( status, hold_err);
 	    }
             else
             {

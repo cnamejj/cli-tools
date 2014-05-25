@@ -60,7 +60,7 @@ void ssl_handshake( int *rc, struct plan_data *plan)
                         if( hold_err)
                         {
                             fetch->end_errno = hold_err;
-                            (void) stash_ssl_err_info( fetch, hold_err);
+                            if( !fetch->err_msg) (void) stash_ssl_err_info( fetch, hold_err);
                         }
                         else
                         {
