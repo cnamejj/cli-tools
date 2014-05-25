@@ -1,5 +1,6 @@
 PROGS = quipi send-udp-message capture-udp-port lock-n-run actor http-fetch
 SOLOPROGS = iso8859-collapse extended-letters-collapse
+
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
 	parse_destination_value.o convert_to_mode.o gsub_string.o get_groupname.o \
 	get_username.o switch_run_user.o switch_run_group.o int_to_str.o \
@@ -9,10 +10,14 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	print_option_settings.o dup_memory.o get_scaled_number.o sys_call_fail_msg.o \
 	errmsg_with_string.o get_matching_interface.o is_reserved_uri_char.o \
 	parse_http_status.o construct_entry_form.o connect_host.o ssl_init_routines.o \
-	verify_ssl_callback.o setup_ssl_env.o bio_ssl_callback.o handle_ssl_error.o \
-	ssl_handshake.o wait_until_sock_ready.o stash_ssl_err_info.o
+	bio_ssl_callback.o wait_until_sock_ready.o
+
+HTSOBJS = handle_ssl_error.o setup_ssl_env.o ssl_handshake.o stash_ssl_err_info.o \
+	verify_ssl_callback.o
+
 LIBS = libCLISUB.a
-UBIQ_H = err_ref.h net-task-data.h cli-sub.h http-fetch.h
+UBIQ_H = err_ref.h net-task-data.h cli-sub.h
+HTS_H = http-fetch.h
 
 # ---
 
@@ -50,14 +55,16 @@ libs : $(LIBS)
 
 $(SOBJS) : % : Makefile $(UBIQ_H)
 
+$(HTSOBJS) : % : Makefile $(UBIQ_H) $(HTS_H)
+
 $(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 $(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-libCLISUB.a : $(SOBJS)
-	$(ARCOMM) $@ $(SOBJS)
+libCLISUB.a : $(SOBJS) $(HTSOBJS)
+	$(ARCOMM) $@ $(SOBJS) $(HTSOBJS)
 
 # ---
 
