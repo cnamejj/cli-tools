@@ -8,11 +8,13 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
 
 {
     int rc = ok, namelen, done, pos, x509_err, x509_depth, exn, nid_num, excount, altcount, alt;
+    unsigned long hold_err;
     unsigned char *nameval = 0;
     const char *x509_emsg = 0;
     struct plan_data *plan = 0;
     struct output_options *out = 0;
     struct display_settings *disp = 0;
+    struct fetch_status *status = 0;
     X509 *cert;
     X509_NAME *subject = 0;
     X509_NAME_ENTRY *common = 0;
@@ -26,6 +28,7 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
     plan = register_current_plan( 0);
     out = plan->out;
     disp = plan->disp;
+    status = plan->status;
 
     if( !ok) 
     {
@@ -35,6 +38,20 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
 
         if( x509_err == X509_V_OK) rc = 1;
         else if( plan->target->insecure_cert) rc = 1;
+        else
+        {
+            hold_err = ERR_peek_error();
+            if( hold_err)
+            {
+                status->end_errno = hold_err;
+                (void) stash_ssl_err_info( status, hold_err);
+	    }
+            else
+            {
+                status->end_errno = errno;
+                status->err_msg = strdup( EMSG_SSL_HANDSHAKE_FAIL);
+	    }
+	}
 
         if( out->debug_level >= DEBUG_MEDIUM1)
         {

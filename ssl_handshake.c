@@ -7,6 +7,7 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 
 {
     int sock, io_rc, err = 0, done = 0, ret, sslerr;
+    unsigned long hold_err;
     struct target_info *target;
     struct fetch_status *fetch;
     struct exec_controls *runex = 0;
@@ -27,8 +28,17 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             {
                 err = 1;
                 *rc = ERR_SSL_ERROR;
-                (void) stash_ssl_err_info( fetch, ERR_get_error());
-                if( !fetch->err_msg) fetch->err_msg = strdup( EMSG_SSL_SETUP_FAIL);
+                hold_err = ERR_peek_error();
+                if( hold_err)
+                {
+                    fetch->end_errno = hold_err;
+                    (void) stash_ssl_err_info( fetch, hold_err);
+		}
+                else
+                {
+                    fetch->end_errno = errno;
+                    fetch->err_msg = strdup( EMSG_SSL_SETUP_FAIL);
+		}
 	    }
 
 /* NOTE: timeout remainder should be re-calc'd each time through the loop 
@@ -46,8 +56,17 @@ void ssl_handshake( int *rc, struct plan_data *plan)
                         done = 1;
                         err = 1;
                         *rc = ret;
-                        (void) stash_ssl_err_info( fetch, ERR_get_error());
-                        if( !fetch->err_msg) fetch->err_msg = strdup( EMSG_SSL_CONN_FAIL);
+                        hold_err = ERR_peek_error();
+                        if( hold_err)
+                        {
+                            fetch->end_errno = hold_err;
+                            (void) stash_ssl_err_info( fetch, hold_err);
+                        }
+                        else
+                        {
+                            fetch->end_errno = errno;
+                            fetch->err_msg = strdup( EMSG_SSL_CONN_FAIL);
+                        }
 		    }
 		}
 	    }

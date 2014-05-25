@@ -418,6 +418,7 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define EMSG_UNRECOG_OPTIONS "One or more unrecognized options specified."
 #define EMSG_SSL_SETUP_FAIL "Can't setup SSL session."
 #define EMSG_SSL_CONN_FAIL "Failed to complete SSL connection/handshake."
+#define EMSG_SSL_HANDSHAKE_FAIL "SSL handshake failed without setting an error."
 
 #define EMSG_TEMP_LOOKUP_NO_SUCH_HOST "No such hostname '%s'."
 #define EMSG_TEMP_LOOKUP_BAD_RC "Call to getaddrinfo failed with error, '%s'."

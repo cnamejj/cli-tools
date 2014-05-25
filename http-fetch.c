@@ -994,9 +994,17 @@ void send_request( int *rc, struct plan_data *plan)
 
                 if( sslerr != SSLACT_RETRY)
                 {
-                    status->end_errno = hold_err;
+                    if( !hold_err)
+                    {
+                        status->end_errno = hold_err;
+                        (void) stash_ssl_err_info( status, hold_err);
+		    }
+                    else
+                    {
+                        status->end_errno = errno;
+                        status->err_msg = sys_call_fail_msg( "SSL_write");
+		    }
                     status->last_state |= LS_NO_REQUEST;
-                    status->err_msg = sys_call_fail_msg( "SSL_write");
                     *rc = ERR_SSLWRITE_FAILED;
                     done = 1;
 		}
@@ -1175,9 +1183,17 @@ void pull_response( int *rc, struct plan_data *plan)
 		    }
                     else
                     {
-                        status->end_errno = hold_err;
+                        if( !hold_err)
+                        {
+                            status->end_errno = hold_err;
+                            (void) stash_ssl_err_info( status, hold_err);
+                        }
+                        else
+                        {
+                            status->end_errno = errno;
+                            status->err_msg = sys_call_fail_msg( "SSL_read");
+                        }
                         status->last_state |= LS_NO_REQUEST;
-                        status->err_msg = sys_call_fail_msg( "SSL_read");
                         *rc = ERR_SSLWRITE_FAILED;
                         done = 1;
                     }

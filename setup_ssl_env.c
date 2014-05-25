@@ -9,6 +9,7 @@
 void setup_ssl_env( int *rc, struct plan_data *plan)
 
 {
+    unsigned long hold_err;
     struct target_info *target = 0;
     struct fetch_status *fetch = 0;
 
@@ -24,7 +25,17 @@ void setup_ssl_env( int *rc, struct plan_data *plan)
             if( !fetch->ssl_context)
             {
                 *rc = ERR_SSL_INIT_FAILED;
-                (void) stash_ssl_err_info( fetch, ERR_peek_error());
+                hold_err = ERR_peek_error();
+                if( hold_err)
+                {
+                    fetch->end_errno = hold_err;
+                    (void) stash_ssl_err_info( fetch, hold_err);
+		}
+                else
+                {
+                    fetch->end_errno = errno;
+                    fetch->err_msg = strdup( EMSG_SSL_SETUP_FAIL);
+		}
 	    }
 	}
     }
