@@ -599,6 +599,8 @@ void free_data_block( struct data_block *detail);
 
 int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff);
 
+int add_datalen_block( struct ckpt_chain *checkpoint, int len);
+
 float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, float clock_res);
 
 struct chain_position *find_header_break( struct ckpt_chain *chain);

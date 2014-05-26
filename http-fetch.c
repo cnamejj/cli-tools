@@ -226,6 +226,31 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff)
 
 /* --- */
 
+int add_datalen_block( struct ckpt_chain *checkpoint, int len)
+
+{
+    int rc = RC_NORMAL;
+    struct data_block *packet = 0;
+
+    if( checkpoint)
+    {
+        packet = (struct data_block *) malloc( sizeof *packet);
+        if( !packet) rc = ERR_MALLOC_FAILED;
+        else
+        {
+            packet->len = len;
+            packet->data = 0;
+            checkpoint->detail = packet;
+	}
+
+        if( rc != RC_NORMAL) if( packet) free( packet);
+    }
+
+    return( rc);
+}
+
+/* --- */
+
 void free_data_block( struct data_block *detail)
 
 {
@@ -1257,7 +1282,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
         for( walk = chain; walk && !fence; walk = walk->next)
         {
             detail = walk->detail;
-            if( detail)
+            if( walk->event == EVENT_READ_PACKET && detail)
             {
                 pos = detail->data;
                 last = pos + detail->len;
@@ -1297,7 +1322,8 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
 {
-    int npackets = 0, packsize_sum = 0, off, is_last_data;
+    int npackets = 0, packsize_sum = 0, off, is_last_data, ssl_nreads = 0,
+      ssl_nwrites = 0;
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
     int dbgfirst = 0, initial_size = 0;
     float r1, r2;
@@ -1317,6 +1343,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     struct fetch_status *status = 0;
     struct ckpt_chain *walk = 0, *start = 0, *prevpack = 0;
     struct payload_breakout *breakout = 0;
+    struct output_options *out;
+    struct display_settings *disp;
+    struct target_info *target;
 
     if( *rc == RC_NORMAL)
     {
@@ -1324,6 +1353,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         profile = plan->profile;
         status = plan->status;
         breakout = plan->partlist;
+        out = plan->out;
+        disp = plan->disp;
+        target = plan->target;
     }
 
     if( *rc == RC_NORMAL) if( display->show_timers)
@@ -1348,6 +1380,8 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             else if( walk->event == EVENT_FIRST_RESPONSE) profile->response_time = elap;
             else if( walk->event == EVENT_READ_ALL_DATA) profile->complete_time = elap;
             else if( walk->event == EVENT_READ_PACKET && walk->detail) npackets++;
+            else if( walk->event == EVENT_SSL_NET_READ && walk->detail) ssl_nreads++;
+            else if( walk->event == EVENT_SSL_NET_WRITE && walk->detail) ssl_nwrites++;
 	}
 
         if( npackets)
@@ -1375,20 +1409,24 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
 
-        packsize_max = 0.0;
-        readlag_max = 0.0;
-        xfrate_max = 0.0;
-        walk = status->checkpoint;
-        is_last_data = 0;
-
-        for( off = 0; walk; walk = walk->next) if( walk->event == EVENT_READ_PACKET && walk->detail)
+        if( *rc == RC_NORMAL && target->use_ssl)
         {
-#ifdef DONT_USE_PACKET_COUNT
-            if( !walk->next) is_last_data = 1;
-            else if( walk->next->event != EVENT_READ_PACKET) is_last_data = 1;
-#else
+            if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sSSL I/O counts, logical-reads=%d network-reads:%d network-writes:%d\n",
+              disp->line_pref, npackets, ssl_nreads, ssl_nwrites);
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            packsize_max = 0.0;
+            readlag_max = 0.0;
+            xfrate_max = 0.0;
+            walk = status->checkpoint;
+            is_last_data = 0;
+	}
+
+        for( off = 0; *rc == RC_NORMAL && walk; walk = walk->next) if( walk->event == EVENT_READ_PACKET && walk->detail)
+        {
             is_last_data = (off + 1) >= npackets;
-#endif
 
             /* The last packet is usually partial, so it should be ignored */
             if( !is_last_data)
@@ -1436,34 +1474,37 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             off++;
 	}
 
-        if( !npackets)
+        if( *rc == RC_NORMAL)
         {
-           readlag_mean = packsize_mean = xfrate_mean = 0.0;
-	}
-        else if( npackets == 1)
-        {
-            readlag_mean = readlag_sum;
-            packsize_mean = (float) packsize_sum;
-            xfrate_mean = 0.0;
-	}
-        else
-        {
-            npackets--;
-            readlag_mean = readlag_sum / npackets;
-            packsize_mean = ((float) packsize_sum) / npackets;
-            if( npackets == 1) xfrate_mean = xfrate_sum;
-            else xfrate_mean = xfrate_sum / (npackets - 1);
-	}
+            if( !npackets)
+            {
+                readlag_mean = packsize_mean = xfrate_mean = 0.0;
+            }
+            else if( npackets == 1)
+            {
+                readlag_mean = readlag_sum;
+                packsize_mean = (float) packsize_sum;
+                xfrate_mean = 0.0;
+            }
+            else
+            {
+                npackets--;
+                readlag_mean = readlag_sum / npackets;
+                packsize_mean = ((float) packsize_sum) / npackets;
+                if( npackets == 1) xfrate_mean = xfrate_sum;
+                else xfrate_mean = xfrate_sum / (npackets - 1);
+            }
 
-        packsize_msd_norm = readlag_msd_norm = xfrate_msd_norm = 0.0;
-        packsize_mth_norm = readlag_mth_norm = xfrate_mth_norm = 0.0;
-        packsize_mfo_norm = readlag_mfo_norm = xfrate_mfo_norm = 0.0;
-        walk = status->checkpoint;
+            packsize_msd_norm = readlag_msd_norm = xfrate_msd_norm = 0.0;
+            packsize_mth_norm = readlag_mth_norm = xfrate_mth_norm = 0.0;
+            packsize_mfo_norm = readlag_mfo_norm = xfrate_mfo_norm = 0.0;
+            walk = status->checkpoint;
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-        printf( "dbg:: - - -\n");
+            printf( "dbg:: - - -\n");
 #endif
+	}
 
-        for( off = 0; off < npackets; off++)
+        for( off = 0; *rc == RC_NORMAL && off < npackets; off++)
         {
             if( packsize_max)
             {
@@ -1503,131 +1544,134 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 #endif
 	}
 
+        if( *rc == RC_NORMAL)
+        {
 #ifdef SHOW_DEBUG_STATS_CALCS
-        printf( "dbg:: - - - %d\n", npackets);
-        printf( "dbg:: What:        Sum       Mean        Max MSqDiffSum MThDiffSum MFoDiffSum\n");
-        printf( "dbg:: ----- ---------- ---------- ---------- ---------- ---------- ----------\n");
-        printf( "dbg:: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", readlag_sum,
-          readlag_mean, readlag_max, readlag_msd_norm, readlag_mth_norm, readlag_mfo_norm);
-        printf( "dbg:: Pack: %10d %10.3e %10.3e %10.3e %10.3e %10.3e\n", packsize_sum,
-          packsize_mean, packsize_max, packsize_msd_norm, packsize_mth_norm, packsize_mfo_norm);
-        printf( "dbg:: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", xfrate_sum,
-          xfrate_mean, xfrate_max, xfrate_msd_norm, xfrate_mth_norm, xfrate_mfo_norm);
+            printf( "dbg:: - - - %d\n", npackets);
+            printf( "dbg:: What:        Sum       Mean        Max MSqDiffSum MThDiffSum MFoDiffSum\n");
+            printf( "dbg:: ----- ---------- ---------- ---------- ---------- ---------- ----------\n");
+            printf( "dbg:: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", readlag_sum,
+              readlag_mean, readlag_max, readlag_msd_norm, readlag_mth_norm, readlag_mfo_norm);
+            printf( "dbg:: Pack: %10d %10.3e %10.3e %10.3e %10.3e %10.3e\n", packsize_sum,
+              packsize_mean, packsize_max, packsize_msd_norm, packsize_mth_norm, packsize_mfo_norm);
+            printf( "dbg:: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", xfrate_sum,
+              xfrate_mean, xfrate_max, xfrate_msd_norm, xfrate_mth_norm, xfrate_mfo_norm);
 #endif
 
-        if( npackets < 2)
-        {
-            profile->readlag_norm_stdev = 0.0;
-            profile->packsize_norm_stdev = 0.0;
-            profile->xfrate_norm_stdev = 0.0;
-            profile->readlag_norm_skew = 0.0;
-            profile->packsize_norm_skew = 0.0;
-            profile->xfrate_norm_skew = 0.0;
-            profile->readlag_norm_kurt = 0.0;
-            profile->packsize_norm_kurt = 0.0;
-            profile->xfrate_norm_kurt = 0.0;
-	}
-        else
-        {
-            /* When calculating the variance/stdev from a sample popultion you divide by N-1 */
-            adj = (float) npackets - 1;
-            profile->packsize_norm_stdev = sqrt( packsize_msd_norm / adj);
-            profile->readlag_norm_stdev = sqrt( readlag_msd_norm / adj);
-            if( npackets == 2) profile->xfrate_norm_stdev = 0.0;
-            else profile->xfrate_norm_stdev = sqrt( xfrate_msd_norm / (adj - 1.0));
-
-            if( npackets < 3)
+            if( npackets < 2)
             {
-                profile->packsize_norm_skew = 0.0;
+                profile->readlag_norm_stdev = 0.0;
+                profile->packsize_norm_stdev = 0.0;
+                profile->xfrate_norm_stdev = 0.0;
                 profile->readlag_norm_skew = 0.0;
+                profile->packsize_norm_skew = 0.0;
                 profile->xfrate_norm_skew = 0.0;
-                profile->packsize_norm_kurt = 0.0;
                 profile->readlag_norm_kurt = 0.0;
+                profile->packsize_norm_kurt = 0.0;
                 profile->xfrate_norm_kurt = 0.0;
-	    }
+            }
             else
             {
-                adj = (float) (npackets) / (float) ((npackets - 1) * (npackets - 2));
+                /* When calculating the variance/stdev from a sample popultion you divide by N-1 */
+                adj = (float) npackets - 1;
+                profile->packsize_norm_stdev = sqrt( packsize_msd_norm / adj);
+                profile->readlag_norm_stdev = sqrt( readlag_msd_norm / adj);
+                if( npackets == 2) profile->xfrate_norm_stdev = 0.0;
+                else profile->xfrate_norm_stdev = sqrt( xfrate_msd_norm / (adj - 1.0));
 
-                adj2 = pow( profile->packsize_norm_stdev, 3.0);
-                if( !adj2) profile->packsize_norm_skew = 0.0;
-                else profile->packsize_norm_skew = adj * (packsize_mth_norm / adj2);
-
-                adj2 = pow( profile->readlag_norm_stdev, 3.0);
-                if( !adj2) profile->readlag_norm_skew = 0.0;
-                else profile->readlag_norm_skew = adj * (readlag_mth_norm / adj2);
-
-                if( npackets < 4) profile->xfrate_norm_skew = 0.0;
-                else
+                if( npackets < 3)
                 {
-                    adj = (float) (npackets - 1) / (float) ((npackets - 2) * (npackets - 3));
-
-                    adj2 = pow( profile->xfrate_norm_stdev, 3.0);
-                    if( !adj2) profile->xfrate_norm_skew = 0.0;
-                    else profile->xfrate_norm_skew = adj * (xfrate_mth_norm / adj2);
-                }
-
-                if( npackets < 4)
-                {
+                    profile->packsize_norm_skew = 0.0;
+                    profile->readlag_norm_skew = 0.0;
+                    profile->xfrate_norm_skew = 0.0;
                     profile->packsize_norm_kurt = 0.0;
                     profile->readlag_norm_kurt = 0.0;
                     profile->xfrate_norm_kurt = 0.0;
-		}
+                }
                 else
                 {
-                    samp_sz = (float) npackets;
-                    samp_div = samp_sz - 1.0;
-                    adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
-                    adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
+                    adj = (float) (npackets) / (float) ((npackets - 1) * (npackets - 2));
 
-                    variance = packsize_msd_norm / samp_div;
-                    if( !variance) profile->packsize_norm_kurt = 0.0;
-                    else profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
-#ifdef SHOW_DEBUG_STATS_CALCS
-                    printf( "dbg:: Stat: What: AdjFactor1 MFoDiffSum   Variance AdjFactor2       Kurt\n");
-                    printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
-                    printf( "dbg:: Kurt: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, packsize_mfo_norm,
-                      variance, adj2, profile->packsize_norm_kurt);
-#endif
+                    adj2 = pow( profile->packsize_norm_stdev, 3.0);
+                    if( !adj2) profile->packsize_norm_skew = 0.0;
+                    else profile->packsize_norm_skew = adj * (packsize_mth_norm / adj2);
 
-                    variance = readlag_msd_norm / samp_div;
-                    if( !variance) profile->readlag_norm_kurt = 0.0;
-                    else profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
-#ifdef SHOW_DEBUG_STATS_CALCS
-                    printf( "dbg:: Kurt: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, readlag_mfo_norm,
-                      variance, adj2, profile->readlag_norm_kurt);
-#endif
+                    adj2 = pow( profile->readlag_norm_stdev, 3.0);
+                    if( !adj2) profile->readlag_norm_skew = 0.0;
+                    else profile->readlag_norm_skew = adj * (readlag_mth_norm / adj2);
 
-                    if( npackets < 5) profile->xfrate_norm_kurt = 0.0;
+                    if( npackets < 4) profile->xfrate_norm_skew = 0.0;
                     else
                     {
-                        samp_sz = (float) (npackets - 1);
+                        adj = (float) (npackets - 1) / (float) ((npackets - 2) * (npackets - 3));
+
+                        adj2 = pow( profile->xfrate_norm_stdev, 3.0);
+                        if( !adj2) profile->xfrate_norm_skew = 0.0;
+                        else profile->xfrate_norm_skew = adj * (xfrate_mth_norm / adj2);
+                    }
+
+                    if( npackets < 4)
+                    {
+                        profile->packsize_norm_kurt = 0.0;
+                        profile->readlag_norm_kurt = 0.0;
+                        profile->xfrate_norm_kurt = 0.0;
+                    }
+                    else
+                    {
+                        samp_sz = (float) npackets;
                         samp_div = samp_sz - 1.0;
                         adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
                         adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
 
-                        variance = xfrate_msd_norm / samp_div;
-                        if( !variance) profile->xfrate_norm_kurt = 0.0;
-                        else profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
-#ifdef SHOW_DEBUG_STATS_CALCS
-                        printf( "dbg:: Kurt: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mfo_norm,
-                          variance, adj2, profile->xfrate_norm_kurt);
+                        variance = packsize_msd_norm / samp_div;
+                        if( !variance) profile->packsize_norm_kurt = 0.0;
+                        else profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
+    #ifdef SHOW_DEBUG_STATS_CALCS
+                        printf( "dbg:: Stat: What: AdjFactor1 MFoDiffSum   Variance AdjFactor2       Kurt\n");
+                        printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
+                        printf( "dbg:: Kurt: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, packsize_mfo_norm,
+                          variance, adj2, profile->packsize_norm_kurt);
 #endif
+
+                        variance = readlag_msd_norm / samp_div;
+                        if( !variance) profile->readlag_norm_kurt = 0.0;
+                        else profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
+#ifdef SHOW_DEBUG_STATS_CALCS
+                        printf( "dbg:: Kurt: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, readlag_mfo_norm,
+                          variance, adj2, profile->readlag_norm_kurt);
+#endif
+
+                        if( npackets < 5) profile->xfrate_norm_kurt = 0.0;
+                        else
+                        {
+                            samp_sz = (float) (npackets - 1);
+                            samp_div = samp_sz - 1.0;
+                            adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
+                            adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
+
+                            variance = xfrate_msd_norm / samp_div;
+                            if( !variance) profile->xfrate_norm_kurt = 0.0;
+                            else profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
+#ifdef SHOW_DEBUG_STATS_CALCS
+                            printf( "dbg:: Kurt: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mfo_norm,
+                              variance, adj2, profile->xfrate_norm_kurt);
+#endif
+                        }
                     }
-		}
 
 #ifdef SHOW_DEBUG_STATS_CALCS
-                printf( "dbg:: Stat: What: AdjFactor1 MThDiffSum     StdDev   StDev**3       Skew\n");
-                printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
-                printf( "dbg:: Skew: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
-                  (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), readlag_mth_norm,
-                  profile->readlag_norm_stdev, pow( profile->readlag_norm_stdev, 3.0), profile->readlag_norm_skew);
-                printf( "dbg:: Skew: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
-                  (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), packsize_mth_norm,
-                  profile->packsize_norm_stdev, pow( profile->packsize_norm_stdev, 3.0), profile->packsize_norm_skew);
-                printf( "dbg:: Skew: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mth_norm,
-                  profile->xfrate_norm_stdev, pow( profile->xfrate_norm_stdev, 3.0), profile->xfrate_norm_skew);
+                    printf( "dbg:: Stat: What: AdjFactor1 MThDiffSum     StdDev   StDev**3       Skew\n");
+                    printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
+                    printf( "dbg:: Skew: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
+                      (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), readlag_mth_norm,
+                      profile->readlag_norm_stdev, pow( profile->readlag_norm_stdev, 3.0), profile->readlag_norm_skew);
+                    printf( "dbg:: Skew: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
+                      (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), packsize_mth_norm,
+                      profile->packsize_norm_stdev, pow( profile->packsize_norm_stdev, 3.0), profile->packsize_norm_skew);
+                    printf( "dbg:: Skew: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mth_norm,
+                      profile->xfrate_norm_stdev, pow( profile->xfrate_norm_stdev, 3.0), profile->xfrate_norm_skew);
 #endif
+		}
 	    }
 	}
 
@@ -1684,7 +1728,7 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
         if( size < 0) size = 0;
         
         if( size) for( walk = st_block->next; walk && walk != en_block; walk = walk->next)
-          if( walk->detail) size += walk->detail->len;
+          if( walk->event == EVENT_READ_PACKET && walk->detail) size += walk->detail->len;
 
         if( size)
         {
@@ -1715,7 +1759,7 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
 
             for( walk = st_block->next; walk && walk != en_block; walk = walk->next)
             {
-                if( walk->detail)
+                if( walk->event == EVENT_READ_PACKET && walk->detail)
                 {
                     memcpy( st, walk->detail->data, walk->detail->len);
                     st += walk->detail->len;
@@ -1758,7 +1802,7 @@ struct data_block *dbg_xx = 0;
 
         for( st = 0; st != eoh; )
         {
-            if( walk->detail)
+            if( walk->event == EVENT_READ_PACKET && walk->detail)
             {
                 st = walk->detail->data;
                 datalen = walk->detail->len;
@@ -1798,7 +1842,7 @@ printf( "%sdbg:: headers:%d data-block-size:%d total:%d\n", prefix, nhead, dbg_s
 
         for( st = 0; result == RC_NORMAL && st != eoh; )
         {
-            if( walk->detail)
+            if( walk->event == EVENT_READ_PACKET && walk->detail)
             {
                 st = walk->detail->data;
                 datalen = walk->detail->len;
@@ -1924,7 +1968,7 @@ int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *chai
         fence = breakout->head_spot->position;
 
         for( walk = chain; walk && walk != last; walk = walk->next)
-          if( walk->detail) size += walk->detail->len;
+          if( walk->event == EVENT_READ_PACKET && walk->detail) size += walk->detail->len;
 
         if( walk == last) size += fence - walk->detail->data;
     }
@@ -2170,7 +2214,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         for( ; walk && *rc == RC_NORMAL; walk = walk->next)
         {
             detail = walk->detail;
-            if( detail) if( detail->len)
+            if( walk->event == EVENT_READ_PACKET && detail) if( detail->len)
             {
                 pos = detail->data;
                 last_pos = pos + detail->len;
