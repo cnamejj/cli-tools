@@ -70,6 +70,45 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
 
 /* --- */
 
+struct stat_work *alloc_stat_work()
+
+{
+    struct stat_work *swork = 0;
+
+    swork = (struct stat_work *) malloc( sizeof *swork);
+    if( swork)
+    {
+        swork->samples = 0;
+        swork->packsize = 0;
+        swork->packsize_sum = 0;
+        swork->packsize_max = 0.0;
+        swork->packsize_mean = 0.0;
+        swork->packsize_norm_stdev = 0.0;
+        swork->packsize_norm_skew = 0.0;
+        swork->packsize_norm_kurt = 0.0;
+
+        swork->xfrate = 0;
+        swork->xfrate_sum = 0.0;
+        swork->xfrate_max = 0.0;
+        swork->xfrate_mean = 0.0;
+        swork->xfrate_norm_stdev = 0.0;
+        swork->xfrate_norm_skew = 0.0;
+        swork->xfrate_norm_kurt = 0.0;
+
+        swork->readlag = 0;
+        swork->readlag_sum = 0.0;
+        swork->readlag_max = 0.0;
+        swork->readlag_mean = 0.0;
+        swork->readlag_norm_stdev = 0.0;
+        swork->readlag_norm_skew = 0.0;
+        swork->readlag_norm_kurt = 0.0;
+    }
+
+    return( swork);
+}
+
+/* --- */
+
 void map_target_to_redirect( int *rc, struct plan_data *plan)
 
 {
@@ -94,6 +133,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         red->conn_uri = 0;
         red->conn_url = 0;
         red->use_ssl = 0;
+
         if( target->ipv4) if( *target->ipv4)
         {
             red->ipv4 = strdup( target->ipv4);
@@ -133,6 +173,7 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
 {
     int httprc = 0;
     char *location = 0;
+    struct output_options *out;
 
     if( *rc == RC_NORMAL) if( plan) if( plan->partlist) if( plan->partlist->response_status)
     {
@@ -143,6 +184,14 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
         {
             location = find_http_header( plan->partlist, HTTP_HEAD_LOCATION);
             if( location) if( !*location) location = 0;
+
+            out = plan->out;
+            if( out->debug_level >= DEBUG_MEDIUM2)
+            {
+                fprintf( out->info_out, "%sCheck redirect, rc=%d, location'", plan->disp->line_pref, httprc);
+                if( location) fprintf( out->info_out, "%s'\n", location);
+                else fprintf( out->info_out, "unknown'\n");
+	    }
 	}
     }
 
@@ -274,8 +323,20 @@ int find_connection( struct plan_data *plan)
     struct url_breakout *parts = 0;
     struct fetch_status *status = 0;
 
-    if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) req = plan->redirect;
-    if( !req) req = plan->target;
+    if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url)
+    {
+        req = plan->redirect;
+        if( plan->out->debug_level >= DEBUG_HIGH1) fprintf( plan->out->info_out,
+          "%sFind-connection: Need to swap in redirect URL '%s'\n", plan->disp->line_pref,
+          req->conn_url);
+    }
+    if( !req)
+    {
+        req = plan->target;
+        if( plan->out->debug_level >= DEBUG_HIGH1) fprintf( plan->out->info_out,
+          "%sFind-connection: Use the original URL '%s'\n", plan->disp->line_pref,
+          req->conn_url);
+    }
     proxy_req = req->proxy_url;
     url = req->conn_url;
     status = plan->status;
@@ -391,13 +452,12 @@ int find_connection( struct plan_data *plan)
     return( rc);
 }
 
-
 /* --- */
 
 int execute_fetch_plan( struct plan_data *plan)
 
 {
-    int rc = RC_NORMAL, seq, entry_state, red_level;
+    int rc = RC_NORMAL, seq, entry_state, red_level = 0;
     char *redirect_url = 0;
     struct exec_controls *runex = 0;
     struct output_options *out = 0;
@@ -426,6 +486,8 @@ int execute_fetch_plan( struct plan_data *plan)
 
         if( rc == RC_NORMAL && red_level)
         {
+            if( out->debug_level >= DEBUG_HIGH1) fprintf( out->info_out,
+              "%sParse redirect, location'%s'\n", disp->line_pref, redirect_url);
             redirect->conn_url = redirect_url;
             rc = find_connection( plan);
 
@@ -971,7 +1033,7 @@ void send_request( int *rc, struct plan_data *plan)
     struct fetch_status *status;
     struct output_options *out = 0;
     struct display_settings *disp = 0;
-    struct target_info *target = 0;
+    struct target_info *targ = 0;
     struct exec_controls *runex = 0;
     SSL *ssl;
 
@@ -980,7 +1042,8 @@ void send_request( int *rc, struct plan_data *plan)
         status = plan->status;
         out = plan->out;
         disp = plan->disp;
-        target = plan->target;
+        if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
+        if( !targ) targ = plan->target;
         runex = plan->run;
     }
 
@@ -993,7 +1056,7 @@ void send_request( int *rc, struct plan_data *plan)
 
         for( done = 0; !done; )
         {
-            if( target->use_ssl) sysrc = SSL_write( ssl, req, reqlen);
+            if( targ->use_ssl) sysrc = SSL_write( ssl, req, reqlen);
             else sysrc = write( sock, req, reqlen);
 
             if( sysrc == reqlen)
@@ -1010,7 +1073,7 @@ void send_request( int *rc, struct plan_data *plan)
                 req += sysrc;
                 reqlen -= sysrc;
 	    }
-            else if( target->use_ssl)
+            else if( targ->use_ssl)
             {
                 hold_err = ERR_peek_error();
 
@@ -1117,7 +1180,7 @@ void pull_response( int *rc, struct plan_data *plan)
     struct output_options *out;
     struct exec_controls *runex = 0;
     struct display_settings *disp = 0;
-    struct target_info *target = 0;
+    struct target_info *targ = 0;
     SSL *ssl;
 
     buff = (char *) malloc( buffsize);
@@ -1129,7 +1192,9 @@ void pull_response( int *rc, struct plan_data *plan)
         out = plan->out;
         runex = plan->run;
         disp = plan->disp;
-        target = plan->target;
+        if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
+        if( !targ) targ = plan->target;
+        if( out->debug_level >= DEBUG_HIGH3) fprintf( out->info_out, "%sPull response, ssl?=%d\n", disp->line_pref, targ->use_ssl);
     }
 
     if( *rc == RC_NORMAL)
@@ -1159,7 +1224,7 @@ void pull_response( int *rc, struct plan_data *plan)
 	    }
             else
             {
-                if( target->use_ssl) sysrc = packlen = SSL_read( ssl, buff, buffsize);
+                if( targ->use_ssl) sysrc = packlen = SSL_read( ssl, buff, buffsize);
                 else sysrc = packlen = read( sock, buff, buffsize);
 
                 if( sysrc > 0)
@@ -1193,7 +1258,7 @@ void pull_response( int *rc, struct plan_data *plan)
                     done = 1;
                     *rc = capture_checkpoint( status, EVENT_READ_ALL_DATA);
 		}
-                else if( target->use_ssl)
+                else if( targ->use_ssl)
                 {
                     hold_err = ERR_peek_error();
                     /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
@@ -1242,7 +1307,7 @@ void pull_response( int *rc, struct plan_data *plan)
 
         if( status->conn_sock)
         {
-            if( target->use_ssl)
+            if( targ->use_ssl)
             {
                 (void) SSL_shutdown( ssl);
                 SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
@@ -1322,30 +1387,24 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
 {
-    int npackets = 0, packsize_sum = 0, off, is_last_data, ssl_nreads = 0,
-      ssl_nwrites = 0;
+    int npackets = 0, off, ssl_nreads = 0, ssl_nwrites = 0, event;
 #ifdef SHOW_GORY_XFRATE_CALC_DETAILS
     int dbgfirst = 0, initial_size = 0;
     float r1, r2;
     char m1, m2;
 #endif
-    int *packsize = 0;
-    float readlag_sum = 0.0, xfrate_sum = 0.0, packsize_mean = 0.0,
-      readlag_mean = 0.0, xfrate_mean = 0.0, mean_diff = 0.0,
-      elap = 0.0, rate = 0.0, packsize_max, readlag_max, xfrate_max,
-      packsize_msd_norm, readlag_msd_norm, xfrate_msd_norm,
-      packsize_mth_norm, readlag_mth_norm, xfrate_mth_norm,
-      packsize_mfo_norm, readlag_mfo_norm, xfrate_mfo_norm,
-      adj, adj2, samp_sz, samp_div, variance;
-    float *readlag = 0, *xfrate = 0;
+    int *packsize = 0, *sslpacksize = 0;
+    float  elap = 0.0;
+    float *readlag = 0, *xfrate = 0, *sslreadlag = 0, *sslxfrate = 0;
     struct summary_stats *profile = 0;
     struct display_settings *display = 0;
     struct fetch_status *status = 0;
-    struct ckpt_chain *walk = 0, *start = 0, *prevpack = 0;
+    struct ckpt_chain *walk = 0, *start = 0;
     struct payload_breakout *breakout = 0;
     struct output_options *out;
     struct display_settings *disp;
-    struct target_info *target;
+    struct target_info *targ = 0;
+    struct stat_work *reg_stats = 0, *ssl_stats = 0, *act_stats = 0;
 
     if( *rc == RC_NORMAL)
     {
@@ -1355,7 +1414,19 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         breakout = plan->partlist;
         out = plan->out;
         disp = plan->disp;
-        target = plan->target;
+        if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
+        if( !targ) targ = plan->target;
+    }
+
+    if( *rc == RC_NORMAL) if( display->show_timers)
+    {
+        reg_stats = alloc_stat_work();
+        if( !reg_stats) *rc = ERR_MALLOC_FAILED;
+        else if( targ->use_ssl)
+        {
+            ssl_stats = alloc_stat_work(); 
+            if( !ssl_stats) *rc = ERR_MALLOC_FAILED;
+	}
     }
 
     if( *rc == RC_NORMAL) if( display->show_timers)
@@ -1384,6 +1455,10 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             else if( walk->event == EVENT_SSL_NET_WRITE && walk->detail) ssl_nwrites++;
 	}
 
+        if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out,
+          "%sScanning checkpoint records, pack:%d sslread:%d sslwrite:%d\n",
+          disp->line_pref, npackets, ssl_nreads, ssl_nwrites);
+
         if( npackets)
         {
             readlag = (float *) malloc( npackets * (sizeof *readlag));
@@ -1397,311 +1472,112 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
             if( *rc == RC_NORMAL)
             {
-                xfrate = (float *) malloc( npackets * (sizeof *packsize));
+                xfrate = (float *) malloc( npackets * (sizeof *xfrate));
                 if( !xfrate) *rc = ERR_MALLOC_FAILED;
 	    }
 
-            if( *rc == RC_NORMAL) for( off = 0; off < npackets; off++)
+            if( *rc == RC_NORMAL)
             {
-                *(packsize + off) = 0;
-                *(readlag + off) = 0.0;
-                *(xfrate + off) = 0.0;
-	    }
-	}
+                reg_stats->samples = npackets;
+                reg_stats->packsize = packsize;
+                reg_stats->xfrate = xfrate;
+                reg_stats->readlag = readlag;
 
-        if( *rc == RC_NORMAL && target->use_ssl)
-        {
-            if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sSSL I/O counts, logical-reads=%d network-reads:%d network-writes:%d\n",
-              disp->line_pref, npackets, ssl_nreads, ssl_nwrites);
-	}
-
-        if( *rc == RC_NORMAL)
-        {
-            packsize_max = 0.0;
-            readlag_max = 0.0;
-            xfrate_max = 0.0;
-            walk = status->checkpoint;
-            is_last_data = 0;
-	}
-
-        for( off = 0; *rc == RC_NORMAL && walk; walk = walk->next) if( walk->event == EVENT_READ_PACKET && walk->detail)
-        {
-            is_last_data = (off + 1) >= npackets;
-
-            /* The last packet is usually partial, so it should be ignored */
-            if( !is_last_data)
-            {
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-                if( off) initial_size = walk->detail->len;
-#endif
-                packsize_sum += walk->detail->len;
-                *(packsize + off) = walk->detail->len;
-                if( (float) walk->detail->len > packsize_max) packsize_max = (float) walk->detail->len;
-	    }
-
-            /* Lag is calculate from the last read, so the first packet has none */
-            if( off)
-            {
-                elap = calc_time_difference( &prevpack->clock, &walk->clock, status->clock_res);
-                readlag_sum += elap;
-                *(readlag + off - 1) = elap;
-                if( elap > readlag_max) readlag_max = elap;
-	    }
-
-            /* Per packet transfer rates only make sense for the 2nd to next to last packets */
-            if( off && !is_last_data)
-            {
-                if( !walk->detail->len || elap == 0.0) rate = 0.0;
-                else rate = ((float) walk->detail->len) / elap;
-                xfrate_sum += rate;
-                *(xfrate + off - 1) = rate;
-                if( rate > xfrate_max) xfrate_max = rate;
-
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-                if( !dbgfirst++)
+                for( off = 0; off < npackets; off++)
                 {
-                    printf( "dbg:: Xf_Sum Seq.  Elapsed  Size      Xfer   Xfer-Rate-Sum  SzSum   Read-Lag-Sum  Run-Xfer\n");
-                    printf( "dbg:: Xf_Sum ---. -------- ----- --------- --------------- ------ -------------- ---------\n");
-                }
-                r1 = get_scaled_number( &m1, rate);
-                r2 = get_scaled_number( &m2, (packsize_sum - initial_size) / readlag_sum);
-                printf( "dbg:: Xf_Sum %3d. %8.6f %5d %8.3f%c %15.4f %6d %14.6f %8.3f%c\n", off, elap, walk->detail->len, 
-                  r1, m1, xfrate_sum, packsize_sum - initial_size, readlag_sum, r2, m2);
-#endif
-	    }
-
-            prevpack = walk;
-            off++;
-	}
-
-        if( *rc == RC_NORMAL)
-        {
-            if( !npackets)
-            {
-                readlag_mean = packsize_mean = xfrate_mean = 0.0;
-            }
-            else if( npackets == 1)
-            {
-                readlag_mean = readlag_sum;
-                packsize_mean = (float) packsize_sum;
-                xfrate_mean = 0.0;
-            }
-            else
-            {
-                npackets--;
-                readlag_mean = readlag_sum / npackets;
-                packsize_mean = ((float) packsize_sum) / npackets;
-                if( npackets == 1) xfrate_mean = xfrate_sum;
-                else xfrate_mean = xfrate_sum / (npackets - 1);
-            }
-
-            packsize_msd_norm = readlag_msd_norm = xfrate_msd_norm = 0.0;
-            packsize_mth_norm = readlag_mth_norm = xfrate_mth_norm = 0.0;
-            packsize_mfo_norm = readlag_mfo_norm = xfrate_mfo_norm = 0.0;
-            walk = status->checkpoint;
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-            printf( "dbg:: - - -\n");
-#endif
-	}
-
-        for( off = 0; *rc == RC_NORMAL && off < npackets; off++)
-        {
-            if( packsize_max)
-            {
-                mean_diff = (((float) *(packsize + off)) - packsize_mean) / packsize_max;
-                adj = mean_diff * mean_diff;
-                packsize_msd_norm += adj;
-                adj *= mean_diff;
-                packsize_mth_norm += adj;
-                adj *= mean_diff;
-                packsize_mfo_norm += adj;
-	    }
-
-            if( readlag_max)
-            {
-                mean_diff = (*(readlag + off) - readlag_mean) / readlag_max;
-                adj = mean_diff * mean_diff;
-                readlag_msd_norm += adj;
-                adj *= mean_diff;
-                readlag_mth_norm += adj;
-                adj *= mean_diff;
-                readlag_mfo_norm += adj;
-	    }
-
-            if( off < npackets - 1 && xfrate_max)
-            {
-                mean_diff = (*(xfrate + off) - xfrate_mean) / xfrate_max;
-                adj = mean_diff * mean_diff;
-                xfrate_msd_norm += adj;
-                adj *= mean_diff;
-                xfrate_mth_norm += adj;
-                adj *= mean_diff;
-                xfrate_mfo_norm += adj;
-	    }
-
-#ifdef SHOW_GORY_XFRATE_CALC_DETAILS
-            printf( "dbg:: Xf_RMS %3d. %f %f\n", off, mean_diff * mean_diff, xfrate_msd_sum);
-#endif
-	}
-
-        if( *rc == RC_NORMAL)
-        {
-#ifdef SHOW_DEBUG_STATS_CALCS
-            printf( "dbg:: - - - %d\n", npackets);
-            printf( "dbg:: What:        Sum       Mean        Max MSqDiffSum MThDiffSum MFoDiffSum\n");
-            printf( "dbg:: ----- ---------- ---------- ---------- ---------- ---------- ----------\n");
-            printf( "dbg:: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", readlag_sum,
-              readlag_mean, readlag_max, readlag_msd_norm, readlag_mth_norm, readlag_mfo_norm);
-            printf( "dbg:: Pack: %10d %10.3e %10.3e %10.3e %10.3e %10.3e\n", packsize_sum,
-              packsize_mean, packsize_max, packsize_msd_norm, packsize_mth_norm, packsize_mfo_norm);
-            printf( "dbg:: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e\n", xfrate_sum,
-              xfrate_mean, xfrate_max, xfrate_msd_norm, xfrate_mth_norm, xfrate_mfo_norm);
-#endif
-
-            if( npackets < 2)
-            {
-                profile->readlag_norm_stdev = 0.0;
-                profile->packsize_norm_stdev = 0.0;
-                profile->xfrate_norm_stdev = 0.0;
-                profile->readlag_norm_skew = 0.0;
-                profile->packsize_norm_skew = 0.0;
-                profile->xfrate_norm_skew = 0.0;
-                profile->readlag_norm_kurt = 0.0;
-                profile->packsize_norm_kurt = 0.0;
-                profile->xfrate_norm_kurt = 0.0;
-            }
-            else
-            {
-                /* When calculating the variance/stdev from a sample popultion you divide by N-1 */
-                adj = (float) npackets - 1;
-                profile->packsize_norm_stdev = sqrt( packsize_msd_norm / adj);
-                profile->readlag_norm_stdev = sqrt( readlag_msd_norm / adj);
-                if( npackets == 2) profile->xfrate_norm_stdev = 0.0;
-                else profile->xfrate_norm_stdev = sqrt( xfrate_msd_norm / (adj - 1.0));
-
-                if( npackets < 3)
-                {
-                    profile->packsize_norm_skew = 0.0;
-                    profile->readlag_norm_skew = 0.0;
-                    profile->xfrate_norm_skew = 0.0;
-                    profile->packsize_norm_kurt = 0.0;
-                    profile->readlag_norm_kurt = 0.0;
-                    profile->xfrate_norm_kurt = 0.0;
-                }
-                else
-                {
-                    adj = (float) (npackets) / (float) ((npackets - 1) * (npackets - 2));
-
-                    adj2 = pow( profile->packsize_norm_stdev, 3.0);
-                    if( !adj2) profile->packsize_norm_skew = 0.0;
-                    else profile->packsize_norm_skew = adj * (packsize_mth_norm / adj2);
-
-                    adj2 = pow( profile->readlag_norm_stdev, 3.0);
-                    if( !adj2) profile->readlag_norm_skew = 0.0;
-                    else profile->readlag_norm_skew = adj * (readlag_mth_norm / adj2);
-
-                    if( npackets < 4) profile->xfrate_norm_skew = 0.0;
-                    else
-                    {
-                        adj = (float) (npackets - 1) / (float) ((npackets - 2) * (npackets - 3));
-
-                        adj2 = pow( profile->xfrate_norm_stdev, 3.0);
-                        if( !adj2) profile->xfrate_norm_skew = 0.0;
-                        else profile->xfrate_norm_skew = adj * (xfrate_mth_norm / adj2);
-                    }
-
-                    if( npackets < 4)
-                    {
-                        profile->packsize_norm_kurt = 0.0;
-                        profile->readlag_norm_kurt = 0.0;
-                        profile->xfrate_norm_kurt = 0.0;
-                    }
-                    else
-                    {
-                        samp_sz = (float) npackets;
-                        samp_div = samp_sz - 1.0;
-                        adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
-                        adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
-
-                        variance = packsize_msd_norm / samp_div;
-                        if( !variance) profile->packsize_norm_kurt = 0.0;
-                        else profile->packsize_norm_kurt = adj * ( packsize_mfo_norm / (variance * variance) ) - adj2;
-    #ifdef SHOW_DEBUG_STATS_CALCS
-                        printf( "dbg:: Stat: What: AdjFactor1 MFoDiffSum   Variance AdjFactor2       Kurt\n");
-                        printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
-                        printf( "dbg:: Kurt: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, packsize_mfo_norm,
-                          variance, adj2, profile->packsize_norm_kurt);
-#endif
-
-                        variance = readlag_msd_norm / samp_div;
-                        if( !variance) profile->readlag_norm_kurt = 0.0;
-                        else profile->readlag_norm_kurt = adj * ( readlag_mfo_norm / (variance * variance) ) - adj2;
-#ifdef SHOW_DEBUG_STATS_CALCS
-                        printf( "dbg:: Kurt: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, readlag_mfo_norm,
-                          variance, adj2, profile->readlag_norm_kurt);
-#endif
-
-                        if( npackets < 5) profile->xfrate_norm_kurt = 0.0;
-                        else
-                        {
-                            samp_sz = (float) (npackets - 1);
-                            samp_div = samp_sz - 1.0;
-                            adj = (samp_sz * (samp_sz + 1)) / ( (samp_div * (samp_div - 1) * (samp_div - 2) ) );
-                            adj2 = 3 * ( (samp_div * samp_div) / ( (samp_div - 1) * (samp_div - 2) ) );
-
-                            variance = xfrate_msd_norm / samp_div;
-                            if( !variance) profile->xfrate_norm_kurt = 0.0;
-                            else profile->xfrate_norm_kurt = adj * ( xfrate_mfo_norm / (variance * variance) ) - adj2;
-#ifdef SHOW_DEBUG_STATS_CALCS
-                            printf( "dbg:: Kurt: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mfo_norm,
-                              variance, adj2, profile->xfrate_norm_kurt);
-#endif
-                        }
-                    }
-
-#ifdef SHOW_DEBUG_STATS_CALCS
-                    printf( "dbg:: Stat: What: AdjFactor1 MThDiffSum     StdDev   StDev**3       Skew\n");
-                    printf( "dbg:: ----- ----- ---------- ---------- ---------- ---------- ----------\n");
-                    printf( "dbg:: Skew: Lag:: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
-                      (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), readlag_mth_norm,
-                      profile->readlag_norm_stdev, pow( profile->readlag_norm_stdev, 3.0), profile->readlag_norm_skew);
-                    printf( "dbg:: Skew: Pack: %10.3e %10.3e %10.3e %10.3e %10.3e\n",
-                      (float) (npackets) / (float) ((npackets - 1) * (npackets - 2)), packsize_mth_norm,
-                      profile->packsize_norm_stdev, pow( profile->packsize_norm_stdev, 3.0), profile->packsize_norm_skew);
-                    printf( "dbg:: Skew: XRat: %10.3e %10.3e %10.3e %10.3e %10.3e\n", adj, xfrate_mth_norm,
-                      profile->xfrate_norm_stdev, pow( profile->xfrate_norm_stdev, 3.0), profile->xfrate_norm_skew);
-#endif
+                    *(packsize + off) = 0;
+                    *(readlag + off) = 0.0;
+                    *(xfrate + off) = 0.0;
 		}
 	    }
 	}
 
-        profile->packsize_mean = packsize_mean;
-        profile->readlag_mean = readlag_mean;
-        profile->xfrate_mean = xfrate_mean;
-        profile->lookup_sum += profile->lookup_time;
-        profile->connect_sum += profile->connect_time - profile->lookup_time;
-        profile->request_sum += profile->request_time - profile->connect_time;
-        profile->response_sum += profile->response_time - profile->request_time;
-        profile->close_sum += profile->complete_time - profile->response_time;
-        profile->complete_sum += profile->complete_time;
-        profile->xfer_sum += status->response_len;
-        profile->payload_sum += status->response_len - breakout->header_size;
-        profile->packsize_stdev_sum += profile->packsize_norm_stdev;
-        profile->packsize_skew_sum += profile->packsize_norm_skew;
-        profile->packsize_kurt_sum += profile->packsize_norm_kurt;
-        profile->readlag_stdev_sum += profile->readlag_norm_stdev;
-        profile->readlag_skew_sum += profile->readlag_norm_skew;
-        profile->readlag_kurt_sum += profile->readlag_norm_kurt;
-        profile->xfrate_stdev_sum += profile->xfrate_norm_stdev;
-        profile->xfrate_skew_sum += profile->xfrate_norm_skew;
-        profile->xfrate_kurt_sum += profile->xfrate_norm_kurt;
+        if( *rc == RC_NORMAL && targ->use_ssl)
+        {
+            sslreadlag = (float *) malloc( ssl_nreads * (sizeof *sslreadlag));
+            if( sslreadlag) sslpacksize = (int *) malloc( ssl_nreads * (sizeof *sslpacksize));
+            if( sslpacksize) sslxfrate = (float *) malloc( ssl_nreads * (sizeof *sslxfrate));
 
-        profile->fetch_count++;
+            if( !sslxfrate) *rc = ERR_MALLOC_FAILED;
+            else
+            {
+                ssl_stats->samples = ssl_nreads;
+                ssl_stats->packsize = sslpacksize;
+                ssl_stats->xfrate = sslxfrate;
+                ssl_stats->readlag = sslreadlag;
+
+                for( off = 0; off < ssl_nreads; off++)
+                {
+                    *(sslpacksize + off) = 0;
+                    *(sslreadlag + off) = 0.0;
+                    *(sslxfrate + off) = 0.0;
+                }
+
+                if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sSSL I/O counts, logical-reads=%d network-reads:%d network-writes:%d\n",
+                  disp->line_pref, npackets, ssl_nreads, ssl_nwrites);
+	    }
+	}
+
+        if( *rc == RC_NORMAL)
+        {
+            if( targ->use_ssl)
+            {
+                event = EVENT_SSL_NET_READ;
+                act_stats = ssl_stats;
+	    }
+            else
+            {
+                event = EVENT_READ_PACKET;
+                act_stats = reg_stats;
+	    }
+                
+            calc_xfrates( event, status, act_stats);
+            calc_standard_moments( status, act_stats);
+
+            profile->packsize_mean = act_stats->packsize_mean;
+            profile->packsize_norm_stdev = act_stats->packsize_norm_stdev;
+            profile->packsize_norm_skew = act_stats->packsize_norm_skew;
+            profile->packsize_norm_kurt = act_stats->packsize_norm_kurt;
+
+            profile->readlag_mean = act_stats->readlag_mean;
+            profile->readlag_norm_stdev = act_stats->readlag_norm_stdev;
+            profile->readlag_norm_skew = act_stats->readlag_norm_skew;
+            profile->readlag_norm_kurt = act_stats->readlag_norm_kurt;
+
+            profile->xfrate_mean = act_stats->xfrate_mean;
+            profile->xfrate_norm_stdev = act_stats->xfrate_norm_stdev;
+            profile->xfrate_norm_skew = act_stats->xfrate_norm_skew;
+            profile->xfrate_norm_kurt = act_stats->xfrate_norm_kurt;
+
+            profile->lookup_sum += profile->lookup_time;
+            profile->connect_sum += profile->connect_time - profile->lookup_time;
+            profile->request_sum += profile->request_time - profile->connect_time;
+            profile->response_sum += profile->response_time - profile->request_time;
+            profile->close_sum += profile->complete_time - profile->response_time;
+            profile->complete_sum += profile->complete_time;
+            profile->xfer_sum += status->response_len;
+            profile->payload_sum += status->response_len - breakout->header_size;
+
+            profile->packsize_stdev_sum += profile->packsize_norm_stdev;
+            profile->packsize_skew_sum += profile->packsize_norm_skew;
+            profile->packsize_kurt_sum += profile->packsize_norm_kurt;
+            profile->readlag_stdev_sum += profile->readlag_norm_stdev;
+            profile->readlag_skew_sum += profile->readlag_norm_skew;
+            profile->readlag_kurt_sum += profile->readlag_norm_kurt;
+            profile->xfrate_stdev_sum += profile->xfrate_norm_stdev;
+            profile->xfrate_skew_sum += profile->xfrate_norm_skew;
+            profile->xfrate_kurt_sum += profile->xfrate_norm_kurt;
+
+            profile->fetch_count++;
+	}
     }
 
     if( packsize) free( packsize);
     if( readlag) free( readlag);
     if( xfrate) free( xfrate);
+    if( sslpacksize) free( sslpacksize);
+    if( sslreadlag) free( sslreadlag);
+    if( sslxfrate) free( sslxfrate);
 
     return;
 }
@@ -2036,7 +1912,8 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     static int first = 1;
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
       dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, inc_len,
-      http_rc, is_chunked = 0, chunk_left, build_len, is_image = 0;
+      http_rc, is_chunked = 0, chunk_left, build_len, is_image = 0,
+      event;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, totrate, datarate;
@@ -2048,6 +1925,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     struct summary_stats *profile = 0;
     struct data_block *detail = 0;
     struct display_settings *display = 0;
+    struct target_info *targ = 0;
     struct payload_breakout *breakout = 0;
     struct chain_position *head_spot = 0;
     struct tm local_wall_start;
@@ -2059,6 +1937,9 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         display = plan->disp;
         breakout = plan->partlist;
         profile = plan->profile;
+        if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
+        if( !targ) targ = plan->target;
+
         top = (long) (1.0 / status->clock_res);
         head_spot = breakout->head_spot;
 
@@ -2147,15 +2028,60 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
     if( *rc == RC_NORMAL && display->show_packetime)
     {
+#ifdef ALWAYS_SHOW_APP_PACKETS
+
+        /* Need to add an flag to turn this behavior on/off so it can be dynamically selected, leave "#ifdef'd" until that's done */
+
+        if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
+        fprintf( out->info_out, "PackApp:");
+
+        before = 0;
+        walk = status->checkpoint;
+
+        event = EVENT_READ_PACKET;
+
+        for( ; walk; walk = walk->next)
+        {
+            if( walk->event == event && walk->detail)
+            {
+                if( !before) before = walk;
+                elap = calc_time_difference( &before->clock, &walk->clock, status->clock_res);
+
+                prev_sec = now_sec;
+                prev_sub = now_sub;
+
+                now_sec = walk->clock.sec; 
+                now_sub = walk->clock.frac;
+
+                diff_sec = now_sec - prev_sec;
+                diff_sub = now_sub - prev_sub;
+                if( diff_sub < 0)
+                {
+                    diff_sec--;
+                    diff_sub += top;
+                }
+
+                packlen = walk->detail->len;
+                fprintf( out->info_out, " %ld/%d", lroundf( elap * 1000000.0), packlen);
+
+                before = walk;
+	    }
+	}
+        fprintf( out->info_out, "\n");
+#endif
+
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
         fprintf( out->info_out, "Packets:");
 
         before = 0;
         walk = status->checkpoint;
 
+        if( targ->use_ssl) event = EVENT_SSL_NET_READ;
+        else event = EVENT_READ_PACKET;
+
         for( ; walk; walk = walk->next)
         {
-            if( walk->event == EVENT_READ_PACKET && walk->detail)
+            if( walk->event == event && walk->detail)
             {
                 if( !before) before = walk;
                 elap = calc_time_difference( &before->clock, &walk->clock, status->clock_res);

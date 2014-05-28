@@ -175,14 +175,14 @@ static struct err_info err_msg_list[] = {
    { ERR_SHMCTL_FAILED, "Can't configure shared memory segment"},
    { ERR_IOCTL_FAILED, "Call to ioctl() failed"},
    { ERR_POLL_FAILED, "Call to poll() failed"},
-   { ERR_UNSUPPORTED, "Unsupported condition detected."},
-   { ERR_OPT_CONFIG, "Configuration error."},
-   { ERR_NOTHING_LEFT, "Nothing left to do."},
-   { ERR_SSL_INIT_FAILED, "Unable to initialize SSL environment."},
-   { ERR_SSL_EOS, "SSL protocol session closed cleanly."},
-   { ERR_SSL_ERROR, "SSL protocol error."},
-   { ERR_SSLWRITE_FAILED, "SSL write failed."},
-   { ERR_SSLREAD_FAILED, "SSL read failer."},
+   { ERR_UNSUPPORTED, "Unsupported condition detected"},
+   { ERR_OPT_CONFIG, "Configuration error"},
+   { ERR_NOTHING_LEFT, "Nothing left to do"},
+   { ERR_SSL_INIT_FAILED, "Unable to initialize SSL environment"},
+   { ERR_SSL_EOS, "SSL protocol session closed cleanly"},
+   { ERR_SSL_ERROR, "SSL protocol error"},
+   { ERR_SSLWRITE_FAILED, "SSL write failed"},
+   { ERR_SSLREAD_FAILED, "SSL read failed"},
 };
 
 /* --- */

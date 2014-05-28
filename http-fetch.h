@@ -528,6 +528,18 @@ struct plan_data {
   struct summary_stats *profile;
 };
 
+struct stat_work {
+    int samples, *packsize;
+    long packsize_sum;
+    float *xfrate, *readlag,
+      packsize_max, readlag_max, xfrate_max,
+      packsize_mean, readlag_mean, xfrate_mean,
+      packsize_norm_stdev, readlag_norm_stdev, xfrate_norm_stdev,
+      packsize_norm_skew, readlag_norm_skew, xfrate_norm_skew,
+      packsize_norm_kurt, readlag_norm_kurt, xfrate_norm_kurt,
+      readlag_sum, xfrate_sum;
+};
+
 /* --- */
 
 #define MSG_SHOW_SYNTAX "\
@@ -643,6 +655,12 @@ int handle_ssl_error( int *sslerr, SSL *ssl, int io_rc, int sock, int max_wait);
 struct plan_data *register_current_plan( struct plan_data *update);
 
 int stash_ssl_err_info( struct fetch_status *fetch, unsigned long sslerr);
+
+void calc_xfrates( int want_event, struct fetch_status *status, struct stat_work *swork);
+
+void calc_standard_moments( struct fetch_status *status, struct stat_work *swork);
+
+struct stat_work *alloc_stat_work();
 
 /* --- */
 

@@ -8,18 +8,19 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 {
     int sock, io_rc, err = 0, done = 0, ret, sslerr;
     unsigned long hold_err;
-    struct target_info *target;
+    struct target_info *targ = 0;
     struct fetch_status *fetch;
     struct exec_controls *runex = 0;
     SSL *ssl;
 
     if( *rc == RC_NORMAL)
     {
-        target = plan->target;
         fetch = plan->status;
         runex = plan->run;
+        if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
+        if( !targ) targ = plan->target;
 
-        if( target->use_ssl)
+        if( targ->use_ssl)
         {
             sock = fetch->conn_sock;
             ssl = map_sock_to_ssl( sock, fetch->ssl_context, bio_ssl_callback);
