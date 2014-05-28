@@ -2983,6 +2983,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "port")
         target->conn_port = *((int *) co->parsed);
+        if( !target->conn_port) target->conn_port = NO_PORT;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_TIMERS, opset, nflags)))
