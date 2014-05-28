@@ -333,7 +333,7 @@ YrMnDyHrMnSe HRC   DNS  Conn  Send 1stRD Close Total AllByt PayByt Tot#/S Dat#/S
   <tr><td>Full URL:</td><td><input type=\"text\" name=\"url\"></td></tr>\n\
   <tr><td>Connect to host/ip:</td><td><input type=\"text\" name=\"connhost\"></td></tr>\n\
   <tr><td>Name of webserver:</td><td><input type=\"text\" name=\"webhost\"></td></tr>\n\
-  <tr><td>Connect to this port:</td><td><input type=\"text\" name=\"port\" value=\"80\"></td></tr>\n\
+  <tr><td>Connect to this port:</td><td><input type=\"text\" name=\"port\"></td></tr>\n\
   <tr><td>URI to request:</td><td><input type=\"text\" name=\"uri\"></td></tr>\n\
   <tr><td>Accept insecure SSL certs:</td><td> Yes<input type=\"radio\" value=\"no\" name=\"insecure\">\n\
 No<input type=\"radio\" value=\"no\" name=\"insecure\" checked></td></tr>\n\
