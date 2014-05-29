@@ -49,8 +49,10 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
     {
         err = errno;
         if( err == EAGAIN || err == EBUSY || err == EINTR
-          || err == EWOULDBLOCK || err == EINPROGRESS
-          || err == ERESTART) *sslact = SSLACT_RETRY;
+          || err == EWOULDBLOCK || err == EINPROGRESS) *sslact = SSLACT_RETRY;
+#ifndef __APPLE__
+        else if( err == ERESTART) *sslact = SSLACT_RETRY;
+#endif
         else
         {
             rc = ERR_SYS_CALL;
