@@ -115,7 +115,11 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
                 for( alt = 0; alt < altcount; alt++)
                 {
                     altval = sk_GENERAL_NAME_value( altnames, alt);
+#ifdef __APPLE__
+                    altdns = altval->d.ia5;
+#else
                     altdns = (ASN1_IA5STRING *) GENERAL_NAME_get0_value( altval, 0);
+#endif
                     if( altval->type == GEN_DNS) fprintf( out->info_out, "%sSSL ext, alt-name %d. '%s'\n", disp->line_pref, alt, altdns->data);
                 }
                 GENERAL_NAMES_free( altnames);
