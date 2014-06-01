@@ -250,6 +250,17 @@ Content-type: text/html\r\n\
 #define EVENT_SSL_NET_READ   8
 #define EVENT_SSL_NET_WRITE  9
 
+#define EVNAME_BLANK          "unknown event"
+#define EVNAME_START_FETCH    "start fetch"
+#define EVNAME_DNS_LOOKUP     "DNS lookup"
+#define EVNAME_CONNECT_SERVER "connect server"
+#define EVNAME_REQUEST_SENT   "request sent"
+#define EVNAME_FIRST_RESPONSE "first response"
+#define EVNAME_READ_PACKET    "application read"
+#define EVNAME_READ_ALL_DATA  "all data received"
+#define EVNAME_SSL_NET_READ   "network read"
+#define EVNAME_SSL_NET_WRITE  "network write"
+
 #define SSLACT_NORMAL        0
 #define SSLACT_ERR_FATAL     1
 #define SSLACT_RETRY         2

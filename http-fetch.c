@@ -70,6 +70,88 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
 
 /* --- */
 
+void dump_checkpoint_chain( struct plan_data *plan)
+
+{
+    long diff_sec = 0, diff_sub = 0, tickspersec = 1000000, frac = 0;
+    int seq_app_read = 0, seq_net_read = 0, seq = 1, dlen, prev_seq = 0, event;
+    float adj;
+    char *event_name;
+    struct output_options *out;
+    struct fetch_status *fetch;
+    struct display_settings *disp;
+    struct ckpt_chain *walk, *prev_app_read = 0, *prev_net_read = 0, *prev = 0;
+
+    out = plan->out;
+
+    if( out->debug_level >= DEBUG_HIGH2)
+    {
+        fetch = plan->status;
+        disp = plan->disp;
+        adj = tickspersec * fetch->clock_res;
+
+        for( walk = fetch->checkpoint; walk; walk = walk->next)
+        {
+            frac = walk->clock.frac * adj;
+            event = walk->event;
+
+            if( walk->detail) dlen = walk->detail->len;
+            else dlen = 0;
+
+            prev = 0;
+
+            if( event == EVENT_READ_PACKET)
+            {
+                prev_seq = seq_app_read;
+                prev = prev_app_read;
+                prev_app_read = walk;
+                seq_app_read = seq;
+                event_name = EVNAME_READ_PACKET;
+	    }
+
+            else if( event == EVENT_SSL_NET_READ)
+            {
+                prev_seq = seq_net_read;
+                prev = prev_net_read;
+                prev_net_read = walk;
+                seq_net_read = seq;
+                event_name = EVNAME_SSL_NET_READ;
+	    }
+
+            else if( event == EVENT_START_FETCH) event_name = EVNAME_START_FETCH;
+            else if( event == EVENT_DNS_LOOKUP) event_name = EVNAME_DNS_LOOKUP;
+            else if( event == EVENT_CONNECT_SERVER) event_name = EVNAME_CONNECT_SERVER;
+            else if( event == EVENT_REQUEST_SENT) event_name = EVNAME_REQUEST_SENT;
+            else if( event == EVENT_FIRST_RESPONSE) event_name = EVNAME_FIRST_RESPONSE;
+            else if( event == EVENT_READ_ALL_DATA) event_name = EVNAME_READ_ALL_DATA;
+            else if( event == EVENT_SSL_NET_WRITE) event_name = EVNAME_SSL_NET_WRITE;
+            else event_name = "unknown event";
+
+            fprintf( out->info_out, "%sCKPT: %3d. evnum:%02d time:%9ld.%06ld",
+              disp->line_pref, seq++, event, walk->clock.sec, frac);
+            if( dlen) fprintf( out->info_out, " data:%05d", dlen);
+
+            if( prev)
+            {
+                diff_sec = walk->clock.sec - prev->clock.sec;
+                diff_sub = (walk->clock.frac - prev->clock.frac) * adj;
+                if( diff_sub < 0)
+                {
+                    diff_sec--;
+                    diff_sub += tickspersec;
+		}
+                fprintf( out->info_out, " delta:%03ld.%06ld from:%d", diff_sec, diff_sub, prev_seq);
+	    }
+
+            fprintf( out->info_out, " event: %s\n", event_name);
+	}
+    }
+
+    return;
+}
+
+/* --- */
+
 struct stat_work *alloc_stat_work()
 
 {
@@ -515,6 +597,8 @@ int execute_fetch_plan( struct plan_data *plan)
         parse_payload( &rc, plan);
 
         stats_from_packets( &rc, plan, seq);
+
+        dump_checkpoint_chain( plan);
 
         display_output( &rc, plan, seq);
 
