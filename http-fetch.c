@@ -1877,6 +1877,7 @@ int parse_http_response( struct payload_breakout *breakout)
     {
         breakout->trans_encoding = find_http_header( breakout, HTTP_HEAD_TRANSFER_ENCODING);
         breakout->content_type = find_http_header( breakout, HTTP_HEAD_CONTENT_TYPE);
+        if( !breakout->content_type) breakout->content_type = DEF_CONTENT_TYPE;
     }
 
     return( result);

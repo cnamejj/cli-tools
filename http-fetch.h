@@ -151,6 +151,8 @@
 
 #define NO_CR_HTTP_EOL "\r\n"
 
+#define DEF_CONTENT_TYPE "text/html"
+
 #define UNDEFINED_ERROR "A unspecified error halted execution of the program."
 
 #define HTML_RESP_HEADER "\
