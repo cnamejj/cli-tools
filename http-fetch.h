@@ -304,7 +304,7 @@ DNT: 1\n\
 -Date--Time-     ------------- Elapsed Time -------------- -------- Transfer --------- -- Received Packet Size --- ---- Inter-Packet Lag ----- -- Per-Packet Xfer Rate --- ---\
 "
 #define TIME_SUMMARY_HEADER_2 "\
-YrMnDyHrMnSe HRC   DNS  Conn   SSL Send 1stRD Close Total AllByt PayByt Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis URL\
+YrMnDyHrMnSe HRC   DNS  Conn   SSL  Send 1stRD Close Total AllByt PayByt Tot#/S Dat#/S   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis   StDev  Skewness  Kurtosis URL\
 "
 #define TIME_SUMMARY_HEADER_3 "\
 ------------ --- ----- ----- ----- ----- ----- ----- ----- ------ ------ ------ ------ ------- --------- --------- ------- --------- --------- ------- --------- --------- ---\
