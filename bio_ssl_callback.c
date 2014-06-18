@@ -8,7 +8,7 @@
 long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignore, long ret)
 
 {
-    int rc;
+    int rc, ctype;
     struct plan_data *plan;
     struct fetch_status *fetch;
     struct output_options *out;
@@ -28,7 +28,9 @@ long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignor
 
         if( ret > 0)
         {
-            rc = capture_checkpoint( fetch, EVENT_SSL_NET_READ);
+            if( fetch->last_state & LS_SSL_SHAKE_DONE) ctype = EVENT_SSL_NET_READ;
+            else ctype = EVENT_SSL_NEG_READ;
+            rc = capture_checkpoint( fetch, ctype);
             if( rc == RC_NORMAL) rc = add_datalen_block( fetch->lastcheck, ret);
 	}
     }

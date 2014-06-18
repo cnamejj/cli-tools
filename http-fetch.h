@@ -223,34 +223,37 @@ Content-type: text/html\r\n\
   #define SCOPE_GLOBAL 0x0e
 #endif
 
-#define LS_START           0x0000
-#define LS_PARSED_OPTIONS  0x0001
-#define LS_FIND_CONNECTION 0x0002
-#define LS_GEN_REQUEST     0x0004
-#define LS_CONNECT_LOOKUP  0x0008
-#define LS_ESTAB_CONNECT   0x0010
-#define LS_SENT_REQUEST    0x0020
-#define LS_READ_READY      0x0040
-#define LS_GOT_RESPONSE    0x0080
-#define LS_USE_GAI_ERRNO   0x0100
-#define LS_CKPT_SETUP      0x0200
-#define LS_NO_CONNECTION   0x0400
-#define LS_NO_REQUEST      0x0800
-#define LS_NO_RESPONSE     0x1000
-#define LS_NO_PAYLOAD      0x2000
-#define LS_NO_DNS_CONNECT  0x4000
-#define LS_HTML_FORM_SENT  0x8000
+#define LS_START           0x00000
+#define LS_PARSED_OPTIONS  0x00001
+#define LS_FIND_CONNECTION 0x00002
+#define LS_GEN_REQUEST     0x00004
+#define LS_CONNECT_LOOKUP  0x00008
+#define LS_ESTAB_CONNECT   0x00010
+#define LS_SENT_REQUEST    0x00020
+#define LS_READ_READY      0x00040
+#define LS_GOT_RESPONSE    0x00080
+#define LS_USE_GAI_ERRNO   0x00100
+#define LS_CKPT_SETUP      0x00200
+#define LS_NO_CONNECTION   0x00400
+#define LS_NO_REQUEST      0x00800
+#define LS_NO_RESPONSE     0x01000
+#define LS_NO_PAYLOAD      0x02000
+#define LS_NO_DNS_CONNECT  0x04000
+#define LS_HTML_FORM_SENT  0x08000
+#define LS_SSL_SHAKE_DONE  0x10000
 
-#define EVENT_BLANK          0
-#define EVENT_START_FETCH    1
-#define EVENT_DNS_LOOKUP     2
-#define EVENT_CONNECT_SERVER 3
-#define EVENT_REQUEST_SENT   4
-#define EVENT_FIRST_RESPONSE 5
-#define EVENT_READ_PACKET    6
-#define EVENT_READ_ALL_DATA  7
-#define EVENT_SSL_NET_READ   8
-#define EVENT_SSL_NET_WRITE  9
+#define EVENT_BLANK           0
+#define EVENT_START_FETCH     1
+#define EVENT_DNS_LOOKUP      2
+#define EVENT_CONNECT_SERVER  3
+#define EVENT_REQUEST_SENT    4
+#define EVENT_FIRST_RESPONSE  5
+#define EVENT_READ_PACKET     6
+#define EVENT_READ_ALL_DATA   7
+#define EVENT_SSL_NET_READ    8
+#define EVENT_SSL_NET_WRITE   9
+#define EVENT_SSL_HANDSHAKE  10
+#define EVENT_SSL_NEG_READ   11
 
 #define EVNAME_BLANK          "unknown event"
 #define EVNAME_START_FETCH    "start fetch"
@@ -262,6 +265,8 @@ Content-type: text/html\r\n\
 #define EVNAME_READ_ALL_DATA  "all data received"
 #define EVNAME_SSL_NET_READ   "network read"
 #define EVNAME_SSL_NET_WRITE  "network write"
+#define EVNAME_SSL_HANDSHAKE  "ssl handshake"
+#define EVNAME_SSL_NEG_READ   "pre-SSL neg read"
 
 #define SSLACT_NORMAL        0
 #define SSLACT_ERR_FATAL     1
@@ -451,7 +456,8 @@ if( out->debug_level >= DEBUG_HIGH1 && (co->flags & OP_FL_FOUND)) \
 struct summary_stats {
   int xfer_sum, payload_sum, fetch_count;
   float lookup_time, lookup_sum, connect_time, connect_sum, request_time, request_sum,
-    response_time, response_sum, close_sum, complete_time, complete_sum;
+    response_time, response_sum, close_sum, complete_time, complete_sum, handshake_time,
+    handshake_sum;
   float packsize_mean, readlag_mean, xfrate_mean,
     packsize_norm_stdev, readlag_norm_stdev, xfrate_norm_stdev,
     packsize_norm_skew, readlag_norm_skew, xfrate_norm_skew,

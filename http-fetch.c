@@ -125,6 +125,8 @@ void dump_checkpoint_chain( struct plan_data *plan)
             else if( event == EVENT_FIRST_RESPONSE) event_name = EVNAME_FIRST_RESPONSE;
             else if( event == EVENT_READ_ALL_DATA) event_name = EVNAME_READ_ALL_DATA;
             else if( event == EVENT_SSL_NET_WRITE) event_name = EVNAME_SSL_NET_WRITE;
+            else if( event == EVENT_SSL_HANDSHAKE) event_name = EVNAME_SSL_HANDSHAKE;
+            else if( event == EVENT_SSL_NEG_READ) event_name = EVNAME_SSL_NEG_READ;
             else event_name = "unknown event";
 
             fprintf( out->info_out, "%sCKPT: %3d. evnum:%02d time:%9ld.%06ld",
@@ -1517,6 +1519,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     {
         profile->lookup_time = 0.0;
         profile->connect_time = 0.0;
+        profile->handshake_time = 0.0;
         profile->request_time = 0.0;
         profile->response_time = 0.0;
         profile->complete_time = 0.0;
@@ -1531,6 +1534,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
             if( walk->event == EVENT_START_FETCH) start = walk;
             else if( walk->event == EVENT_DNS_LOOKUP) profile->lookup_time = elap;
             else if( walk->event == EVENT_CONNECT_SERVER) profile->connect_time = elap;
+            else if( walk->event == EVENT_SSL_HANDSHAKE) profile->handshake_time = elap;
             else if( walk->event == EVENT_REQUEST_SENT) profile->request_time = elap;
             else if( walk->event == EVENT_FIRST_RESPONSE) profile->response_time = elap;
             else if( walk->event == EVENT_READ_ALL_DATA) profile->complete_time = elap;
@@ -1635,7 +1639,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
             profile->lookup_sum += profile->lookup_time;
             profile->connect_sum += profile->connect_time - profile->lookup_time;
-            profile->request_sum += profile->request_time - profile->connect_time;
+            profile->handshake_sum += profile->handshake_time - profile->connect_time;
+            if( targ->use_ssl) profile->request_sum += profile->request_time - profile->handshake_time;
+            else profile->request_sum += profile->request_time - profile->connect_time;
             profile->response_sum += profile->response_time - profile->request_time;
             profile->close_sum += profile->complete_time - profile->response_time;
             profile->complete_sum += profile->complete_time;
@@ -1996,8 +2002,8 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 {
     static int first = 1;
     int packlen = 0, in_head, disp_time_len = TIME_DISPLAY_SIZE, sysrc,
-      dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, inc_len,
-      http_rc, is_chunked = 0, chunk_left, build_len, is_image = 0,
+      dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
+      inc_len, http_rc, is_chunked = 0, chunk_left, build_len, is_image = 0,
       event;
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
@@ -2076,7 +2082,9 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     {
         dns_ms = lroundf( profile->lookup_time * 1000.0);
         conn_ms = lroundf( (profile->connect_time - profile->lookup_time) * 1000.0);
-        send_ms = lroundf( (profile->request_time - profile->connect_time) * 1000.0);
+        shake_ms = lroundf( (profile->handshake_time - profile->connect_time) * 1000.0);
+        if( targ->use_ssl) send_ms = lroundf( (profile->request_time - profile->handshake_time) * 1000.0);
+        else send_ms = lroundf( (profile->request_time - profile->connect_time) * 1000.0);
         resp_ms = lroundf( (profile->response_time - profile->request_time) * 1000.0);
         close_ms = lroundf( (profile->complete_time - profile->response_time) * 1000.0);
         complete_ms = lroundf( profile->complete_time * 1000.0);
@@ -2308,8 +2316,8 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
 void display_average_stats( int *rc, struct plan_data *plan)
 
 {
-    int dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms, xfer_mean = 0,
-      payload_mean = 0;
+    int dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
+      xfer_mean = 0, payload_mean = 0;
     float nloop = 0.0, totrate, datarate, pre_response;
     char totrate_mark, datarate_mark;
     struct display_settings *display = 0;
@@ -2367,7 +2375,7 @@ void display_average_stats( int *rc, struct plan_data *plan)
         }
         else
         {
-            pre_response = profile->lookup_sum + profile->connect_sum + profile->request_sum + profile->response_sum;
+            pre_response = profile->lookup_sum + profile->connect_sum + profile->handshake_sum + profile->request_sum + profile->response_sum;
             datarate = get_scaled_number( &datarate_mark,
               profile->xfer_sum / (profile->complete_sum - pre_response));
         }
@@ -2795,6 +2803,8 @@ struct plan_data *allocate_hf_plan_data()
         profile->lookup_sum = 0.0;
         profile->connect_time = 0.0;
         profile->connect_sum = 0.0;
+        profile->handshake_time = 0.0;
+        profile->handshake_sum = 0.0;
         profile->request_time = 0.0;
         profile->request_sum = 0.0;
         profile->response_time = 0.0;

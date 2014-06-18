@@ -48,7 +48,12 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             for( ; !done && !err; )
             {
                 io_rc = SSL_connect( ssl);
-                if( io_rc == 1) done = 1;
+                if( io_rc == 1)
+                {
+                    done = 1;
+                    *rc = capture_checkpoint( fetch, EVENT_SSL_HANDSHAKE);
+                    if( *rc == RC_NORMAL) fetch->last_state |= LS_SSL_SHAKE_DONE;
+		}
                 else
                 {
                     ret = handle_ssl_error( &sslerr, ssl, io_rc, sock, runex->conn_timeout);
