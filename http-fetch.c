@@ -1639,9 +1639,16 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
             profile->lookup_sum += profile->lookup_time;
             profile->connect_sum += profile->connect_time - profile->lookup_time;
-            profile->handshake_sum += profile->handshake_time - profile->connect_time;
-            if( targ->use_ssl) profile->request_sum += profile->request_time - profile->handshake_time;
-            else profile->request_sum += profile->request_time - profile->connect_time;
+            if( targ->use_ssl)
+            {
+                profile->handshake_sum += profile->handshake_time - profile->connect_time;
+                profile->request_sum += profile->request_time - profile->handshake_time;
+	    }
+            else
+            {
+                profile->handshake_sum += 0;
+                profile->request_sum += profile->request_time - profile->connect_time;
+	    }
             profile->response_sum += profile->response_time - profile->request_time;
             profile->close_sum += profile->complete_time - profile->response_time;
             profile->complete_sum += profile->complete_time;
@@ -2082,9 +2089,16 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     {
         dns_ms = lroundf( profile->lookup_time * 1000.0);
         conn_ms = lroundf( (profile->connect_time - profile->lookup_time) * 1000.0);
-        shake_ms = lroundf( (profile->handshake_time - profile->connect_time) * 1000.0);
-        if( targ->use_ssl) send_ms = lroundf( (profile->request_time - profile->handshake_time) * 1000.0);
-        else send_ms = lroundf( (profile->request_time - profile->connect_time) * 1000.0);
+        if( targ->use_ssl)
+        {
+            shake_ms = lroundf( (profile->handshake_time - profile->connect_time) * 1000.0);
+            send_ms = lroundf( (profile->request_time - profile->handshake_time) * 1000.0);
+	}
+        else
+        {
+            shake_ms = 0.0;
+            send_ms = lroundf( (profile->request_time - profile->connect_time) * 1000.0);
+	}
         resp_ms = lroundf( (profile->response_time - profile->request_time) * 1000.0);
         close_ms = lroundf( (profile->complete_time - profile->response_time) * 1000.0);
         complete_ms = lroundf( profile->complete_time * 1000.0);
@@ -2109,8 +2123,8 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         else if( !*url) url = UNKNOWN_URL;
 
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
-        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
-          disp_time, http_rc, dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
+          disp_time, http_rc, dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
           status->response_len, status->response_len - breakout->header_size,
           totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_norm_stdev, profile->packsize_norm_skew, profile->packsize_norm_kurt,
@@ -2341,6 +2355,7 @@ void display_average_stats( int *rc, struct plan_data *plan)
         {
             dns_ms = 0;
             conn_ms = 0;
+            shake_ms = 0;
             send_ms = 0;
             resp_ms = 0;
             close_ms = 0;
@@ -2352,6 +2367,7 @@ void display_average_stats( int *rc, struct plan_data *plan)
         {
             dns_ms = lroundf( profile->lookup_sum / nloop);
             conn_ms = lroundf( profile->connect_sum / nloop);
+            shake_ms = lroundf( profile->handshake_sum / nloop);
             send_ms = lroundf( profile->request_sum / nloop);
             resp_ms = lroundf( profile->response_sum / nloop);
             close_ms = lroundf( profile->close_sum / nloop);
@@ -2383,8 +2399,8 @@ void display_average_stats( int *rc, struct plan_data *plan)
         nloop = (float) profile->fetch_count;
         fprintf( out->info_out, "Average values: ");
         if( display->show_number) fprintf( out->info_out, "  ---");
-        fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
-          dns_ms, conn_ms, send_ms, resp_ms, close_ms, complete_ms,
+        fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+          dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
           xfer_mean, payload_mean, totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
           profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
