@@ -141,6 +141,10 @@
 #define SSL_MAX_READ_AHEAD 64 * 1024
 #define SSL_TRUSTED_CERT_PATH "/etc/ssl/certs"
 
+#define DEF_INT_DISPLAY_FORMAT "%d"
+#define DEF_FLOAT_DISPLAY_FORMAT "%.1f"
+#define INT_DISPLAY_SIZE 20
+#define FLOAT_DISPLAY_SIZE 30
 
 /* --- */
 
@@ -288,6 +292,12 @@ char *construct_entry_form( char *template);
 int connect_host( int *rc, char *host, int port, int timeout, int protocol);
 
 int wait_until_sock_ready( int sock, int event, int max_wait);
+
+char *combine_strings( int *rc, char *lead, char *trail);
+
+char *string_from_int( int *rc, int number, char *format);
+
+char *string_from_float( int *rc, float number, char *format);
 
 /* --- */
 

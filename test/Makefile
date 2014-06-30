@@ -2,7 +2,7 @@ PROGS = test-pull-actor-rule
 SOLOPROGS = test-gsub_string test-hexdigits_to_string test-string_to_hexdigits parse-actor-config \
 	test-called-as-cgi test-get-cgi-data test-decode-url-string test-is-ip4-address \
 	test-is-ip6-address test-parse-url test-clock-calls test-pull-problems test-is-res-char \
-        test-is-res-char2 show-net-inf test-ssl-client test-connect
+        test-is-res-char2 show-net-inf test-ssl-client test-connect test-sfi test-sff test-svg
 SOBJS = test-ssl-init-routines.o
 LIBS = libTESTCLI.a
 UBIQ_H = ../err_ref.h ../net-task-data.h ../cli-sub.h
@@ -43,10 +43,10 @@ libs: $(LIBS)
 
 $(SOBJS) : % : Makefile $(UBIQ_H)
 
-$(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS)
+$(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS) ../libCLISUB.a
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
+$(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS) ../libCLISUB.a
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libTESTCLI.a : $(SOBJS)
