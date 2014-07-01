@@ -695,7 +695,7 @@ char *svg_make_data_points( int *rc, struct svg_model *svg )
         xbase = svg->graph_left_col;
         xscale = svg->xax_border - svg->graph_left_col;
  
-        ybase = svg->graph_top_row;
+        ybase = svg->yax_border;
         yscale = svg->yax_border - svg->graph_top_row;
  
         xpos_sub = (struct sub_list *) malloc( sizeof *xpos_sub );
@@ -726,7 +726,7 @@ char *svg_make_data_points( int *rc, struct svg_model *svg )
 
             yval = *(ydata + pt);
             ypc = (yval - svg->ymin) / (svg->ymax - svg->ymin);
-            ypos = ybase + (yscale * ypc);
+            ypos = ybase - (yscale * ypc);
 
             if( xpos_sub->to ) free( xpos_sub->to );
             if( ypos_sub->to ) free( ypos_sub->to );
@@ -782,8 +782,10 @@ char *svg_make_path_start( int *rc, struct svg_model *svg )
         xpos = svg->graph_left_col + (xscale * xpc);
 
         yscale = svg->yax_border - svg->graph_top_row;
-        ypc = (*svg->ydata - svg->ymin) / (svg->ymax - svg->ymin);
-        ypos = svg->graph_top_row + (yscale * ypc);
+/*        ypc = (svg->ymax - *svg->ydata) / (svg->ymax - svg->ymin); */
+        ypc = (*svg->ydata - svg->ymin) / (svg->ymax - svg->ymin); 
+        ypos = svg->graph_top_row + (yscale * ypc); 
+        ypos = svg->yax_border - (yscale * ypc); 
 
         xpos_sub = (struct sub_list *) malloc( sizeof *xpos_sub );
         ypos_sub = (struct sub_list *) malloc( sizeof *ypos_sub );
@@ -840,7 +842,7 @@ char *svg_make_data_lines( int *rc, struct svg_model *svg )
         xbase = svg->graph_left_col;
         xscale = svg->xax_border - svg->graph_left_col;
  
-        ybase = svg->graph_top_row;
+        ybase = svg->yax_border;
         yscale = svg->yax_border - svg->graph_top_row;
  
         xpos_sub = (struct sub_list *) malloc( sizeof *xpos_sub );
@@ -871,7 +873,7 @@ char *svg_make_data_lines( int *rc, struct svg_model *svg )
 
             yval = *(ydata + pt);
             ypc = (yval - svg->ymin) / (svg->ymax - svg->ymin);
-            ypos = ybase + (yscale * ypc);
+            ypos = ybase - (yscale * ypc);
 
             if( xpos_sub->to ) free( xpos_sub->to );
             if( ypos_sub->to ) free( ypos_sub->to );

@@ -1,9 +1,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
 #include "../cli-sub.h"
 #include "../svg-tools.h"
 #include "../err_ref.h"
+
+struct string_parts {
+   int np;
+   char **list;
+};
+
+struct string_parts *explode_string( int *rc, char *string, char *delim);
 
 #define CASES 25
 #define SCOPE 200
@@ -17,31 +30,85 @@
 int main(int narg, char **opts)
 
 {
-    int rc = 0, off, seed;
-    float *xval = 0, *yval = 0;
+    int rc = 0, seed, recs, datasize, inp, seq, off, digits;
+    float *xval = 0, *yval = 0, xinp, yinp;
 /*    char *yax = 0, *xax = 0, *xgrid = 0, *ygrid = 0, *circ = 0, *pstart = 0, *lines = 0; */
-    char *all = 0;
+    double span;
+    char *all = 0, *data = 0, *databuff = 0, *df = 0;
     struct svg_model *chart = 0;
+    struct stat st_buff;
+    struct string_parts *exp = 0;
     time_t now;
 
-    (void) time( &now);
-    seed = (now & 0xffff) * getpid();
-    srand( seed);
-
-    xval = (float *) malloc( CASES * (sizeof *xval));
-    yval = (float *) malloc( CASES * (sizeof *yval));
-
-    for( off = 0; off < CASES; off++)
+    if( narg > 1)
     {
-        *(xval + off) = (float) (off + 1);
-        *(yval + off) = (float) (rand() % SCOPE);
-/*        printf( "<!-- Data: %d. %.0f -->\n", off, *(yval + off)); */
+        data = opts[ 1];
+
+        rc = stat( data, &st_buff);
+        if( rc) LEAVE( "Call to stat() for input file failed.")
+
+        datasize = st_buff.st_size;
+        if( datasize < 1) LEAVE( "Data file is empty!")
+
+        databuff = (char *) malloc( datasize + 1);
+        if( !databuff) LEAVE( "Call to malloc() failed")
+
+        inp = open( data, O_RDONLY);
+        if( inp == -1) LEAVE( "Can't open data file")
+
+        rc = read( inp, databuff, datasize);
+        if( rc != datasize) LEAVE( "Read didn't yield the number of bytes expected")
+
+        *(databuff + datasize) = '\0';
+
+        exp = explode_string( &rc, databuff, "\n");
+        if( rc != RC_NORMAL) LEAVE( "Call to explode_string() failed")
+
+        recs = exp->np;
+        if( recs < 3) LEAVE( "Less then 3 records in data file")
+
+        xval = (float *) malloc( recs * (sizeof *xval));
+        yval = (float *) malloc( recs * (sizeof *yval));
+
+        seq = -1;
+        for( off = 0; off < recs; off++)
+        {
+            rc = sscanf( exp->list[ off], "%f %f", &xinp, &yinp);
+            if( rc == 2)
+            {
+                seq++;
+                xval[ seq] = xinp;
+                yval[ seq] = yinp;
+                printf( "<!-- Data: %f %f -->\n", xval[ seq], yval[ seq]);
+	    }
+	}
+
+        if( seq < 3) LEAVE( "Less than 3 records with x/y values")
+        recs = seq;
+    }
+    else
+    {
+        (void) time( &now);
+        seed = (now & 0xffff) * getpid();
+        srand( seed);
+
+        xval = (float *) malloc( CASES * (sizeof *xval));
+        yval = (float *) malloc( CASES * (sizeof *yval));
+
+        for( off = 0; off < CASES; off++)
+        {
+            *(xval + off) = (float) (off + 1);
+            *(yval + off) = (float) (rand() % SCOPE);
+/*            printf( "<!-- Data: %d. %.0f -->\n", off, *(yval + off)); */
+        }
+
+        recs = CASES;
     }
 
     chart = svg_make_chart();
     if( !chart) LEAVE( "Call to svg_make_chart() failed")
 
-    rc = svg_add_float_data( chart, CASES, xval, yval);
+    rc = svg_add_float_data( chart, recs, xval, yval);
     if( rc != RC_NORMAL) LEAVE( "Call to svg_add_float_data() failed")
 
 /*
@@ -88,12 +155,32 @@ int main(int narg, char **opts)
     rc = svg_set_xax_title( chart, "x-axis data");
     rc = svg_set_yax_title( chart, "y-axis data");
 
-/*    rc = svg_set_text_size( chart, ???); */
-    rc = svg_set_xax_disp( chart, "%.1f");
-    rc = svg_set_yax_disp( chart, "%.0f");
-
     rc = svg_set_yax_num_grids( chart, 5 );
     rc = svg_set_xax_num_grids( chart, 10 );
+
+/*    rc = svg_set_text_size( chart, ???); */
+
+    span = (chart->ymax - chart->ymin) / 5;
+    if( span >= 1.0 ) rc = svg_set_yax_disp( chart, "%.0f");
+    else
+    {
+        digits = (int) (1 - log10(span));
+        df = string_from_int( &rc, digits, "%%.%df");
+        rc = svg_set_yax_disp( chart, df);
+        free( df);
+/*        printf( "<!-- auto-digits: y: rc:%d sp:%f dig:%d df(%s) -->\n", rc, span, digits, df); */
+      }
+
+    span = (chart->xmax - chart->xmin) / 10;
+    if( span >= 1.0) rc = svg_set_xax_disp( chart, "%.0f");
+    else
+    {
+        digits = (int) (1 - log10(span));
+        df = string_from_int( &rc, digits,"%%.%df");
+        rc = svg_set_xax_disp( chart, df);
+        free( df);
+/*        printf( "<!-- auto-digits: x: rc:%d sp:%f dig:%d df(%s) -->\n", rc, span, digits, df); */
+    }
 
 /*
     rc = svg_set_reserve_height( chart, ???);
@@ -147,3 +234,71 @@ int main(int narg, char **opts)
 
     exit(0);
 }
+
+
+/* --- */
+
+struct string_parts *explode_string( int *rc, char *string, char *delim)
+
+{
+   int dlen, count, ii, err = ERR_BAD_PARMS;
+   char *st, *buff = 0;
+   struct string_parts *rez = 0;
+
+   if( string && delim) if( *string && *delim) err = RC_NORMAL;
+
+   if( err == RC_NORMAL)
+   {
+      buff = strdup( string);
+      if( !buff) err = ERR_MALLOC_FAILED;
+      else
+      {
+         rez = (struct string_parts *) malloc( sizeof *rez);
+         if( !rez) err = ERR_MALLOC_FAILED;
+      }
+   }
+
+   if( err == RC_NORMAL)
+   {
+      rez->np = 0;
+      rez->list = 0;
+
+      dlen = strlen( delim);
+      count = 1;
+
+      for( st = buff; *st; )
+      {
+         if( strncmp( st, delim, dlen)) st++;
+         else
+         {
+            count++;
+            *st = '\0';
+            st += dlen;
+         }
+      }
+
+      rez->list = (char **) malloc( count * (sizeof *(rez->list)));
+      if( !rez->list) err = ERR_MALLOC_FAILED;
+      else rez->np = count;
+   }
+
+   if( err == RC_NORMAL)
+   {
+      for( ii = 0; ii < count; ii++)
+        rez->list[ ii] = 0;
+
+      for( ii = 0, st = buff; ii < count && err == RC_NORMAL; ii++)
+      {
+         rez->list[ ii] = strdup( st);
+         if( !rez->list[ ii]) err = ERR_MALLOC_FAILED;
+         else st += strlen( st) + dlen;;
+      }
+
+      if( buff) free( buff);
+   }
+
+   if( rc) *rc = err;
+
+   return rez;
+}
+
