@@ -20,8 +20,8 @@ CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl
-#LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -lxml2 -lm $(LD_OPTS_$(OS))
 LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -lxml2 -lm $(LD_OPTS_$(OS))
+#LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -lxml2 -lm $(LD_OPTS_$(OS)) /usr/local/src/debug/bug_malloc.o  /usr/local/src/trace/trace_table.o /usr/local/src/debug/dbg_hack_info.o
 ARCOMM = ar rlc
 
 # ---

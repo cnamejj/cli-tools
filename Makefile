@@ -13,9 +13,10 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	wait_until_sock_ready.o string-routines.o
 
 HTSOBJS = handle_ssl_error.o setup_ssl_env.o ssl_handshake.o stash_ssl_err_info.o \
-	verify_ssl_callback.o bio_ssl_callback.o calc_xfrates.o calc_standard_moments.o
+	verify_ssl_callback.o bio_ssl_callback.o calc_xfrates.o calc_standard_moments.o \
+	packet-svg-graphs.o
 
-SVGOBJS = svg-routines.o
+SVGOBJS = svg-routines.o packet-svg-graphs.o
 
 LIBS = libCLISUB.a
 UBIQ_H = err_ref.h net-task-data.h cli-sub.h
@@ -33,9 +34,12 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
-CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
+#CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
+CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
+#CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug -DDEBUG_MALLOC
 #LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG
 LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
+#LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
 ARCOMM = ar rlc
 
 # ---

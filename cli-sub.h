@@ -23,6 +23,10 @@
 #include <libxml/parser.h>
 #include <poll.h>
 
+#ifdef DEBUG_MALLOC
+#include "bug_malloc.h"
+#endif
+
 /* --- */
 
 #define SUBSET_READ  0x4

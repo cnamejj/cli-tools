@@ -182,6 +182,9 @@ int main(int narg, char **opts)
 /*        printf( "<!-- auto-digits: x: rc:%d sp:%f dig:%d df(%s) -->\n", rc, span, digits, df); */
     }
 
+    rc = svg_set_screen_width( chart, "49%");
+    rc = svg_set_screen_height( chart, "20%");
+
 /*
     rc = svg_set_reserve_height( chart, ???);
     rc = svg_set_reserve_width( chart, ???);

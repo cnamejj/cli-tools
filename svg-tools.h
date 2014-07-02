@@ -2,7 +2,13 @@
 
 #define ___CNAMEjj_SVG_TOOLS_H__
 
+#include <mcheck.h>
+
 #include "cli-sub.h"
+
+#ifdef DEBUG_MALLOC
+#include "bug_malloc.h"
+#endif
 
 /* --- */
 
@@ -24,8 +30,8 @@
 #define DEF_DAT_LIN_OP 0.5
 #define DEF_GR_FILL_RGB "#E034FF"
 #define DEF_GR_FILL_OP 0.05
-#define DEF_SC_HI "50%"
-#define DEF_SC_WID "100%"
+#define DEF_SC_HI "20%"
+#define DEF_SC_WID "49%"
 #define DEF_TEXT_RGB "#A89236"
 #define DEF_TEXT_OP 1.0
 #define DEF_X_GRID_RGB "#4DDFA2"
@@ -267,6 +273,8 @@ int svg_set_x_gridline_color(struct svg_model *svg, char *val);
 int svg_set_y_gridline_color(struct svg_model *svg, char *val);
 int svg_set_xax_disp(struct svg_model *svg, char *val);
 int svg_set_yax_disp(struct svg_model *svg, char *val);
+int svg_set_screen_width(struct svg_model *svg, char *val);
+int svg_set_screen_height(struct svg_model *svg, char *val);
 int svg_set_xax_num_grids(struct svg_model *svg, int size);
 int svg_set_yax_num_grids(struct svg_model *svg, int size);
 int svg_set_reserve_height(struct svg_model *svg, int size);
@@ -313,6 +321,8 @@ char *svg_get_x_gridline_color(struct svg_model *svg);
 char *svg_get_y_gridline_color(struct svg_model *svg);
 char *svg_get_xax_disp(struct svg_model *svg);
 char *svg_get_yax_disp(struct svg_model *svg);
+char *svg_get_screen_width(struct svg_model *svg);
+char *svg_get_screen_height(struct svg_model *svg);
 int svg_get_xax_num_grids(struct svg_model *svg);
 int svg_get_yax_num_grids(struct svg_model *svg);
 int svg_get_reserve_height(struct svg_model *svg);

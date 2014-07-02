@@ -11,6 +11,10 @@
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
 
+#ifdef DEBUG_MALLOC
+#include "bug_malloc.h"
+#endif
+
 /* --- */
 
 #ifdef USE_CLOCK_GETTIME
@@ -61,6 +65,9 @@
 #define FL_INTERFACE_2    "if"
 #define FL_MAX_REDIRECT   "redirect"
 #define FL_SSL_INSECURE   "insecure"
+#define FL_SHOW_SVG       "graph"
+#define FL_SVG_FILE       "grout"
+#define FL_SVG_STYLE      "grstyle"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -92,6 +99,9 @@
 #define OP_INTERFACE      28
 #define OP_MAX_REDIRECT   29
 #define OP_SSL_INSECURE   30
+#define OP_SHOW_SVG       31
+#define OP_SVG_FILE       32
+#define OP_SVG_STYLE      33
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -129,6 +139,9 @@
 #define DEF_INTERFACE      ""
 #define DEF_MAX_REDIRECT   "0"
 #define DEF_SSL_INSECURE   "0"
+#define DEF_SHOW_SVG       "0"
+#define DEF_SVG_FILE       "-"
+#define DEF_SVG_STYLE      "light"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -202,6 +215,9 @@ Content-type: text/html\r\n\
 #define ROOT_URI "/"
 #define INVALID_IP "Invalid-IP"
 #define UNKNOWN_URL "--unknown-url--"
+
+#define SVG_STYLE_LIGHT "light"
+#define SVG_STYLE_DARK "dark"
 
 #define IP_UNKNOWN 0
 #define IP_V4      1
@@ -375,6 +391,10 @@ No<input type=\"radio\" value=\"no\" name=\"num\"></td></tr>\n\
 No<input type=\"radio\" value=\"no\" name=\"timeheaders\"></td></tr>\n\
   <tr><td>Show packet receipt times:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"packetime\">\n\
 No<input type=\"radio\" value=\"no\" name=\"packetime\" checked></td></tr>\n\
+  <tr><td>Show packet level graphs:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"graph\" checked>\n\
+No<input type=\"radio\" value=\"no\" name=\"graph\"></td></tr>\n\
+  <tr><td>Graph style:</td><td> Light<input type=\"radio\" value=\"light\" name=\"grstyle\" checked>\n\
+Dark<input type=\"radio\" value=\"dark\" name=\"grstyle\"></td></tr>\n\
 \n\
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
   <tr><td colspan=2>Recipe:</td></tr>\n\
@@ -414,6 +434,39 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define PATT_USER_AGENT "%agent%"
 #define PATT_EXTRA_HEADERS "%exheaders%"
 #define PATT_HTTP_PROTOCOL "%httpprot%"
+
+/* --- */
+
+#define GR_PACK_TITLE_LEAD "Packet Receipt - URL: "
+#define GR_PACK_XAX_TITLE "Elapsed Time (secs)"
+#define GR_PACK_YAX_TITLE "Packetsize"
+
+#define GR_ACCDAT_TITLE_LEAD "Data Rec'd - URL: "
+#define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs)"
+#define GR_ACCDAT_YAX_TITLE "Data Received"
+
+#define GR_ALL_XAX_GRIDS 7
+#define GR_ALL_YAX_GRIDS 5
+#define GR_DATA_META_FORMAT "%%.%df"
+#define GR_ALL_CIRC_LINE_SIZE 10
+#define GR_ALL_CIRC_RADIUS 22
+#define GR_ALL_TEXT_COLOR "#124488"
+#define GR_ALL_AXIS_COLOR "#444444"
+#define GR_ALL_CHART_COLOR "#FFFFFF"
+#define GR_ALL_GRAPH_COLOR "#000000"
+#define GR_ALL_CIRC_FILL_COLOR "#088ea0"
+#define GR_ALL_CIRC_LINE_COLOR "#e0da24"
+#define GR_ALL_DATA_FILL_COLOR "#FFFFFF"
+#define GR_ALL_DATA_LINE_COLOR "#744e18"
+#define GR_ALL_XGRID_COLOR "#2e2e2e"
+#define GR_ALL_YGRID_COLOR "#2e2e2e"
+#define GR_ALL_GRAPH_ALPHA 0.05
+#define GR_ALL_CIRC_FILL_ALPHA 0.3
+#define GR_ALL_CIRC_LINE_ALPHA 0.4
+#define GR_ALL_DATA_FILL_ALPHA 0.0
+#define GR_ALL_DATA_LINE_ALPHA 0.6
+
+/* --- */
 
 #define USE_HTTP11 0
 #define USE_HTTP10 1
@@ -500,12 +553,14 @@ struct target_info {
 
 struct output_options {
   int out_html, debug_level;
-  FILE *info_out, *err_out;
+  char *svg_file, *svg_style;
+  FILE *info_out, *err_out, *svg_out;
 };
 
 struct display_settings {
   int show_head, show_data, show_timers, show_timerheaders,
-    show_packetime, show_help, show_complete, show_number;
+    show_packetime, show_help, show_complete, show_number,
+    show_svg;
   char *line_pref;
 };
 
@@ -592,6 +647,9 @@ Options are:\n\
     <--if device>\n\
     <--redirect max-levels>\n\
     <--insecure>\n\
+    <--graph>\n\
+    <--grout file-name.html>\n\
+    <--grstyle dark> | <--grstyle light>>\n\
 "
 
 /* --- */
@@ -680,6 +738,16 @@ void calc_xfrates( int want_event, struct fetch_status *status, struct stat_work
 void calc_standard_moments( struct fetch_status *status, struct stat_work *swork);
 
 struct stat_work *alloc_stat_work();
+
+char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title, char *xax_title, char *yax_title);
+
+char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
+
+char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
+
+char *make_psize_freq_graph( int *rc, char *url, struct fetch_status *fetch);
+
+char *make_rwait_freq_graph( int *rc, char *url, struct fetch_status *fetch);
 
 /* --- */
 

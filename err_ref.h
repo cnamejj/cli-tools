@@ -12,6 +12,10 @@
  * Todo
  * ----
  */
+
+#ifdef DEBUG_MALLOC
+#include "bug_malloc.h"
+#endif
   
 /* --- */
 

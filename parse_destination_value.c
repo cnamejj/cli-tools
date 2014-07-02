@@ -5,6 +5,9 @@
 #include "err_ref.h"
 #include "net-task-data.h"
 
+/* temporary to get debug malloc info... */
+#include "cli-sub.h"
+
 /* --- */
 
 int parse_destination_value( struct task_details *plan, char *destination)

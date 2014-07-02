@@ -25,17 +25,6 @@ if( *rc == RC_NORMAL ) \
     } \
 }
 
-#ifdef DEBUG_FREE
-#define dbg_free( SPOT) \
-{ \
-   fprintf( stderr, "--> Calling free() from %s (%d), spot %x\n", __FILE__, \
-     __LINE__, SPOT); \
-   free( SPOT); \
-}
-#else
-#define dbg_free( SPOT) free( SPOT)
-#endif
-
 /* --- */
 
 struct svg_model *svg_make_chart()
@@ -179,38 +168,38 @@ void svg_free_model( struct svg_model *svg )
 {
     if( svg )
     {
-        if( svg->xdata ) dbg_free( svg->xdata );
-        if( svg->ydata ) dbg_free( svg->ydata );
+        if( svg->xdata ) free( svg->xdata );
+        if( svg->ydata ) free( svg->ydata );
 
         svg->xdata = 0;
         svg->ydata = 0;
 
-        if( svg->chart_title ) dbg_free( svg->chart_title );
-        if( svg->xax_title ) dbg_free( svg->xax_title );
-        if( svg->yax_title ) dbg_free( svg->yax_title );
-        if( svg->text_size ) dbg_free( svg->text_size );
-        if( svg->axis_color ) dbg_free( svg->axis_color );
-        if( svg->chart_color ) dbg_free( svg->chart_color );
-        if( svg->graph_color ) dbg_free( svg->graph_color );
-        if( svg->circ_fill_color ) dbg_free( svg->circ_fill_color );
-        if( svg->circ_line_color ) dbg_free( svg->circ_line_color );
-        if( svg->data_fill_color ) dbg_free( svg->data_fill_color );
-        if( svg->data_line_color ) dbg_free( svg->data_line_color );
-        if( svg->text_color ) dbg_free( svg->text_color );
-        if( svg->x_gridline_color ) dbg_free( svg->x_gridline_color );
-        if( svg->y_gridline_color ) dbg_free( svg->y_gridline_color );
-        if( svg->xax_disp ) dbg_free( svg->xax_disp );
-        if( svg->yax_disp ) dbg_free( svg->yax_disp );
-        if( svg->screen_height ) dbg_free( svg->screen_height );
-        if( svg->screen_width ) dbg_free( svg->screen_width );
-        if( svg->svt_row_label ) dbg_free( svg->svt_row_label );
-        if( svg->svt_row_line ) dbg_free( svg->svt_row_line );
-        if( svg->svt_col_label ) dbg_free( svg->svt_col_label );
-        if( svg->svt_col_line ) dbg_free( svg->svt_col_line );
-        if( svg->svt_circ_elem ) dbg_free( svg->svt_circ_elem );
-        if( svg->svt_path_start ) dbg_free( svg->svt_path_start );
-        if( svg->svt_path_points ) dbg_free( svg->svt_path_points );
-        if( svg->svt_chart ) dbg_free( svg->svt_chart );
+        if( svg->chart_title ) free( svg->chart_title );
+        if( svg->xax_title ) free( svg->xax_title );
+        if( svg->yax_title ) free( svg->yax_title );
+        if( svg->text_size ) free( svg->text_size );
+        if( svg->axis_color ) free( svg->axis_color );
+        if( svg->chart_color ) free( svg->chart_color );
+        if( svg->graph_color ) free( svg->graph_color );
+        if( svg->circ_fill_color ) free( svg->circ_fill_color );
+        if( svg->circ_line_color ) free( svg->circ_line_color );
+        if( svg->data_fill_color ) free( svg->data_fill_color );
+        if( svg->data_line_color ) free( svg->data_line_color );
+        if( svg->text_color ) free( svg->text_color );
+        if( svg->x_gridline_color ) free( svg->x_gridline_color );
+        if( svg->y_gridline_color ) free( svg->y_gridline_color );
+        if( svg->xax_disp ) free( svg->xax_disp );
+        if( svg->yax_disp ) free( svg->yax_disp );
+        if( svg->screen_height ) free( svg->screen_height );
+        if( svg->screen_width ) free( svg->screen_width );
+        if( svg->svt_row_label ) free( svg->svt_row_label );
+        if( svg->svt_row_line ) free( svg->svt_row_line );
+        if( svg->svt_col_label ) free( svg->svt_col_label );
+        if( svg->svt_col_line ) free( svg->svt_col_line );
+        if( svg->svt_circ_elem ) free( svg->svt_circ_elem );
+        if( svg->svt_path_start ) free( svg->svt_path_start );
+        if( svg->svt_path_points ) free( svg->svt_path_points );
+        if( svg->svt_chart ) free( svg->svt_chart );
 
         svg->chart_title = 0;
         svg->xax_title = 0;
@@ -239,7 +228,7 @@ void svg_free_model( struct svg_model *svg )
         svg->svt_path_points = 0;
         svg->svt_chart = 0;
 
-        dbg_free( svg );
+        free( svg );
         svg = 0;
     }
 
@@ -291,7 +280,11 @@ int svg_finalize_model( struct svg_model *svg )
         if( svg->xax_border == SVG_NO_VALUE ) svg->xax_border = svg->graph_width + svg->reserve_width + svg->shift_width;
         if( svg->yax_border == SVG_NO_VALUE ) svg->yax_border = svg->graph_height + svg->reserve_height + svg->shift_height;
 
-        if( svg->text_size ) if( !*svg->text_size ) svg->text_size = 0;
+        if( svg->text_size ) if( !*svg->text_size )
+        {
+            free( svg->text_size);
+            svg->text_size = 0;
+	}
         if( !svg->text_size ) svg->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
     }
 
@@ -315,8 +308,8 @@ int svg_add_double_data( struct svg_model *svg, int cases, double *xval, double 
         if( !xdata || !ydata )
         {
             rc = ERR_MALLOC_FAILED;
-            if( xdata ) dbg_free( xdata );
-            if( ydata ) dbg_free( ydata );
+            if( xdata ) free( xdata );
+            if( ydata ) free( ydata );
 	}
         else
         {
@@ -365,8 +358,8 @@ int svg_add_float_data( struct svg_model *svg, int cases, float *xval, float *yv
         if( !xdata || !ydata )
         {
             rc = ERR_MALLOC_FAILED;
-            if( xdata ) dbg_free( xdata );
-            if( ydata ) dbg_free( ydata );
+            if( xdata ) free( xdata );
+            if( ydata ) free( ydata );
 	}
         else
         {
@@ -415,8 +408,8 @@ int svg_add_int_data( struct svg_model *svg, int cases, int *xval, int *yval)
         if( !xdata || !ydata )
         {
             rc = ERR_MALLOC_FAILED;
-            if( xdata ) dbg_free( xdata );
-            if( ydata ) dbg_free( ydata );
+            if( xdata ) free( xdata );
+            if( ydata ) free( ydata );
 	}
         else
         {
@@ -482,7 +475,7 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
     {
         label += label_incr;
 
-        if( label_sub->to ) dbg_free( label_sub->to );
+        if( label_sub->to ) free( label_sub->to );
         label_sub->to = string_from_float( rc, label, svg->yax_disp );
         if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
         else
@@ -490,20 +483,20 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
             one_label = gsub_string( rc, template, subs );
             accumulate = combine_strings( rc, svg_part, one_label );
 
-            if( one_label ) dbg_free( one_label );
+            if( one_label ) free( one_label );
             one_label = 0;
 
-            if( svg_part ) dbg_free( svg_part );
+            if( svg_part ) free( svg_part );
             svg_part = accumulate;
             accumulate = 0;
 	}
     }
     
-    for( walk = subs; !walk; )
+    for( walk = subs; walk; )
     {
         subs = walk->next;
-        if( walk->to ) dbg_free( walk->to );
-        dbg_free( walk );
+        if( walk->to ) free( walk->to );
+        free( walk );
         walk = subs;
     }
 
@@ -511,7 +504,7 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
 
     if( *rc != RC_NORMAL && svg_part )
     {
-        dbg_free( svg_part );
+        free( svg_part );
         svg_part = 0;
     }
 
@@ -569,8 +562,8 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
         xpos_adj += xpos_incr;
         xpos = svg->graph_left_col + (int) xpos_adj;
 
-        if( label_sub->to ) dbg_free( label_sub->to );
-        if( xpos_sub->to ) dbg_free( xpos_sub->to );
+        if( label_sub->to ) free( label_sub->to );
+        if( xpos_sub->to ) free( xpos_sub->to );
 
         label_sub->to = string_from_float( rc, label, svg->xax_disp );
         xpos_sub->to = string_from_int( rc, xpos, 0 );
@@ -581,20 +574,20 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
             one_label = gsub_string( rc, template, subs );
             accumulate = combine_strings( rc, svg_part, one_label );
 
-            if( one_label ) dbg_free( one_label );
+            if( one_label ) free( one_label );
             one_label = 0;
 
-            if( svg_part ) dbg_free( svg_part );
+            if( svg_part ) free( svg_part );
             svg_part = accumulate;
             accumulate = 0;
 	}
     }
     
-    for( walk = subs; !walk; )
+    for( walk = subs; walk; )
     {
         subs = walk->next;
-        if( walk->to ) dbg_free( walk->to );
-        dbg_free( walk );
+        if( walk->to ) free( walk->to );
+        free( walk );
         walk = subs;
     }
 
@@ -602,7 +595,7 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
 
     if( *rc != RC_NORMAL && svg_part )
     {
-        dbg_free( svg_part );
+        free( svg_part );
         svg_part = 0;
     }
 
@@ -636,7 +629,7 @@ char *svg_make_yax_grid( int *rc, struct svg_model *svg )
 
     if( *rc != RC_NORMAL && svg_part )
     {
-        dbg_free( svg_part );
+        free( svg_part );
         svg_part = 0;
     }
 
@@ -670,7 +663,7 @@ char *svg_make_xax_grid( int *rc, struct svg_model *svg )
 
     if( *rc != RC_NORMAL && svg_part )
     {
-        dbg_free( svg_part );
+        free( svg_part );
         svg_part = 0;
     }
 
@@ -782,7 +775,6 @@ char *svg_make_path_start( int *rc, struct svg_model *svg )
         xpos = svg->graph_left_col + (xscale * xpc);
 
         yscale = svg->yax_border - svg->graph_top_row;
-/*        ypc = (svg->ymax - *svg->ydata) / (svg->ymax - svg->ymin); */
         ypc = (*svg->ydata - svg->ymin) / (svg->ymax - svg->ymin); 
         ypos = svg->graph_top_row + (yscale * ypc); 
         ypos = svg->yax_border - (yscale * ypc); 
@@ -1018,55 +1010,56 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
-        ADD_SUB_PAIR_RULE( S_AXIS_RGB, svg->axis_color )
+        ADD_SUB_PAIR_RULE( S_AXIS_RGB, strdup( svg->axis_color ) )
         allsubs = rule;
     }
 
+    ADD_SUB_PAIR_RULE( S_BG_RGB, strdup( svg->chart_color ) )
+    ADD_SUB_PAIR_RULE( S_CIR_FILL_RGB, strdup( svg->circ_fill_color ) )
+    ADD_SUB_PAIR_RULE( S_CIR_LIN_RGB, strdup( svg->circ_line_color ) )
+    ADD_SUB_PAIR_RULE( S_DAT_FILL_RGB, strdup( svg->data_fill_color ) )
+    ADD_SUB_PAIR_RULE( S_DAT_LIN_RGB, strdup( svg->data_line_color ) )
+    ADD_SUB_PAIR_RULE( S_GR_FILL_RGB, strdup( svg->graph_color ) )
+    ADD_SUB_PAIR_RULE( S_SC_HI, strdup( svg->screen_height ) )
+    ADD_SUB_PAIR_RULE( S_SC_WID, strdup( svg->screen_width ) )
+    ADD_SUB_PAIR_RULE( S_TEXT_RGB, strdup( svg->text_color ) )
+    ADD_SUB_PAIR_RULE( S_TEXT_SIZE, strdup( svg->text_size ) )
+    ADD_SUB_PAIR_RULE( S_X_GRID_RGB, strdup( svg->x_gridline_color ) )
+    ADD_SUB_PAIR_RULE( S_YAXIS_TITLE, strdup( svg->yax_title ) )
+    ADD_SUB_PAIR_RULE( S_XAXIS_TITLE, strdup( svg->xax_title ) )
+    ADD_SUB_PAIR_RULE( S_Y_GRID_RGB, strdup( svg->y_gridline_color ) )
+    ADD_SUB_PAIR_RULE( S_CHA_TITLE_TEXT, strdup( svg->chart_title ) )
+
     ADD_SUB_PAIR_RULE( S_AXIS_OP, string_from_float( rc, svg->axis_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_AXIS_SIZE, string_from_int( rc, svg->axis_size, 0 ) )
-    ADD_SUB_PAIR_RULE( S_BG_RGB, svg->chart_color )
     ADD_SUB_PAIR_RULE( S_CH_HI, string_from_int( rc, svg->chart_height, 0 ) )
     ADD_SUB_PAIR_RULE( S_CH_WID, string_from_int( rc, svg->chart_width, 0 ) )
-    ADD_SUB_PAIR_RULE( S_CIR_FILL_RGB, svg->circ_fill_color )
     ADD_SUB_PAIR_RULE( S_CIR_FILL_OP, string_from_float( rc, svg->circ_fill_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_CIR_LIN_RGB, svg->circ_line_color )
     ADD_SUB_PAIR_RULE( S_CIR_LIN_OP, string_from_float( rc, svg->circ_line_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_CIR_LIN_SIZE, string_from_int( rc, svg->circ_line_size, 0 ) )
     ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, svg->circ_radius, 0 ) )
-    ADD_SUB_PAIR_RULE( S_DAT_FILL_RGB, svg->data_fill_color )
     ADD_SUB_PAIR_RULE( S_DAT_FILL_OP, string_from_float( rc, svg->data_fill_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_DAT_LIN_RGB, svg->data_line_color )
     ADD_SUB_PAIR_RULE( S_DAT_LIN_OP, string_from_float( rc, svg->data_line_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_DAT_LIN_SIZE, string_from_int( rc, svg->data_line_size, 0 ) )
-    ADD_SUB_PAIR_RULE( S_GR_FILL_RGB, svg->graph_color )
     ADD_SUB_PAIR_RULE( S_GR_FILL_OP, string_from_float( rc, svg->graph_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_GR_AREA_HI, string_from_int( rc, svg->graph_height, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_AREA_WID, string_from_int( rc, svg->graph_width, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_LEFT_COL, string_from_int( rc, svg->graph_left_col, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_TOP_ROW, string_from_int( rc, svg->graph_top_row, 0 ) )
     ADD_SUB_PAIR_RULE( S_HI_RES, string_from_int( rc, svg->reserve_height, 0 ) )
-    ADD_SUB_PAIR_RULE( S_SC_HI, svg->screen_height )
-    ADD_SUB_PAIR_RULE( S_SC_WID, svg->screen_width )
-    ADD_SUB_PAIR_RULE( S_TEXT_RGB, svg->text_color )
     ADD_SUB_PAIR_RULE( S_TEXT_OP, string_from_float( rc, svg->text_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_TEXT_SIZE, svg->text_size )
     ADD_SUB_PAIR_RULE( S_WID_RES, string_from_int( rc, svg->reserve_width, 0 ) )
     ADD_SUB_PAIR_RULE( S_XAXIS_WID, string_from_int( rc, svg->xax_width, 0 ) )
     ADD_SUB_PAIR_RULE( S_X_CH_BORD, string_from_int( rc, svg->xax_border, 0 ) )
-    ADD_SUB_PAIR_RULE( S_X_GRID_RGB, svg->x_gridline_color )
     ADD_SUB_PAIR_RULE( S_X_GRID_OP, string_from_float( rc, svg->x_gridline_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_X_GRID_SIZE, string_from_int( rc, svg->x_gridline_size, 0 ) )
     ADD_SUB_PAIR_RULE( S_YAXIS_HI, string_from_int( rc, svg->yax_height, 0 ) )
     ADD_SUB_PAIR_RULE( S_YAXIS_TEXT_COL, string_from_int( rc, svg->yax_text_col, 0 ) )
     ADD_SUB_PAIR_RULE( S_YAXIS_TEXT_FLOOR, string_from_int( rc, svg->yax_text_floor, 0 ) )
-    ADD_SUB_PAIR_RULE( S_YAXIS_TITLE, svg->yax_title )
     ADD_SUB_PAIR_RULE( S_XAXIS_TEXT_FLOOR, string_from_int( rc, svg->xax_text_floor, 0 ) )
-    ADD_SUB_PAIR_RULE( S_XAXIS_TITLE, svg->xax_title )
     ADD_SUB_PAIR_RULE( S_Y_CH_BORD, string_from_int( rc, svg->yax_border, 0 ) )
-    ADD_SUB_PAIR_RULE( S_Y_GRID_RGB, svg->y_gridline_color )
     ADD_SUB_PAIR_RULE( S_Y_GRID_OP, string_from_float( rc, svg->y_gridline_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_Y_GRID_SIZE, string_from_int( rc, svg->y_gridline_size, 0 ) )
-    ADD_SUB_PAIR_RULE( S_CHA_TITLE_TEXT, svg->chart_title )
     ADD_SUB_PAIR_RULE( S_CHA_WID_MIDPOINT, string_from_int( rc, svg->chart_width_midp, 0 ) )
     ADD_SUB_PAIR_RULE( S_CHA_HI_MIDPOINT, string_from_int( rc, svg->chart_height_midp, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_WID_MIDPOINT, string_from_int( rc, svg->graph_width_midp, 0 ) )
@@ -1484,6 +1477,52 @@ char *svg_get_yax_disp( struct svg_model *svg )
 {
     if( !svg ) return( 0 );
     else return( svg->yax_disp );
+}
+
+/* --- */
+
+int svg_set_screen_width( struct svg_model *svg, char *val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else if( !val ) rc = ERR_BAD_PARMS;
+    else rc = svg_replace_string( &svg->screen_width, val );
+
+    return( rc );
+}
+
+/* --- */
+
+char *svg_get_screen_width( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0 );
+    else return( svg->screen_width );
+}
+
+/* --- */
+
+int svg_set_screen_height( struct svg_model *svg, char *val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else if( !val ) rc = ERR_BAD_PARMS;
+    else rc = svg_replace_string( &svg->screen_height, val );
+
+    return( rc );
+}
+
+/* --- */
+
+char *svg_get_screen_height( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0 );
+    else return( svg->screen_height );
 }
 
 /* --- */

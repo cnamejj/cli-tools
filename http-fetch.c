@@ -35,6 +35,8 @@
 #include "cli-sub.h"
 #include "err_ref.h"
 
+/* #include <mcheck.h> */
+
 /* --- */
 
 void debug_timelog( FILE *out, char *prefix, char *tag)
@@ -601,7 +603,6 @@ int execute_fetch_plan( struct plan_data *plan)
         stats_from_packets( &rc, plan, seq);
 
         dump_checkpoint_chain( plan);
-
         display_output( &rc, plan, seq);
 
         redirect_url = get_redirect_location( &rc, plan);
@@ -2015,8 +2016,10 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     long top, now_sec = 0, now_sub = 0, prev_sec = 0, prev_sub = 0,
       diff_sec = 0, diff_sub = 0;
     float elap = 0.0, totrate, datarate;
-    char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark, *url = 0;
+    char *pos = 0, *last_pos = 0, datarate_mark, totrate_mark, *url = 0,
+      *packet_graph, *accdata_graph, *psize_freq_graph, *rwait_freq_graph;
     char disp_time[ TIME_DISPLAY_SIZE], xdig_conv[ 2] = { '\0', '\0'};
+    
     struct fetch_status *status = 0;
     struct output_options *out = 0;
     struct ckpt_chain *walk = 0, *before = 0;
@@ -2037,6 +2040,11 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         profile = plan->profile;
         if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
         if( !targ) targ = plan->target;
+
+        if( plan->redirect) if( plan->redirect->conn_url) url = plan->redirect->conn_url;
+        if( !url) if( plan->target) if( plan->target->conn_url) url = plan->target->conn_url;
+        if( !url) url = UNKNOWN_URL;
+        else if( !*url) url = UNKNOWN_URL;
 
         top = (long) (1.0 / status->clock_res);
         head_spot = breakout->head_spot;
@@ -2116,11 +2124,6 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
         if( !plan->partlist->response_status) http_rc = 999;
         else http_rc = plan->partlist->response_status->code;
-
-        if( plan->redirect) if( plan->redirect->conn_url) url = plan->redirect->conn_url;
-        if( !url) if( plan->target) if( plan->target->conn_url) url = plan->target->conn_url;
-        if( !url) url = UNKNOWN_URL;
-        else if( !*url) url = UNKNOWN_URL;
 
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
         fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
@@ -2214,6 +2217,22 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
         fprintf( out->info_out, "\n");
+    }
+
+    if( *rc == RC_NORMAL && display->show_svg)
+    {
+        packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        psize_freq_graph = make_psize_freq_graph( rc, url, status);
+        rwait_freq_graph = make_rwait_freq_graph( rc, url, status);
+
+        if( *rc == RC_NORMAL) fprintf( out->svg_out, "</pre>%s\n%s\n%s\n%s\n<pre>", packet_graph,
+          accdata_graph, psize_freq_graph, rwait_freq_graph);
+
+        if( packet_graph) free( packet_graph);
+        if( accdata_graph) free( accdata_graph);
+        if( psize_freq_graph) free( psize_freq_graph);
+        if( rwait_freq_graph) free( rwait_freq_graph);
     }
 
     if( *rc == RC_NORMAL && (display->show_head || display->show_data))
@@ -2580,7 +2599,7 @@ int construct_request( struct plan_data *plan)
     if( rc == RC_NORMAL) fetch->last_state |= LS_GEN_REQUEST;
 
     if( added_headers) free( added_headers);
-    for( walk = subs; !walk; )
+    for( walk = subs; walk; )
     {
         subs = walk->next;
         free( walk);
@@ -2749,8 +2768,11 @@ struct plan_data *allocate_hf_plan_data()
 
         out->out_html = 0;
         out->debug_level = 0;
+        out->svg_style = strdup( EMPTY_STRING);
         out->info_out = stdout;
         out->err_out = stderr;
+        out->svg_file = strdup( EMPTY_STRING);
+        out->svg_out = stdout;
 
         disp->show_head = 0;
         disp->show_data = 0;
@@ -2761,6 +2783,7 @@ struct plan_data *allocate_hf_plan_data()
         disp->show_complete = 0;
         disp->show_number = 0;
         disp->line_pref = strdup( EMPTY_STRING);
+        disp->show_svg = 0;
 
         runex->loop_count = 0;
         runex->loop_pause = 0;
@@ -2899,6 +2922,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_INTERFACE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_INTERFACE_2,    0, DEF_INTERFACE,    0, 0 },
       { OP_MAX_REDIRECT, OP_TYPE_INT,  OP_FL_BLANK,   FL_MAX_REDIRECT,   0, DEF_MAX_REDIRECT, 0, 0 },
       { OP_SSL_INSECURE, OP_TYPE_FLAG, OP_FL_BLANK,   FL_SSL_INSECURE,   0, DEF_SSL_INSECURE, 0, 0 },
+      { OP_SHOW_SVG,     OP_TYPE_FLAG, OP_FL_BLANK,   FL_SHOW_SVG,       0, DEF_SHOW_SVG,     0, 0 },
+      { OP_SVG_FILE,     OP_TYPE_CHAR, OP_FL_BLANK,   FL_SVG_FILE,       0, DEF_SVG_FILE,     0, 0 },
+      { OP_SVG_STYLE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_SVG_STYLE,      0, DEF_SVG_STYLE,    0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -3250,6 +3276,25 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         target->insecure_cert = *((int *) co->parsed);
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_SVG_FILE, opset, nflags)))
+    {
+        display->show_svg = 1;
+        SHOW_OPT_IF_DEBUG( display->line_pref, "grout")
+        out->svg_file = (char *) co->parsed;
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_SHOW_SVG, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "graph")
+        display->show_svg = *((int *) co->parsed);
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_SVG_STYLE, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "grstyle")
+        out->svg_style = (char *) co->parsed;
+    }
+
     /* ---
      * If the options controlling which parts of the response conflict, then
      *   check where each was given on the command line to decide which
@@ -3301,6 +3346,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         dev_info = get_matching_interface( runex->bind_interface, ip_pref, IFF_UP);
         if( !dev_info) rc = ERR_UNSUPPORTED; /* No device matching name/protocol... Set an error message */
         else runex->device_summ = dev_info;
+    }
+
+    if( rc == RC_NORMAL && display->show_svg)
+    {
+        if( out->out_html) out->svg_out = stdout;
+        else
+        {
+            out->svg_out = fopen( out->svg_file, "w");
+            if( !out->svg_out) rc = ERR_OPEN_FAILED;
+	}
     }
 
     /* --- */
@@ -3414,6 +3469,11 @@ int main( int narg, char **opts)
     struct fetch_status *fetch = 0;
     struct value_chain *chain = 0;
 
+#ifdef DEBUG_MALLOC
+bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE);
+/* bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE); */
+#endif
+
     /* --- */
 
     plan = figure_out_plan( &rc, narg, opts);
@@ -3473,12 +3533,16 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - show-help: %d\n", disp->show_help);
         fprintf( out->info_out, "- - - - show-all-results: %d\n", disp->show_complete);
         fprintf( out->info_out, "- - - - show-number: %d\n", disp->show_number);
+        fprintf( out->info_out, "- - - - show-svg: %d\n", disp->show_svg);
 
         fprintf( out->info_out, "\n- - Output:\n");
         fprintf( out->info_out, "- - - - out-html: %d\n", out->out_html);
         fprintf( out->info_out, "- - - - debug-level: %d\n", out->debug_level);
         fprintf( out->info_out, "- - - - info-out: %d\n", fileno( out->info_out));
         fprintf( out->info_out, "- - - - err-out: %d\n", fileno( out->err_out));
+        fprintf( out->info_out, "- - - - svg-style: %s\n", out->svg_style);
+        fprintf( out->info_out, "- - - - svg-file: %s\n", out->svg_file);
+        fprintf( out->info_out, "- - - - svg-out: %d\n", fileno( out->svg_out));
 
         fprintf( out->info_out, "\n- - RunEx:\n");
         fprintf( out->info_out, "- - - - loop-count: %d\n", runex->loop_count);
