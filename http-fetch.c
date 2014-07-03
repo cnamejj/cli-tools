@@ -2223,8 +2223,8 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     {
         packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl, status);
         accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl, status);
-        psize_freq_graph = make_psize_freq_graph( rc, url, status);
-        rwait_freq_graph = make_rwait_freq_graph( rc, url, status);
+        psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
 
         if( *rc == RC_NORMAL) fprintf( out->svg_out, "</pre>%s\n%s\n%s\n%s\n<pre>", packet_graph,
           accdata_graph, psize_freq_graph, rwait_freq_graph);

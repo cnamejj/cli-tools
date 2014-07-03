@@ -106,7 +106,16 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
         cases = 0;
         for( walk = fetch->checkpoint; walk; walk = walk->next)
           if( walk->event == event && walk->detail) cases++;
+    }
 
+    if( *rc == RC_NORMAL && cases < GR_MIN_CASES)
+    {
+        result = strdup( GR_PACK_NOGRAPH);
+        if( !result) *rc = ERR_MALLOC_FAILED;
+    }
+
+    else if( *rc == RC_NORMAL)
+    {
         elap = (float *) malloc( cases * (sizeof *elap));
         psize = (float *) malloc( cases * (sizeof *psize));
 
@@ -130,9 +139,9 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
 		}
 	    }
 	}
-    }
 
-    result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE, GR_PACK_YAX_TITLE);
+        result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE, GR_PACK_YAX_TITLE);
+    }
 
     if( title) free( title);
     if( elap) free( elap);
@@ -162,7 +171,16 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
         cases = 0;
         for( walk = fetch->checkpoint; walk; walk = walk->next)
           if( walk->event == event && walk->detail) cases++;
+    }
 
+    if( *rc == RC_NORMAL && cases < GR_MIN_CASES)
+    {
+        result = strdup( GR_PACK_NOGRAPH);
+        if( !result) *rc = ERR_MALLOC_FAILED;
+    }
+
+    else if( *rc == RC_NORMAL)
+    {
         elap = (float *) malloc( cases * (sizeof *elap));
         recbytes = (float *) malloc( cases * (sizeof *recbytes));
 
@@ -187,9 +205,9 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
 		}
 	    }
 	}
-    }
 
-    result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE, GR_ACCDAT_YAX_TITLE);
+        result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE, GR_ACCDAT_YAX_TITLE);
+    }
 
     if( title) free( title);
     if( elap) free( elap);
@@ -200,31 +218,209 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
 
 /* --- */
 
-char *make_psize_freq_graph( int *rc, char *url, struct fetch_status *fetch)
+char *make_psize_freq_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch)
 
 {
-    char *svg_doc = 0;
+    int event, dlen, dmin, dmax, off, cases, spot, heaps;
+    char *result = 0, *title = 0;
+    float *psfreq = 0, *bracket = 0, span;
+    struct ckpt_chain *walk;
+
+    heaps = GR_FREQ_BRACKETS;
+    title = combine_strings( rc, GR_FR_PSIZE_TITLE_LEAD, url);
 
     if( *rc == RC_NORMAL)
     {
-        svg_doc = strdup( "<!-- packet-size freq graph goes here -->");
+        if( ssl) event = EVENT_SSL_NET_READ;
+        else event = EVENT_READ_PACKET;
+
+        cases = 0;
+        for( walk = fetch->checkpoint; walk; walk = walk->next)
+        {
+            if( walk->event == event && walk->detail)
+            {
+                dlen = walk->detail->len;
+                if( !cases) dmin = dmax = dlen;
+                if( dlen < dmin) dmin = dlen;
+                if( dlen > dmax) dmax = dlen;
+                cases++;
+	    }
+	}
+
+/* printf( "dbg:: PSFR: cases:%d min:%d max:%d\n", cases, dmin, dmax); */
+
+        bracket = (float *) malloc( heaps * (sizeof *bracket));
+        psfreq = (float *) malloc( heaps * (sizeof *psfreq));
+
+        if( !bracket || !psfreq) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            for( off = 0; off < heaps; off++) *(psfreq + off) = 0.0;
+
+            if( dmax == dmin)
+            {
+                *bracket = dmin;
+                *psfreq = cases;
+                heaps = 1;
+	    }
+            else
+            {
+                span = ((float) (dmax - dmin)) / heaps;
+/* printf( "dbg:: PSFR: brackets:%d span:%f\n", heaps, span); */
+
+                *bracket = dmin + (span / 2);
+                for( off = 1; off < heaps; off++)
+                  *(bracket + off) = *(bracket + off - 1) + span;
+
+                for( walk = fetch->checkpoint; walk; walk = walk->next)
+                {
+                    if( walk->event == event && walk->detail)
+                    {
+                        dlen = walk->detail->len;
+                        spot = (dlen - dmin) / span;
+                        *(psfreq + spot) += 1;
+		    }
+		}
+
+                spot = 0;
+                for( off = 0; off < heaps; off++)
+                {
+                    if( *(psfreq + off) > 0.0)
+                    {
+                        *(psfreq + spot) = *(psfreq + off);
+                        *(bracket + spot) = *(bracket + off);
+                        spot++;
+		    }
+		}
+
+                heaps = spot;
+                if( !heaps) heaps = 1;
+
+/*
+for( off = 0; off < heaps; off++)
+{
+    printf( "dbg:: PSFR: data: %d. %f %f\n", off, *(bracket + off), *(psfreq + off));
+}
+ */
+	    }
+	}
+
+        result = hf_generate_graph( rc, heaps, bracket, psfreq, style, title, GR_FR_PSIZE_XAX_TITLE, GR_FR_PSIZE_YAX_TITLE);
     }
 
-    return( svg_doc);
+    if( title) free( title);
+    if( psfreq) free( psfreq);
+    if( bracket) free( bracket);
+
+    return( result);
 }
 
 /* --- */
 
-char *make_rwait_freq_graph( int *rc, char *url, struct fetch_status *fetch)
+char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch)
 
 {
-    char *svg_doc = 0;
+    int event, off, cases, spot, heaps;
+    char *result = 0, *title = 0;
+    float *waitfreq = 0, *bracket = 0, span, delta, dmin, dmax;
+    struct ckpt_chain *walk, *prev = 0;
+
+    heaps = GR_FREQ_BRACKETS;
+    title = combine_strings( rc, GR_FR_RWAIT_TITLE_LEAD, url);
 
     if( *rc == RC_NORMAL)
     {
-        svg_doc = strdup( "<!-- read-wait freq graph goes here -->");
+        if( ssl) event = EVENT_SSL_NET_READ;
+        else event = EVENT_READ_PACKET;
+
+        cases = 0;
+        prev = 0;
+        for( walk = fetch->checkpoint; walk; walk = walk->next)
+        {
+            if( walk->event == event && walk->detail)
+            {
+                if( prev)
+                {
+                    delta = calc_time_difference( &prev->clock, &walk->clock, fetch->clock_res);
+                    if( !cases) dmin = dmax = delta;
+                    if( delta < dmin) dmin = delta;
+                    if( delta > dmax) dmax = delta;
+                    cases++;
+		}
+                prev = walk;
+	    }
+	}
+
+/* printf( "dbg:: RWFR: cases:%d min:%f max:%f\n", cases, dmin, dmax); */
+
+        bracket = (float *) malloc( heaps * (sizeof *bracket));
+        waitfreq = (float *) malloc( heaps * (sizeof *waitfreq));
+
+        if( !bracket || !waitfreq) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            for( off = 0; off < heaps; off++) *(waitfreq + off) = 0.0;
+
+            if( dmax == dmin)
+            {
+                *bracket = dmin;
+                *waitfreq = cases;
+                heaps = 1;
+	    }
+            else
+            {
+                span = (dmax - dmin) / heaps;
+/* printf( "dbg:: RWFR: brackets:%d span:%f\n", heaps, span); */
+
+                *bracket = dmin + (span / 2);
+                for( off = 1; off < heaps; off++)
+                  *(bracket + off) = *(bracket + off - 1) + span;
+
+                prev = 0;
+                for( walk = fetch->checkpoint; walk; walk = walk->next)
+                {
+                    if( walk->event == event && walk->detail)
+                    {
+                        if( prev)
+                        {
+                            delta = calc_time_difference( &prev->clock, &walk->clock, fetch->clock_res);
+                            spot = (delta - dmin) / span;
+                            *(waitfreq + spot) += 1;
+                        }
+                        prev = walk;
+		    }
+		}
+
+                spot = 0;
+                for( off = 0; off < heaps; off++)
+                {
+                    if( *(waitfreq + off) > 0.0)
+                    {
+                        *(waitfreq + spot) = *(waitfreq + off);
+                        *(bracket + spot) = *(bracket + off);
+                        spot++;
+		    }
+		}
+
+                heaps = spot;
+                if( !heaps) heaps = 1;
+
+/*
+for( off = 0; off < heaps; off++)
+{
+    printf( "dbg:: RWFR: data: %d. %f %f\n", off, *(bracket + off), *(waitfreq + off));
+}
+ */
+	    }
+	}
+
+        result = hf_generate_graph( rc, heaps, bracket, waitfreq, style, title, GR_FR_RWAIT_XAX_TITLE, GR_FR_RWAIT_YAX_TITLE);
     }
 
-    return( svg_doc);
+    if( title) free( title);
+    if( waitfreq) free( waitfreq);
+    if( bracket) free( bracket);
+
+    return( result);
 }
 
