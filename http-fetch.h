@@ -445,12 +445,12 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs)"
 #define GR_ACCDAT_YAX_TITLE "Data Received"
 
-#define GR_FR_PSIZE_TITLE_LEAD "Freq of packet sizes - URL: "
-#define GR_FR_PSIZE_XAX_TITLE "Packet size"
+#define GR_FR_PSIZE_TITLE_LEAD "Freq of Packet Sizes - URL: "
+#define GR_FR_PSIZE_XAX_TITLE "Packet Size"
 #define GR_FR_PSIZE_YAX_TITLE "Frequency"
 
-#define GR_FR_RWAIT_TITLE_LEAD "Freq of packet wait - URL: "
-#define GR_FR_RWAIT_XAX_TITLE "Read wait"
+#define GR_FR_RWAIT_TITLE_LEAD "Freq of Packet Wait - URL: "
+#define GR_FR_RWAIT_XAX_TITLE "Read Wait (secs)"
 #define GR_FR_RWAIT_YAX_TITLE "Frequency"
 
 #define GR_ALL_XAX_GRIDS 7

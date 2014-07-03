@@ -30,7 +30,7 @@
 #define DEF_DAT_LIN_OP 0.5
 #define DEF_GR_FILL_RGB "#E034FF"
 #define DEF_GR_FILL_OP 0.05
-#define DEF_SC_HI "20%"
+#define DEF_SC_HI "25%"
 #define DEF_SC_WID "49%"
 #define DEF_TEXT_RGB "#A89236"
 #define DEF_TEXT_OP 1.0
