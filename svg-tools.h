@@ -2,7 +2,7 @@
 
 #define ___CNAMEjj_SVG_TOOLS_H__
 
-#include <mcheck.h>
+/* #include <mcheck.h> */
 
 #include "cli-sub.h"
 
