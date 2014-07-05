@@ -438,11 +438,11 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 /* --- */
 
 #define GR_PACK_TITLE_LEAD "Packet Receipt - URL: "
-#define GR_PACK_XAX_TITLE "Elapsed Time (secs)"
+#define GR_PACK_XAX_TITLE "Elapsed Time (secs since 1st read)"
 #define GR_PACK_YAX_TITLE "Packetsize"
 
 #define GR_ACCDAT_TITLE_LEAD "Data Rec'd - URL: "
-#define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs)"
+#define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs since 1st read)"
 #define GR_ACCDAT_YAX_TITLE "Data Received"
 
 #define GR_FR_PSIZE_TITLE_LEAD "Freq of Packet Sizes - URL: "
@@ -450,7 +450,7 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define GR_FR_PSIZE_YAX_TITLE "Frequency"
 
 #define GR_FR_RWAIT_TITLE_LEAD "Freq of Packet Wait - URL: "
-#define GR_FR_RWAIT_XAX_TITLE "Read Wait (secs)"
+#define GR_FR_RWAIT_XAX_TITLE "Read Wait (secs between packets)"
 #define GR_FR_RWAIT_YAX_TITLE "Frequency"
 
 #define GR_ALL_XAX_GRIDS 7

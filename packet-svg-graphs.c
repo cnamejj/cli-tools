@@ -37,8 +37,11 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         grids = svg_get_xax_num_grids( svg);
         span = (dmax - dmin) / grids;
         if( span >= 1.0) digits = 0;
+        else if( span == 0.0) digits = 0;
         else digits = (int) (1 - log10( span));
+printf( "<!-- HFGG: min:%f max:%f span:%f digits:%d patt(%s) -->\n", dmin, dmax, span, digits, GR_DATA_META_FORMAT);
         dataformat = string_from_int( rc, digits, GR_DATA_META_FORMAT);
+/* printf( "<!-- HFGG: rc:%d format(%s)-->\n", *rc, dataformat); */
         if( *rc == RC_NORMAL) *rc = svg_set_xax_disp( svg, dataformat);
         if( dataformat) free( dataformat);
     }
@@ -50,6 +53,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         grids = svg_get_yax_num_grids( svg);
         span = (dmax - dmin) / grids;
         if( span >= 1.0) digits = 0;
+        else if( span == 0.0) digits = 0;
         else digits = (int) (1 - log10( span));
         dataformat = string_from_int( rc, digits, GR_DATA_META_FORMAT);
         if( *rc == RC_NORMAL) *rc = svg_set_yax_disp( svg, dataformat);
@@ -351,7 +355,7 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
 	    }
 	}
 
-/* printf( "dbg:: RWFR: cases:%d min:%f max:%f\n", cases, dmin, dmax); */
+/* printf( "<!-- dbg:: RWFR: cases:%d min:%f max:%f -->\n", cases, dmin, dmax); */
 
         bracket = (float *) malloc( heaps * (sizeof *bracket));
         waitfreq = (float *) malloc( heaps * (sizeof *waitfreq));
@@ -370,10 +374,10 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
             else
             {
                 span = (dmax - dmin) / heaps;
-/* printf( "dbg:: RWFR: brackets:%d span:%f\n", heaps, span); */
+/* printf( "<!-- dbg:: RWFR: brackets:%d span:%f -->\n", heaps, span); */
 
                 *bracket = dmin + (span / 2);
-                for( off = 1; off < heaps; off++)
+
                   *(bracket + off) = *(bracket + off - 1) + span;
 
                 prev = 0;
@@ -404,11 +408,10 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
 
                 heaps = spot;
                 if( !heaps) heaps = 1;
-
 /*
 for( off = 0; off < heaps; off++)
 {
-    printf( "dbg:: RWFR: data: %d. %f %f\n", off, *(bracket + off), *(waitfreq + off));
+    printf( "!<-- dbg:: RWFR: data: %d. %f %f -->\n", off, *(bracket + off), *(waitfreq + off));
 }
  */
 	    }
