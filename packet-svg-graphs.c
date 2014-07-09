@@ -39,7 +39,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         if( span >= 1.0) digits = 0;
         else if( span == 0.0) digits = 0;
         else digits = (int) (1 - log10( span));
-printf( "<!-- HFGG: min:%f max:%f span:%f digits:%d patt(%s) -->\n", dmin, dmax, span, digits, GR_DATA_META_FORMAT);
+/* printf( "<!-- HFGG: min:%f max:%f span:%f digits:%d patt(%s) -->\n", dmin, dmax, span, digits, GR_DATA_META_FORMAT); */
         dataformat = string_from_int( rc, digits, GR_DATA_META_FORMAT);
 /* printf( "<!-- HFGG: rc:%d format(%s)-->\n", *rc, dataformat); */
         if( *rc == RC_NORMAL) *rc = svg_set_xax_disp( svg, dataformat);
@@ -281,7 +281,7 @@ char *make_psize_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
                     if( walk->event == event && walk->detail)
                     {
                         dlen = walk->detail->len;
-                        spot = (dlen - dmin) / span;
+                        spot = ((dlen - dmin) / span) - 1;
                         *(psfreq + spot) += 1;
 		    }
 		}
@@ -378,6 +378,7 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
 
                 *bracket = dmin + (span / 2);
 
+                for( off = 1; off < heaps; off++)
                   *(bracket + off) = *(bracket + off - 1) + span;
 
                 prev = 0;
@@ -388,7 +389,7 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
                         if( prev)
                         {
                             delta = calc_time_difference( &prev->clock, &walk->clock, fetch->clock_res);
-                            spot = (delta - dmin) / span;
+                            spot = ((delta - dmin) / span) - 1;
                             *(waitfreq + spot) += 1;
                         }
                         prev = walk;
