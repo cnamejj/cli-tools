@@ -281,7 +281,8 @@ char *make_psize_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
                     if( walk->event == event && walk->detail)
                     {
                         dlen = walk->detail->len;
-                        spot = ((dlen - dmin) / span) - 1;
+                        spot = (dlen - dmin) / span;
+                        if( spot >= heaps ) spot = heaps - 1;
                         *(psfreq + spot) += 1;
 		    }
 		}
@@ -389,7 +390,8 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
                         if( prev)
                         {
                             delta = calc_time_difference( &prev->clock, &walk->clock, fetch->clock_res);
-                            spot = ((delta - dmin) / span) - 1;
+                            spot = (delta - dmin) / span;
+                            if( spot >= heaps ) spot = heaps - 1;
                             *(waitfreq + spot) += 1;
                         }
                         prev = walk;
