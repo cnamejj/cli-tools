@@ -9,7 +9,7 @@
 char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title, char *xax_title, char *yax_title)
 
 {
-    int grids, digits;
+    int grids, digits, num_grids;
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct svg_model *svg;
@@ -25,8 +25,18 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     if( *rc == RC_NORMAL) *rc = svg_set_chart_title( svg, title);
     if( *rc == RC_NORMAL) *rc = svg_set_xax_title( svg, xax_title);
     if( *rc == RC_NORMAL) *rc = svg_set_yax_title( svg, yax_title);
-    if( *rc == RC_NORMAL) *rc = svg_set_xax_num_grids( svg, GR_ALL_XAX_GRIDS);
-    if( *rc == RC_NORMAL) *rc = svg_set_yax_num_grids( svg, GR_ALL_YAX_GRIDS);
+    if( *rc == RC_NORMAL)
+    {
+        if( cases < GR_ALL_XAX_GRIDS) num_grids = cases;
+        else num_grids = GR_ALL_XAX_GRIDS;
+        *rc = svg_set_xax_num_grids( svg, num_grids);
+    }
+    if( *rc == RC_NORMAL)
+    {
+        if( cases < GR_ALL_YAX_GRIDS) num_grids = cases;
+        else num_grids = GR_ALL_YAX_GRIDS;
+        *rc = svg_set_yax_num_grids( svg, num_grids);
+    }
 
     if( *rc == RC_NORMAL) *rc = svg_finalize_model( svg);
 
