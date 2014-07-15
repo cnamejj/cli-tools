@@ -51,6 +51,8 @@
 #define DEF_XAXIS_DIS_FORMAT "%.3f"
 #define DEF_YAXIS_DIS_FORMAT "%.1f"
 
+#define YAX_LABEL_FIRST_YPOS "0"
+
 #define S_AXIS_RGB "++axis-color++"
 #define S_AXIS_OP "++axis-opacity++"
 #define S_AXIS_SIZE "++axis-size++"
@@ -155,7 +157,8 @@
     <text x=\"++graph-width-midpoint++\" y=\"++graph-bottom++\" text-anchor=\"middle\"\n\
       style=\"dominant-baseline:hanging\">++x-axis-title++</text>\n\
 \n\
-    <text x=\"++y-axis-text-col++\" y=\"++y-axis-text-floor++\" style=\"dominant-baseline:central\" text-anchor=\"end\">\n\
+<!--    <text x=\"++y-axis-text-col++\" y=\"++y-axis-text-floor++\" style=\"dominant-baseline:central\" text-anchor=\"end\"> -->\n\
+    <text x=\"++y-axis-text-col++\" y=\"++y-chart-border++\" style=\"dominant-baseline:central\" text-anchor=\"end\">\n\
 ++row-label++\n\
       <tspan x=\"0\" y=\"0\" stroke=\"transparent\">.</tspan>\n\
     </text>\n\

@@ -449,7 +449,7 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
     int point;
     char *svg_part = 0, *template, *one_label = 0, *accumulate = 0;
     float label, label_incr = 0.0;
-    struct sub_list *subs = 0, *label_sub = 0, *walk = 0;
+    struct sub_list *subs = 0, *label_sub = 0, *first_ypos = 0, *walk = 0;
 
     if( *rc == RC_NORMAL && !svg ) *rc = ERR_UNSUPPORTED;
 
@@ -461,14 +461,27 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
         template = svg->svt_row_label;
 
 	subs = (struct sub_list *) malloc( sizeof *subs );
-        if( !subs ) *rc = ERR_MALLOC_FAILED;
+        first_ypos = (struct sub_list *) malloc( sizeof *first_ypos );
+
+        if( !subs || !first_ypos ) *rc = ERR_MALLOC_FAILED;
         else 
         {
             label_sub = subs;
             label_sub->from = S_LABEL;
             label_sub->to = 0;
             label_sub->next = 0;
+
+            first_ypos->from = S_YAXIS_HI;
+            first_ypos->to = strdup( YAX_LABEL_FIRST_YPOS );
+            first_ypos->next = label_sub;
 	}
+    }
+
+    if( *rc == RC_NORMAL )
+    {
+        label_sub->to = string_from_float( rc, label, svg->yax_disp );
+        if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
+        else svg_part = gsub_string( rc, template, first_ypos );
     }
 
     for( point = 1; *rc == RC_NORMAL && point <= svg->yax_num_grids; point++)
@@ -492,7 +505,7 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
 	}
     }
     
-    for( walk = subs; walk; )
+    for( walk = first_ypos; walk; )
     {
         subs = walk->next;
         if( walk->to ) free( walk->to );
@@ -556,10 +569,8 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
 	}
     }
     
-    for( point = 1; *rc == RC_NORMAL && point <= svg->xax_num_grids; point++)
+    for( point = 0; *rc == RC_NORMAL && point <= svg->xax_num_grids; point++)
     {
-        label += label_incr;
-        xpos_adj += xpos_incr;
         xpos = svg->graph_left_col + (int) xpos_adj;
 
         if( label_sub->to ) free( label_sub->to );
@@ -581,6 +592,9 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
             svg_part = accumulate;
             accumulate = 0;
 	}
+
+        label += label_incr;
+        xpos_adj += xpos_incr;
     }
     
     for( walk = subs; walk; )
