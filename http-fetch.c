@@ -1371,7 +1371,7 @@ void pull_response( int *rc, struct plan_data *plan)
                             status->err_msg = sys_call_fail_msg( "SSL_read");
                         }
                         status->last_state |= LS_NO_REQUEST;
-                        *rc = ERR_SSLWRITE_FAILED;
+                        *rc = ERR_SSLREAD_FAILED;
                         done = 1;
                     }
                 }
