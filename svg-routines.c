@@ -46,6 +46,9 @@ struct svg_model *svg_make_chart()
         svg->xdata = 0;
         svg->ydata = 0;
 
+        svg->xmiles = 0;
+        svg->ymiles = 0;
+
         svg->axis_size = SVG_NO_VALUE;
         svg->xax_num_grids = SVG_NO_VALUE;
         svg->yax_num_grids = SVG_NO_VALUE;
@@ -166,6 +169,8 @@ struct svg_model *svg_make_chart()
 void svg_free_model( struct svg_model *svg )
 
 {
+    struct svg_chart_milestone *ckpt, *walk;
+
     if( svg )
     {
         if( svg->xdata ) free( svg->xdata );
@@ -228,6 +233,26 @@ void svg_free_model( struct svg_model *svg )
         svg->svt_path_points = 0;
         svg->svt_chart = 0;
 
+        for( walk = svg->xmiles; walk; )
+        {
+            ckpt = walk;
+            walk = walk->next;
+            if( ckpt->line_color ) free( ckpt->line_color );
+            if( ckpt->text_color ) free( ckpt->text_color );
+            if( ckpt->text_size ) free( ckpt->text_size );
+            free( ckpt );
+	}
+
+        for( walk = svg->ymiles; walk; )
+        {
+            ckpt = walk;
+            walk = walk->next;
+            if( ckpt->line_color ) free( ckpt->line_color );
+            if( ckpt->text_color ) free( ckpt->text_color );
+            if( ckpt->text_size ) free( ckpt->text_size );
+            free( ckpt );
+	}
+
         free( svg );
         svg = 0;
     }
@@ -241,6 +266,7 @@ int svg_finalize_model( struct svg_model *svg )
 
 {
     int rc = RC_NORMAL;
+    struct svg_chart_milestone *ckpt = 0, *walk;
 
     if( !svg ) rc = ERR_UNSUPPORTED;
     else
@@ -286,6 +312,61 @@ int svg_finalize_model( struct svg_model *svg )
             svg->text_size = 0;
 	}
         if( !svg->text_size ) svg->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
+
+
+        for( ckpt = svg->xmiles; ckpt; ckpt = ckpt->next)
+        {
+            if( ckpt->offset < svg->xmin) svg->xmin = ckpt->offset;
+            if( ckpt->offset > svg->xmax) svg->xmax = ckpt->offset;
+	}
+
+        for( ckpt = svg->ymiles; ckpt; ckpt = ckpt->next)
+        {
+            if( ckpt->offset < svg->ymin) svg->ymin = ckpt->offset;
+            if( ckpt->offset > svg->ymax) svg->ymax = ckpt->offset;
+	}
+
+        walk = svg->xmiles;
+        if( !walk) walk = svg->ymiles;
+
+        for( ; walk && RC_NORMAL; )
+        {
+            for( ckpt = walk; ckpt && rc == RC_NORMAL; ckpt = ckpt->next)
+            {
+                if( ckpt->width == SVG_NO_VALUE ) ckpt->width = svg->chart_height * 0.015555;
+                if( ckpt->extend == SVG_NO_VALUE ) ckpt->extend = DEF_MSTONE_EXTEND;
+                if( ckpt->text_alpha == SVG_NO_VALUE ) ckpt->text_alpha = DEF_MSTONE_TEXT_OP;
+                if( ckpt->line_alpha == SVG_NO_VALUE ) ckpt->line_alpha = DEF_MSTONE_LINE_OP;
+
+                if( !ckpt->label ) ckpt->label = strdup( DEF_MSTONE_LABEL );
+
+                if( ckpt->text_size) if( !*ckpt->text_size )
+                {
+                    free( ckpt->text_size );
+                    ckpt->text_size = 0;
+		}
+                if( !ckpt->text_size ) ckpt->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
+
+                if( ckpt->text_color) if( !*ckpt->text_color )
+                {
+                    free( ckpt->text_color );
+                    ckpt->text_color = 0;
+		}
+                if( !ckpt->text_color ) ckpt->text_color = strdup( DEF_MSTONE_TEXT_RGB );
+
+                if( ckpt->line_color) if( !*ckpt->line_color )
+                {
+                    free( ckpt->line_color );
+                    ckpt->line_color = 0;
+		}
+                if( !ckpt->line_color ) ckpt->line_color = strdup( DEF_MSTONE_LINE_RGB );
+
+                if( !ckpt->label || !ckpt->text_size || !ckpt->text_color 
+                  || !ckpt->line_color ) rc = ERR_MALLOC_FAILED;
+	    }
+	}
+
+        if( walk != svg->ymiles ) walk = svg->ymiles;
     }
 
     return( rc );
@@ -2180,3 +2261,224 @@ double svg_get_ymax( struct svg_model *svg )
     else return( svg->ymax );
 }
 
+/* --- */
+
+struct svg_chart_milestone *svg_add_xax_checkpoint( struct svg_model *svg, int offset,
+  char *label )
+
+{
+    struct svg_chart_milestone *curr, *first, *last;
+
+    curr = (struct svg_chart_milestone *) malloc( sizeof *curr );
+    if( curr )
+    {
+        curr->offset = offset;
+        curr->next = 0;
+        curr->extend = SVG_NO_VALUE;
+        curr->text_alpha = SVG_NO_VALUE;
+        curr->line_alpha = SVG_NO_VALUE;
+        curr->text_size = 0;
+        curr->text_color = 0;
+        curr->line_color = 0;
+
+        if( !label ) curr->label = 0;
+        else if( !*label ) curr->label = 0;
+        else
+        {
+            curr->label = strdup( label );
+            if( !curr->label)
+            {
+                free( curr );
+                curr = 0;
+            }
+	}
+    }
+
+    if( curr )
+    {
+        first = svg->xmiles;
+        if( first )
+        {
+            curr->width = first->width;
+            curr->extend = first->extend;
+            curr->text_alpha = first->text_alpha;
+            curr->line_alpha = first->line_alpha;
+            curr->text_size = first->text_size;
+            curr->text_color = first->text_color;
+            curr->line_color = first->line_color;
+	    for( last = svg->xmiles; last->next; last = last->next )
+            last->next = curr;
+	}
+        else
+        {
+            curr->width = 0;
+            curr->extend = curr->text_alpha = curr->line_alpha = 0.0;
+            curr->text_color = curr->line_color = 0;
+            svg->xmiles = curr;
+	}
+    }
+
+    return( curr );
+}
+
+/* --- */
+
+struct svg_chart_milestone *svg_add_yax_checkpoint( struct svg_model *svg, int offset,
+  char *label )
+
+{
+    struct svg_chart_milestone *curr, *first, *last;
+
+    curr = (struct svg_chart_milestone *) malloc( sizeof *curr );
+    if( curr )
+    {
+        curr->offset = offset;
+        curr->next = 0;
+        curr->label = strdup( label );
+        if( !curr->label)
+        {
+            free( curr );
+            curr = 0;
+	}
+    }
+
+    if( curr )
+    {
+        first = svg->ymiles;
+        if( first )
+        {
+            curr->width = first->width;
+            curr->extend = first->extend;
+            curr->text_alpha = first->text_alpha;
+            curr->line_alpha = first->line_alpha;
+            curr->text_color = first->text_color;
+            curr->line_color = first->line_color;
+	    for( last = svg->ymiles; last->next; last = last->next )
+            last->next = curr;
+	}
+        else
+        {
+            curr->width = 0;
+            curr->extend = curr->text_alpha = curr->line_alpha = 0.0;
+            curr->text_color = curr->line_color = 0;
+            svg->ymiles = curr;
+	}
+    }
+
+    return( curr );
+}
+
+/* --- */
+
+void svg_set_checkpoint_width( struct svg_chart_milestone *ckpt, int width )
+
+{
+    ckpt->width = width;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_extend( struct svg_chart_milestone *ckpt, int extend )
+
+{
+    ckpt->extend = extend;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_alpha( struct svg_chart_milestone *ckpt, float text_alpha )
+
+{
+    ckpt->text_alpha = text_alpha;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_line_alpha( struct svg_chart_milestone *ckpt, float line_alpha )
+
+{
+    ckpt->line_alpha = line_alpha;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_color( struct svg_chart_milestone *ckpt, char *text_color )
+
+{
+    if( ckpt->text_color ) free( ckpt->text_color );
+    ckpt->text_color = strdup( text_color );
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_line_color( struct svg_chart_milestone *ckpt, char *line_color )
+
+{
+    if( ckpt->line_color ) free( ckpt->line_color );
+    ckpt->line_color = strdup( line_color );
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_size( struct svg_chart_milestone *ckpt, char *text_size )
+
+{
+    if( ckpt->text_size ) free( ckpt->text_size );
+    ckpt->text_size = strdup( text_size );
+
+    return;
+}
+
+/* --- */
+
+int svg_get_checkpoint_width( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->width ); }
+
+/* --- */
+
+int svg_get_checkpoint_extend( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->extend ); }
+
+/* --- */
+
+float svg_get_checkpoint_text_alpha( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_alpha ); }
+
+/* --- */
+
+float svg_get_checkpoint_line_alpha( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->line_alpha ); }
+
+/* --- */
+
+char *svg_get_checkpoint_text_color( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_color ); }
+
+/* --- */
+
+char *svg_get_checkpoint_line_color( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->line_color ); }
+
+/* --- */
+
+char *svg_get_checkpoint_text_size( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_size ); }

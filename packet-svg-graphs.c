@@ -6,13 +6,16 @@
 
 /* --- */
 
-char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title, char *xax_title, char *yax_title)
+char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title,
+  char *xax_title, char *yax_title, struct milestone *mstone)
 
 {
     int grids, digits, num_grids;
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct svg_model *svg;
+    struct milestone *walk;
+    struct svg_chart_milestone *ckpt;
 
     if( *rc == RC_NORMAL)
     {
@@ -21,6 +24,12 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     }
 
     if( *rc == RC_NORMAL) *rc = svg_add_float_data( svg, cases, xdata, ydata);
+
+    for( walk = mstone; *rc == RC_NORMAL && walk; walk = walk->next)
+    {
+        ckpt = svg_add_xax_checkpoint( svg, walk->offset, walk->label);
+        if( !ckpt) *rc = ERR_MALLOC_FAILED;
+    }
 
     if( *rc == RC_NORMAL) *rc = svg_set_chart_title( svg, title);
     if( *rc == RC_NORMAL) *rc = svg_set_xax_title( svg, xax_title);
@@ -154,7 +163,8 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
 	    }
 	}
 
-        result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE, GR_PACK_YAX_TITLE);
+        result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE,
+          GR_PACK_YAX_TITLE, 0);
     }
 
     if( title) free( title);
@@ -171,9 +181,10 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
 {
     int event, cases, off;
     long accumulate = 0;
-    char *result = 0, *title = 0;
+    char *result = 0, *title = 0, *mst_type = 0;
     float *elap = 0, *recbytes = 0, delta;
     struct ckpt_chain *stime, *walk;
+    struct milestone *mstone = 0, *curr = 0, *last = 0;
 
     title = combine_strings( rc, GR_ACCDAT_TITLE_LEAD, url);
 
@@ -185,6 +196,7 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
         cases = 0;
         for( walk = fetch->checkpoint; walk; walk = walk->next)
           if( walk->event == event && walk->detail) cases++;
+        cases++;
     }
 
     if( *rc == RC_NORMAL && cases < GR_MIN_CASES)
@@ -201,14 +213,15 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
         if( !elap || !recbytes) *rc = ERR_MALLOC_FAILED;
         else
         {
-            off = 0;
-            stime = 0;
+            *elap = 0;
+            *recbytes = 0;
+            off = 1;
+            stime = fetch->checkpoint;
 
             for( walk = fetch->checkpoint; walk; walk = walk->next)
             {
                 if( walk->event == event && walk->detail)
                 {
-                    if( !stime) stime = walk;
                     delta = calc_time_difference( &stime->clock, &walk->clock, fetch->clock_res);
 
                     *(elap + off) = delta;
@@ -218,9 +231,41 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
                     off++;
 		}
 	    }
+
+            for( walk = fetch->checkpoint; walk; walk = walk->next)
+            {
+                if( walk->event == EVENT_DNS_LOOKUP) mst_type = MSTONE_DNS;
+                else if( walk->event == EVENT_CONNECT_SERVER) mst_type = MSTONE_CONN;
+                else if( walk->event == EVENT_SSL_HANDSHAKE) mst_type = MSTONE_SSL;
+                else if( walk->event == EVENT_REQUEST_SENT) mst_type = MSTONE_SEND;
+                else if( walk->event == EVENT_FIRST_RESPONSE) mst_type = MSTONE_1STREAD;
+                else if( walk->event == EVENT_READ_ALL_DATA) mst_type = MSTONE_ALLDATA;
+                else mst_type = 0;
+
+                if( mst_type)
+                {
+                    curr = (struct milestone *) malloc( sizeof *curr);
+                    if( curr)
+                    {
+                        if( !mstone) mstone = curr;
+                        if( last) last->next = curr;
+                        curr->offset = calc_time_difference( &stime->clock, &walk->clock, fetch->clock_res);
+                        curr->label = mst_type;
+                        curr->next = 0;
+                        last = curr;
+		    }
+		}
+	    }
 	}
 
-        result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE, GR_ACCDAT_YAX_TITLE);
+        result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE,
+          GR_ACCDAT_YAX_TITLE, mstone);
+
+        for( curr = mstone; curr; curr = last)
+        {
+            last = curr->next;
+            free( curr);
+	}
     }
 
     if( title) free( title);
@@ -320,7 +365,8 @@ for( off = 0; off < heaps; off++)
 	    }
 	}
 
-        result = hf_generate_graph( rc, heaps, bracket, psfreq, style, title, GR_FR_PSIZE_XAX_TITLE, GR_FR_PSIZE_YAX_TITLE);
+        result = hf_generate_graph( rc, heaps, bracket, psfreq, style, title, GR_FR_PSIZE_XAX_TITLE,
+          GR_FR_PSIZE_YAX_TITLE, 0);
     }
 
     if( title) free( title);
@@ -430,7 +476,8 @@ for( off = 0; off < heaps; off++)
 	    }
 	}
 
-        result = hf_generate_graph( rc, heaps, bracket, waitfreq, style, title, GR_FR_RWAIT_XAX_TITLE, GR_FR_RWAIT_YAX_TITLE);
+        result = hf_generate_graph( rc, heaps, bracket, waitfreq, style, title, GR_FR_RWAIT_XAX_TITLE,
+          GR_FR_RWAIT_YAX_TITLE, 0);
     }
 
     if( title) free( title);

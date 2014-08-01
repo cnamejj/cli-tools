@@ -51,6 +51,14 @@
 #define DEF_XAXIS_DIS_FORMAT "%.3f"
 #define DEF_YAXIS_DIS_FORMAT "%.1f"
 
+#define DEF_MSTONE_EXTEND 0.1
+#define DEF_MSTONE_TEXT_OP 0.7
+#define DEF_MSTONE_LINE_OP 0.6
+#define DEF_MSTONE_LABEL ""
+#define DEF_MSTONE_TEXT_SIZE ""
+#define DEF_MSTONE_TEXT_RGB "#DAC032"
+#define DEF_MSTONE_LINE_RGB "#DA8032"
+
 #define YAX_LABEL_FIRST_YPOS "0"
 
 #define S_AXIS_RGB "++axis-color++"
@@ -196,6 +204,14 @@
 
 /* --- */
 
+struct svg_chart_milestone
+{
+    int offset, width;
+    float extend, text_alpha, line_alpha;
+    char *label, *text_color, *line_color, *text_size;
+    struct svg_chart_milestone *next;
+};
+
 struct svg_model
 {
     int axis_size, xax_num_grids, yax_num_grids,
@@ -226,6 +242,7 @@ struct svg_model
       *svt_row_label, *svt_row_line, *svt_col_label, *svt_col_line,
       *svt_circ_elem, *svt_path_start, *svt_path_points, *svt_chart;
 
+    struct svg_chart_milestone *xmiles, *ymiles;
 };
 
 /* --- */
@@ -355,6 +372,21 @@ double svg_get_xmin(struct svg_model *svg);
 double svg_get_xmax(struct svg_model *svg);
 double svg_get_ymin(struct svg_model *svg);
 double svg_get_ymax(struct svg_model *svg);
-
+struct svg_chart_milestone *svg_add_xax_checkpoint(struct svg_model *svg, int offset, char *label);
+struct svg_chart_milestone *svg_add_yax_checkpoint(struct svg_model *svg, int offset, char *label);
+void svg_set_checkpoint_width(struct svg_chart_milestone *ckpt, int width);
+void svg_set_checkpoint_extend(struct svg_chart_milestone *ckpt, int extend);
+void svg_set_checkpoint_text_alpha(struct svg_chart_milestone *ckpt, float text_alpha);
+void svg_set_checkpoint_line_alpha(struct svg_chart_milestone *ckpt, float line_alpha);
+void svg_set_checkpoint_text_color(struct svg_chart_milestone *ckpt, char *text_color);
+void svg_set_checkpoint_line_color(struct svg_chart_milestone *ckpt, char *line_color);
+void svg_set_checkpoint_text_size(struct svg_chart_milestone *ckpt, char *text_size);
+int svg_get_checkpoint_width(struct svg_chart_milestone *ckpt);
+int svg_get_checkpoint_extend(struct svg_chart_milestone *ckpt);
+float svg_get_checkpoint_text_alpha(struct svg_chart_milestone *ckpt);
+float svg_get_checkpoint_line_alpha(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_text_color(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_line_color(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_text_size(struct svg_chart_milestone *ckpt);
 
 #endif

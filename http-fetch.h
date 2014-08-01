@@ -292,6 +292,13 @@ Content-type: text/html\r\n\
 #define SSLACT_WRITE         5
 #define SSLACT_READ          6
 
+#define MSTONE_DNS "DNS"
+#define MSTONE_CONN "Connect"
+#define MSTONE_SSL "SSL"
+#define MSTONE_SEND "Send"
+#define MSTONE_1STREAD "1stRead"
+#define MSTONE_ALLDATA "Complete"
+
 /* --- */
 
 #define FETCH_REQUEST_TEMPLATE "\
@@ -443,7 +450,7 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define GR_PACK_YAX_TITLE "Packetsize"
 
 #define GR_ACCDAT_TITLE_LEAD "Data Rec'd - URL: "
-#define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs since 1st read)"
+#define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs)"
 #define GR_ACCDAT_YAX_TITLE "Data Received"
 
 #define GR_FR_PSIZE_TITLE_LEAD "Freq of Packet Sizes - URL: "
@@ -629,6 +636,12 @@ struct stat_work {
       readlag_sum, xfrate_sum;
 };
 
+struct milestone {
+    int offset;
+    char *label;
+    struct milestone *next;
+};
+
 /* --- */
 
 #define MSG_SHOW_SYNTAX "\
@@ -754,7 +767,8 @@ void calc_standard_moments( struct fetch_status *status, struct stat_work *swork
 
 struct stat_work *alloc_stat_work();
 
-char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title, char *xax_title, char *yax_title);
+char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title,
+  char *xax_title, char *yax_title, struct milestone *mstones);
 
 char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
 
