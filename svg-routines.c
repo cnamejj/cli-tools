@@ -2314,9 +2314,12 @@ struct svg_chart_milestone *svg_add_xax_checkpoint( struct svg_model *svg, float
             curr->extend = first->extend;
             curr->text_alpha = first->text_alpha;
             curr->line_alpha = first->line_alpha;
-            curr->text_size = first->text_size;
-            curr->text_color = first->text_color;
-            curr->line_color = first->line_color;
+            if( first->text_size) curr->text_size = strdup( first->text_size );
+            else curr->text_size = 0;
+            if( first->text_color) curr->text_color = strdup( first->text_color );
+            else curr->text_color = 0;
+            if( first->line_color) curr->line_color = strdup( first->line_color );
+            else curr->line_color = 0;
 	    for( last = svg->xmiles; last; last = last->next)
             {
                 if( !last->next )
@@ -2421,35 +2424,43 @@ void svg_set_checkpoint_line_alpha( struct svg_chart_milestone *ckpt, float line
 
 /* --- */
 
-void svg_set_checkpoint_text_color( struct svg_chart_milestone *ckpt, char *text_color )
+int svg_set_checkpoint_text_color( struct svg_chart_milestone *ckpt, char *text_color )
 
 {
+    int rc = RC_NORMAL;
+
     if( ckpt->text_color ) free( ckpt->text_color );
     ckpt->text_color = strdup( text_color );
+    if( !ckpt->text_color ) rc = ERR_MALLOC_FAILED;
 
-    return;
+    return( rc );
 }
 
 /* --- */
 
-void svg_set_checkpoint_line_color( struct svg_chart_milestone *ckpt, char *line_color )
+int svg_set_checkpoint_line_color( struct svg_chart_milestone *ckpt, char *line_color )
 
 {
+    int rc = RC_NORMAL;
+
     if( ckpt->line_color ) free( ckpt->line_color );
     ckpt->line_color = strdup( line_color );
+    if( !ckpt->line_color ) rc = ERR_MALLOC_FAILED;
 
-    return;
+    return( rc );
 }
 
 /* --- */
 
-void svg_set_checkpoint_text_size( struct svg_chart_milestone *ckpt, char *text_size )
+int svg_set_checkpoint_text_size( struct svg_chart_milestone *ckpt, char *text_size )
 
 {
+    int rc = RC_NORMAL;
     if( ckpt->text_size ) free( ckpt->text_size );
     ckpt->text_size = strdup( text_size );
+    if( !ckpt->text_size ) rc = ERR_MALLOC_FAILED;
 
-    return;
+    return( rc );
 }
 
 /* --- */

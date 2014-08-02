@@ -58,8 +58,8 @@
 #define DEF_MSTONE_LINE_OP 0.6
 #define DEF_MSTONE_LABEL ""
 #define DEF_MSTONE_TEXT_SIZE ""
-#define DEF_MSTONE_TEXT_RGB "#AA6032"
-#define DEF_MSTONE_LINE_RGB "#DAC032"
+#define DEF_MSTONE_TEXT_RGB "#74E6D8"
+#define DEF_MSTONE_LINE_RGB "#4498B6"
 
 #define YAX_LABEL_FIRST_YPOS "0"
 
@@ -364,9 +364,9 @@ void svg_set_checkpoint_width(struct svg_chart_milestone *ckpt, int width);
 void svg_set_checkpoint_extend(struct svg_chart_milestone *ckpt, int extend);
 void svg_set_checkpoint_text_alpha(struct svg_chart_milestone *ckpt, float text_alpha);
 void svg_set_checkpoint_line_alpha(struct svg_chart_milestone *ckpt, float line_alpha);
-void svg_set_checkpoint_text_color(struct svg_chart_milestone *ckpt, char *text_color);
-void svg_set_checkpoint_line_color(struct svg_chart_milestone *ckpt, char *line_color);
-void svg_set_checkpoint_text_size(struct svg_chart_milestone *ckpt, char *text_size);
+int svg_set_checkpoint_text_color(struct svg_chart_milestone *ckpt, char *text_color);
+int svg_set_checkpoint_line_color(struct svg_chart_milestone *ckpt, char *line_color);
+int svg_set_checkpoint_text_size(struct svg_chart_milestone *ckpt, char *text_size);
 
 char *svg_get_chart_title(struct svg_model *svg);
 char *svg_get_xax_title(struct svg_model *svg);

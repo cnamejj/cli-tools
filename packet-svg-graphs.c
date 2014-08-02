@@ -29,6 +29,11 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     {
         ckpt = svg_add_xax_checkpoint( svg, walk->offset, walk->label);
         if( !ckpt) *rc = ERR_MALLOC_FAILED;
+        else if( walk == mstone && strcmp( style, SVG_STYLE_DARK))
+        {
+            *rc = svg_set_checkpoint_line_color( ckpt, GR_MST_LINE_COLOR );
+            if( *rc == RC_NORMAL) *rc = svg_set_checkpoint_text_color( ckpt, GR_MST_TEXT_COLOR );
+	}
     }
 
     if( *rc == RC_NORMAL) *rc = svg_set_chart_title( svg, title);

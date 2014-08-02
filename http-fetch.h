@@ -481,6 +481,8 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define GR_ALL_CIRC_LINE_ALPHA 0.4
 #define GR_ALL_DATA_FILL_ALPHA 0.0
 #define GR_ALL_DATA_LINE_ALPHA 0.6
+#define GR_MST_LINE_COLOR "#dac032"
+#define GR_MST_TEXT_COLOR "#aa6032"
 
 #define GR_MIN_CASES 3
 #define GR_FREQ_BRACKETS 96
