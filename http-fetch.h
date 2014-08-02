@@ -637,7 +637,7 @@ struct stat_work {
 };
 
 struct milestone {
-    int offset;
+    float offset;
     char *label;
     struct milestone *next;
 };
