@@ -16,6 +16,8 @@
 
 #define SVG_NO_VALUE -999999
 
+#define ALPHA_DISP_FORMAT "%.4f"
+
 #define DEF_AXIS_RGB "#FFFFFF"
 #define DEF_AXIS_OP 0.6
 #define DEF_BG_RGB "#302716"
@@ -50,6 +52,14 @@
 #define DEF_TEXT_SIZE ""
 #define DEF_XAXIS_DIS_FORMAT "%.3f"
 #define DEF_YAXIS_DIS_FORMAT "%.1f"
+
+#define DEF_MSTONE_EXTEND 0.05
+#define DEF_MSTONE_TEXT_OP 0.7
+#define DEF_MSTONE_LINE_OP 0.6
+#define DEF_MSTONE_LABEL ""
+#define DEF_MSTONE_TEXT_SIZE ""
+#define DEF_MSTONE_TEXT_RGB "#AA6032"
+#define DEF_MSTONE_LINE_RGB "#DAC032"
 
 #define YAX_LABEL_FIRST_YPOS "0"
 
@@ -117,6 +127,21 @@
 #define S_ST_DATA_POINT "++circ-elem++"
 #define S_ST_START_PATH "++path-start++"
 #define S_ST_DATA_LINE "++path-points++"
+#define S_ST_XAX_MSTONES "++xax-milestones++"
+#define S_ST_YAX_MSTONES "++yax-milestones++"
+
+#define S_MST_LINE_COLOR "++mst-line-color++"
+#define S_MST_LINE_SIZE "++mst-line-size++"
+#define S_MST_LINE_ALPHA "++mst-line-opacity++"
+#define S_MST_LINE_WIDTH "++mst-line-width++"
+#define S_MST_TEXT_COLOR "++mst-text-color++"
+#define S_MST_TEXT_SIZE "++mst-text-size++"
+#define S_MST_TEXT_ALPHA "++mst-text-opacity++"
+#define S_MST_LABEL "++mst-label++"
+#define S_MST_LINE_XPOS "++xpos-line++"
+#define S_MST_LINE_YPOS "++ypos-line++"
+#define S_MST_TEXT_XPOS "++xpos-text++"
+#define S_MST_TEXT_YPOS "++ypos-text++"
 
 /* --- */
 
@@ -127,6 +152,18 @@
 #define SVG_CIRC_ELEM   "      <circle cx=\"++xpos++\" cy=\"++ypos++\" r=\"++circle-radius++\"/>\n"
 #define SVG_PATH_START  "      M ++xpos++ ++ypos++ L"
 #define SVG_PATH_POINTS "  ++xpos++ ++ypos++"
+
+#define SVG_YSTONE_LINE  "  <!-- TBD -->"
+#define SVG_YSTONE_LABEL  "  <!-- TBD -->"
+
+#define SVG_XSTONE_LINE  "  <path d=\"M ++xpos-line++ ++ypos-line++ v -++mst-line-size++\"\
+    stroke=\"++mst-line-color++\" stroke-opacity=\"++mst-line-opacity++\" fill=\"transparent\"\
+    stroke-width=\"++mst-line-width++\" />\n"
+
+#define SVG_XSTONE_LABEL "  <text x=\"++xpos-text++\" y=\"++ypos-text++\" fill=\"++mst-text-color++\" \
+  font-size=\"++mst-text-size++\" fill-opacity=\"++mst-text-opacity++\" \
+  style=\"font-family:Verdana, Arial, Helvetica, sans-serif; font-weight:bold; dominant-baseline:hanging\"\
+  text-anchor=\"end\">++mst-label++</text>\n"
 
 #define SVG_CHART_TEMPLATE "\
 <svg version=\"1.1\" baseProfile=\"full\"\n\
@@ -192,9 +229,20 @@
     stroke=\"++data-line-color++\" stroke-opacity=\"++data-line-opacity++\" stroke-width=\"++data-line-size++\"\n\
     fill=\"++data-fill-color++\" fill-opacity=\"++data-fill-opacity++\"/>\n\
 \n\
+++xax-milestones++\n\
+++yax-milestones++\n\
+\n\
 </svg>"
 
 /* --- */
+
+struct svg_chart_milestone
+{
+    int width;
+    float offset, extend, text_alpha, line_alpha;
+    char *label, *text_color, *line_color, *text_size;
+    struct svg_chart_milestone *next;
+};
 
 struct svg_model
 {
@@ -226,6 +274,7 @@ struct svg_model
       *svt_row_label, *svt_row_line, *svt_col_label, *svt_col_line,
       *svt_circ_elem, *svt_path_start, *svt_path_points, *svt_chart;
 
+    struct svg_chart_milestone *xmiles, *ymiles;
 };
 
 /* --- */
@@ -255,6 +304,10 @@ char *svg_make_data_points(int *rc, struct svg_model *svg);
 char *svg_make_path_start(int *rc, struct svg_model *svg);
 
 char *svg_make_data_lines(int *rc, struct svg_model *svg);
+
+char *svg_make_xax_mstones(int *rc, struct svg_model *svg);
+
+char *svg_make_yax_mstones(int *rc, struct svg_model *svg);
 
 struct sub_list *svg_make_sublist(int *rc, struct svg_model *svg);
 
@@ -307,6 +360,13 @@ int svg_set_xmin(struct svg_model *svg, double val);
 int svg_set_xmax(struct svg_model *svg, double val);
 int svg_set_ymin(struct svg_model *svg, double val);
 int svg_set_ymax(struct svg_model *svg, double val);
+void svg_set_checkpoint_width(struct svg_chart_milestone *ckpt, int width);
+void svg_set_checkpoint_extend(struct svg_chart_milestone *ckpt, int extend);
+void svg_set_checkpoint_text_alpha(struct svg_chart_milestone *ckpt, float text_alpha);
+void svg_set_checkpoint_line_alpha(struct svg_chart_milestone *ckpt, float line_alpha);
+void svg_set_checkpoint_text_color(struct svg_chart_milestone *ckpt, char *text_color);
+void svg_set_checkpoint_line_color(struct svg_chart_milestone *ckpt, char *line_color);
+void svg_set_checkpoint_text_size(struct svg_chart_milestone *ckpt, char *text_size);
 
 char *svg_get_chart_title(struct svg_model *svg);
 char *svg_get_xax_title(struct svg_model *svg);
@@ -355,6 +415,17 @@ double svg_get_xmin(struct svg_model *svg);
 double svg_get_xmax(struct svg_model *svg);
 double svg_get_ymin(struct svg_model *svg);
 double svg_get_ymax(struct svg_model *svg);
+int svg_get_checkpoint_width(struct svg_chart_milestone *ckpt);
+int svg_get_checkpoint_extend(struct svg_chart_milestone *ckpt);
+float svg_get_checkpoint_text_alpha(struct svg_chart_milestone *ckpt);
+float svg_get_checkpoint_line_alpha(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_text_color(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_line_color(struct svg_chart_milestone *ckpt);
+char *svg_get_checkpoint_text_size(struct svg_chart_milestone *ckpt);
 
+struct svg_chart_milestone *svg_add_xax_checkpoint(struct svg_model *svg, float offset, char *label);
+struct svg_chart_milestone *svg_add_yax_checkpoint(struct svg_model *svg, float offset, char *label);
+
+int svg_xax_raw_to_gc(struct svg_model *svg, float offset);
 
 #endif

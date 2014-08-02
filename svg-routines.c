@@ -4,8 +4,6 @@
 #include "cli-sub.h"
 #include "err_ref.h"
 
-#define ALPHA_DISP_FORMAT "%.4f"
-
 #define ADD_SUB_PAIR_RULE( FROM, TO ) \
 if( *rc == RC_NORMAL ) \
 { \
@@ -45,6 +43,9 @@ struct svg_model *svg_make_chart()
 
         svg->xdata = 0;
         svg->ydata = 0;
+
+        svg->xmiles = 0;
+        svg->ymiles = 0;
 
         svg->axis_size = SVG_NO_VALUE;
         svg->xax_num_grids = SVG_NO_VALUE;
@@ -166,6 +167,8 @@ struct svg_model *svg_make_chart()
 void svg_free_model( struct svg_model *svg )
 
 {
+    struct svg_chart_milestone *ckpt, *walk;
+
     if( svg )
     {
         if( svg->xdata ) free( svg->xdata );
@@ -228,6 +231,26 @@ void svg_free_model( struct svg_model *svg )
         svg->svt_path_points = 0;
         svg->svt_chart = 0;
 
+        for( walk = svg->xmiles; walk; )
+        {
+            ckpt = walk;
+            walk = walk->next;
+            if( ckpt->line_color ) free( ckpt->line_color );
+            if( ckpt->text_color ) free( ckpt->text_color );
+            if( ckpt->text_size ) free( ckpt->text_size );
+            free( ckpt );
+	}
+
+        for( walk = svg->ymiles; walk; )
+        {
+            ckpt = walk;
+            walk = walk->next;
+            if( ckpt->line_color ) free( ckpt->line_color );
+            if( ckpt->text_color ) free( ckpt->text_color );
+            if( ckpt->text_size ) free( ckpt->text_size );
+            free( ckpt );
+	}
+
         free( svg );
         svg = 0;
     }
@@ -241,6 +264,7 @@ int svg_finalize_model( struct svg_model *svg )
 
 {
     int rc = RC_NORMAL;
+    struct svg_chart_milestone *ckpt = 0, *walk;
 
     if( !svg ) rc = ERR_UNSUPPORTED;
     else
@@ -286,6 +310,61 @@ int svg_finalize_model( struct svg_model *svg )
             svg->text_size = 0;
 	}
         if( !svg->text_size ) svg->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
+
+
+        for( ckpt = svg->xmiles; ckpt; ckpt = ckpt->next)
+        {
+            if( ckpt->offset < svg->xmin) svg->xmin = ckpt->offset;
+            if( ckpt->offset > svg->xmax) svg->xmax = ckpt->offset;
+	}
+
+        for( ckpt = svg->ymiles; ckpt; ckpt = ckpt->next)
+        {
+            if( ckpt->offset < svg->ymin) svg->ymin = ckpt->offset;
+            if( ckpt->offset > svg->ymax) svg->ymax = ckpt->offset;
+	}
+
+        walk = svg->xmiles;
+        if( !walk) walk = svg->ymiles;
+
+        for( ; walk && rc == RC_NORMAL; )
+        {
+            for( ckpt = walk; ckpt && rc == RC_NORMAL; ckpt = ckpt->next)
+            {
+                if( ckpt->width == SVG_NO_VALUE ) ckpt->width = svg->chart_height * 0.015555;
+                if( ckpt->extend == SVG_NO_VALUE ) ckpt->extend = DEF_MSTONE_EXTEND;
+                if( ckpt->text_alpha == SVG_NO_VALUE ) ckpt->text_alpha = DEF_MSTONE_TEXT_OP;
+                if( ckpt->line_alpha == SVG_NO_VALUE ) ckpt->line_alpha = DEF_MSTONE_LINE_OP;
+
+                if( !ckpt->label ) ckpt->label = strdup( DEF_MSTONE_LABEL );
+
+                if( ckpt->text_size) if( !*ckpt->text_size )
+                {
+                    free( ckpt->text_size );
+                    ckpt->text_size = 0;
+		}
+                if( !ckpt->text_size ) ckpt->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
+
+                if( ckpt->text_color) if( !*ckpt->text_color )
+                {
+                    free( ckpt->text_color );
+                    ckpt->text_color = 0;
+		}
+                if( !ckpt->text_color ) ckpt->text_color = strdup( DEF_MSTONE_TEXT_RGB );
+
+                if( ckpt->line_color) if( !*ckpt->line_color )
+                {
+                    free( ckpt->line_color );
+                    ckpt->line_color = 0;
+		}
+                if( !ckpt->line_color ) ckpt->line_color = strdup( DEF_MSTONE_LINE_RGB );
+
+                if( !ckpt->label || !ckpt->text_size || !ckpt->text_color 
+                  || !ckpt->line_color ) rc = ERR_MALLOC_FAILED;
+	    }
+
+           if( walk != svg->ymiles ) walk = svg->ymiles;
+	}
     }
 
     return( rc );
@@ -923,7 +1002,7 @@ char *svg_render( int *rc, struct svg_model *svg )
 {
     char *chart = 0, *template = 0, *xax_label = 0, *yax_label = 0,
       *xax_grid = 0, *yax_grid = 0, *data_points = 0, *path_start = 0,
-      *data_lines = 0;
+      *data_lines = 0, *xax_milestones = 0, *yax_milestones = 0;
     struct sub_list *subs = 0, *walk = 0, *rule = 0, *pending = 0;
 
     if( *rc == RC_NORMAL ) *rc = svg_finalize_model( svg );
@@ -981,6 +1060,16 @@ char *svg_render( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
+        xax_milestones = svg_make_xax_mstones( rc, svg );
+    }
+
+    if( *rc == RC_NORMAL )
+    {
+        yax_milestones = svg_make_yax_mstones( rc, svg );
+    }
+
+    if( *rc == RC_NORMAL )
+    {
         for( rule = subs; rule->next; rule = rule->next) ;
         ADD_SUB_PAIR_RULE( S_ST_COL_LABEL, xax_label )
         ADD_SUB_PAIR_RULE( S_ST_ROW_LABEL, yax_label )
@@ -989,6 +1078,8 @@ char *svg_render( int *rc, struct svg_model *svg )
         ADD_SUB_PAIR_RULE( S_ST_DATA_POINT, data_points )
         ADD_SUB_PAIR_RULE( S_ST_START_PATH, path_start )
         ADD_SUB_PAIR_RULE( S_ST_DATA_LINE, data_lines )
+        ADD_SUB_PAIR_RULE( S_ST_XAX_MSTONES, xax_milestones )
+        ADD_SUB_PAIR_RULE( S_ST_YAX_MSTONES, yax_milestones )
     }
 
     if( *rc == RC_NORMAL )
@@ -2180,3 +2271,419 @@ double svg_get_ymax( struct svg_model *svg )
     else return( svg->ymax );
 }
 
+/* --- */
+
+struct svg_chart_milestone *svg_add_xax_checkpoint( struct svg_model *svg, float offset,
+  char *label )
+
+{
+    struct svg_chart_milestone *curr, *first, *last;
+
+    curr = (struct svg_chart_milestone *) malloc( sizeof *curr );
+    if( curr )
+    {
+        curr->offset = offset;
+        curr->next = 0;
+        curr->width = SVG_NO_VALUE;
+        curr->extend = SVG_NO_VALUE;
+        curr->text_alpha = SVG_NO_VALUE;
+        curr->line_alpha = SVG_NO_VALUE;
+        curr->text_size = 0;
+        curr->text_color = 0;
+        curr->line_color = 0;
+
+        if( !label ) curr->label = 0;
+        else if( !*label ) curr->label = 0;
+        else
+        {
+            curr->label = strdup( label );
+            if( !curr->label)
+            {
+                free( curr );
+                curr = 0;
+            }
+	}
+    }
+
+    if( curr )
+    {
+        first = svg->xmiles;
+        if( first )
+        {
+            curr->width = first->width;
+            curr->extend = first->extend;
+            curr->text_alpha = first->text_alpha;
+            curr->line_alpha = first->line_alpha;
+            curr->text_size = first->text_size;
+            curr->text_color = first->text_color;
+            curr->line_color = first->line_color;
+	    for( last = svg->xmiles; last; last = last->next)
+            {
+                if( !last->next )
+                {
+                    last->next = curr;
+                    last = curr;
+		}
+	    }
+	}
+        else svg->xmiles = curr;
+    }
+
+    return( curr );
+}
+
+/* --- */
+
+struct svg_chart_milestone *svg_add_yax_checkpoint( struct svg_model *svg, float offset,
+  char *label )
+
+{
+    struct svg_chart_milestone *curr, *first, *last;
+
+    curr = (struct svg_chart_milestone *) malloc( sizeof *curr );
+    if( curr )
+    {
+        curr->offset = offset;
+        curr->next = 0;
+        curr->label = strdup( label );
+        if( !curr->label)
+        {
+            free( curr );
+            curr = 0;
+	}
+    }
+
+    if( curr )
+    {
+        first = svg->ymiles;
+        if( first )
+        {
+            curr->width = first->width;
+            curr->extend = first->extend;
+            curr->text_alpha = first->text_alpha;
+            curr->line_alpha = first->line_alpha;
+            curr->text_color = first->text_color;
+            curr->line_color = first->line_color;
+	    for( last = svg->ymiles; last->next; last = last->next )
+            last->next = curr;
+	}
+        else
+        {
+            curr->width = 0;
+            curr->extend = curr->text_alpha = curr->line_alpha = 0.0;
+            curr->text_color = curr->line_color = 0;
+            svg->ymiles = curr;
+	}
+    }
+
+    return( curr );
+}
+
+/* --- */
+
+void svg_set_checkpoint_width( struct svg_chart_milestone *ckpt, int width )
+
+{
+    ckpt->width = width;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_extend( struct svg_chart_milestone *ckpt, int extend )
+
+{
+    ckpt->extend = extend;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_alpha( struct svg_chart_milestone *ckpt, float text_alpha )
+
+{
+    ckpt->text_alpha = text_alpha;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_line_alpha( struct svg_chart_milestone *ckpt, float line_alpha )
+
+{
+    ckpt->line_alpha = line_alpha;
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_color( struct svg_chart_milestone *ckpt, char *text_color )
+
+{
+    if( ckpt->text_color ) free( ckpt->text_color );
+    ckpt->text_color = strdup( text_color );
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_line_color( struct svg_chart_milestone *ckpt, char *line_color )
+
+{
+    if( ckpt->line_color ) free( ckpt->line_color );
+    ckpt->line_color = strdup( line_color );
+
+    return;
+}
+
+/* --- */
+
+void svg_set_checkpoint_text_size( struct svg_chart_milestone *ckpt, char *text_size )
+
+{
+    if( ckpt->text_size ) free( ckpt->text_size );
+    ckpt->text_size = strdup( text_size );
+
+    return;
+}
+
+/* --- */
+
+int svg_get_checkpoint_width( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->width ); }
+
+/* --- */
+
+int svg_get_checkpoint_extend( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->extend ); }
+
+/* --- */
+
+float svg_get_checkpoint_text_alpha( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_alpha ); }
+
+/* --- */
+
+float svg_get_checkpoint_line_alpha( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->line_alpha ); }
+
+/* --- */
+
+char *svg_get_checkpoint_text_color( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_color ); }
+
+/* --- */
+
+char *svg_get_checkpoint_line_color( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->line_color ); }
+
+/* --- */
+
+char *svg_get_checkpoint_text_size( struct svg_chart_milestone *ckpt )
+
+{   return( ckpt->text_size ); }
+
+/* --- */
+
+char *svg_make_xax_mstones( int *rc, struct svg_model *svg )
+
+{
+    int pad, nstones, xax_coord, seq = 0, label_yax_hi, label_ypos;
+    char *line_frag = 0, *label_frag = 0, *result = 0, *seg = 0,
+      *line_patt = 0, *label_patt = 0, *combo;
+    struct svg_chart_milestone *walk;
+    struct sub_list *subs, *last, *line_color = 0, *line_size = 0,
+      *line_alpha = 0, *line_width = 0, *text_color = 0, *text_size = 0,
+      *text_alpha = 0, *label = 0, *line_xpos = 0, *line_ypos = 0,
+      *text_xpos = 0, *text_ypos = 0;
+
+    for( walk = svg->xmiles, nstones = 0; walk; walk = walk->next ) nstones++;
+
+    if( !nstones ) result = strdup( "\n" );
+    else
+    {
+    
+        last = subs = (struct sub_list *) malloc( sizeof *subs );
+        if( last )
+        {
+            line_color = last;
+            line_color->from = S_MST_LINE_COLOR;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_color->next = last;
+        }
+        if( last )
+        {
+            line_size = last;
+            line_size->from = S_MST_LINE_SIZE;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_size->next = last;
+        }
+        if( last )
+        {
+            line_alpha = last;
+            line_alpha->from = S_MST_LINE_ALPHA;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_alpha->next = last;
+        }
+        if( last )
+        {
+            line_width = last;
+            line_width->from = S_MST_LINE_WIDTH;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_width->next = last;
+        }
+        if( last )
+        {
+            text_color = last;
+            text_color->from = S_MST_TEXT_COLOR;
+            last = (struct sub_list *) malloc( sizeof *last );
+            text_color->next = last;
+        }
+        if( last )
+        {
+            text_size = last;
+            text_size->from = S_MST_TEXT_SIZE;
+            last = (struct sub_list *) malloc( sizeof *last );
+            text_size->next = last;
+        }
+        if( last )
+        {
+            text_alpha = last;
+            text_alpha->from = S_MST_TEXT_ALPHA;
+            last = (struct sub_list *) malloc( sizeof *last );
+            text_alpha->next = last;
+        }
+        if( last )
+        {
+            label = last;
+            label->from = S_MST_LABEL;
+            last = (struct sub_list *) malloc( sizeof *last );
+            label->next = last;
+        }
+        if( last )
+        {
+            line_xpos = last;
+            line_xpos->from = S_MST_LINE_XPOS;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_xpos->next = last;
+        }
+        if( last )
+        {
+            line_ypos = last;
+            line_ypos->from = S_MST_LINE_YPOS;
+            last = (struct sub_list *) malloc( sizeof *last );
+            line_ypos->next = last;
+        }
+        if( last )
+        {
+            text_xpos = last;
+            text_xpos->from = S_MST_TEXT_XPOS;
+            last = (struct sub_list *) malloc( sizeof *last );
+            text_xpos->next = last;
+        }
+        if( last )
+        {
+            text_ypos = last;
+            text_ypos->from = S_MST_TEXT_YPOS;
+            text_ypos->next = 0;
+        }
+
+        if( !text_ypos) *rc = ERR_MALLOC_FAILED;
+
+        line_patt = SVG_XSTONE_LINE;
+        label_patt = SVG_XSTONE_LABEL;
+        label_yax_hi = (svg->yax_border - svg->graph_top_row) / (nstones + 2);
+        label_ypos = svg->graph_top_row + (label_yax_hi / 2);
+
+        if( *rc == RC_NORMAL ) for( walk = svg->xmiles; walk; walk = walk->next, seq++ )
+        {
+            text_size->to = walk->text_size;
+            text_color->to = walk->text_color;
+            line_color->to = walk->line_color;
+            label->to = walk->label;
+
+            text_alpha->to = string_from_float( rc, walk->text_alpha, ALPHA_DISP_FORMAT );
+            line_alpha->to = string_from_float( rc, walk->line_alpha, ALPHA_DISP_FORMAT );
+            line_width->to = string_from_int( rc, walk->width, 0 );
+
+            pad = (int) ((float) svg->graph_height * walk->extend);
+            line_size->to = string_from_int( rc, svg->graph_height + (pad*2), 0 );
+
+            xax_coord = svg_xax_raw_to_gc( svg, walk->offset );
+            line_xpos->to = string_from_int( rc, xax_coord, 0 );
+            line_ypos->to = string_from_int( rc, svg->yax_border + pad, 0 );
+            text_xpos->to = string_from_int( rc, xax_coord - walk->width, 0 );
+            text_ypos->to = string_from_int( rc, label_ypos, 0 );
+            label_ypos += label_yax_hi;
+
+            if( *rc == RC_NORMAL ) seg = gsub_string( rc, line_patt, subs );
+            combo = combine_strings( rc, line_frag, seg );
+            if( line_frag ) free( line_frag );
+            if( seg ) free( seg );
+            line_frag = combo;
+
+            if( *rc == RC_NORMAL ) seg = gsub_string( rc, label_patt, subs );
+            combo = combine_strings( rc, label_frag, seg );
+            if( label_frag ) free( label_frag );
+            if( seg ) free( seg );
+            label_frag = combo;
+
+            if( text_alpha->to ) free( text_alpha->to );
+            if( line_alpha->to ) free( line_alpha->to );
+            if( line_width->to ) free( line_width->to );
+            if( line_size->to ) free( line_size->to );
+            if( line_xpos->to ) free( line_xpos->to );
+            if( line_ypos->to ) free( line_ypos->to );
+            if( text_xpos->to ) free( text_xpos->to );
+            if( text_ypos->to ) free( text_ypos->to );
+        }
+
+        result = combine_strings( rc, line_frag, label_frag );
+        if( line_frag ) free( line_frag );
+        if( label_frag ) free( label_frag );
+
+        for( last = subs; last; )
+        {
+            subs = last;
+            last = last->next;
+            free( subs );
+	}
+    }
+ 
+    return( result );
+}
+
+/* --- */
+
+char *svg_make_yax_mstones( int *rc, struct svg_model *svg )
+
+{
+    return( strdup( "<!-- yax-milestones stubbed out for now -->"));
+}
+
+
+/* --- */
+
+int svg_xax_raw_to_gc( struct svg_model *svg, float offset )
+
+{
+    int coord, scale;
+    float offset_pc;
+
+    scale = svg->xax_border - svg->graph_left_col;
+    offset_pc = (offset - svg->xmin) / (svg->xmax - svg->xmin);
+    coord = (int) (svg->graph_left_col + ((float) scale * offset_pc));
+    
+    return( coord );
+}
