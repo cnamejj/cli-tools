@@ -14,7 +14,7 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 
 HTSOBJS = handle_ssl_error.o setup_ssl_env.o ssl_handshake.o stash_ssl_err_info.o \
 	verify_ssl_callback.o bio_ssl_callback.o calc_xfrates.o calc_standard_moments.o \
-	packet-svg-graphs.o
+	packet-svg-graphs.o alloc_chart_options.o
 
 SVGOBJS = svg-routines.o packet-svg-graphs.o
 

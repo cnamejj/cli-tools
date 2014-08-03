@@ -7,7 +7,7 @@
 /* --- */
 
 char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title,
-  char *xax_title, char *yax_title, struct milestone *mstone)
+  char *xax_title, char *yax_title, struct chart_options *chopt)
 
 {
     int grids, digits, num_grids;
@@ -15,7 +15,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     char *dataformat, *svg_doc = 0;
     struct svg_model *svg;
     struct milestone *walk;
-    struct svg_chart_milestone *ckpt;
+    struct svg_chart_milestone *ckpt, *mstone = 0;
 
     if( *rc == RC_NORMAL)
     {
@@ -25,16 +25,34 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
 
     if( *rc == RC_NORMAL) *rc = svg_add_float_data( svg, cases, xdata, ydata);
 
-    for( walk = mstone; *rc == RC_NORMAL && walk; walk = walk->next)
+    if( chopt )
     {
-        ckpt = svg_add_xax_checkpoint( svg, walk->offset, walk->label);
-        if( !ckpt) *rc = ERR_MALLOC_FAILED;
-        else if( walk == mstone && strcmp( style, SVG_STYLE_DARK))
+        mstone = chopt->mstone;
+
+        for( walk = mstone; *rc == RC_NORMAL && walk; walk = walk->next)
         {
-            *rc = svg_set_checkpoint_line_color( ckpt, GR_MST_LINE_COLOR );
-            if( *rc == RC_NORMAL) *rc = svg_set_checkpoint_text_color( ckpt, GR_MST_TEXT_COLOR );
+            ckpt = svg_add_xax_checkpoint( svg, walk->offset, walk->label);
+            if( !ckpt) *rc = ERR_MALLOC_FAILED;
+            else if( walk == mstone && strcmp( style, SVG_STYLE_DARK))
+            {
+                *rc = svg_set_checkpoint_line_color( ckpt, GR_MST_LINE_COLOR );
+                if( *rc == RC_NORMAL) *rc = svg_set_checkpoint_text_color( ckpt, GR_MST_TEXT_COLOR );
+            }
 	}
+
+        if( chopt->xmin_hard != CH_OPT_NO_VALUE ) (void) svg_set_xmin( svg, chopt->xmin_hard );
+        else if( chopt->xmin_soft != CH_OPT_NO_VALUE && chopt->xmin_soft < svg->xmin ) (void) svg_set_xmin( svg, chopt->xmin_soft );
+
+        if( chopt->xmax_hard != CH_OPT_NO_VALUE ) (void) svg_set_xmax( svg, chopt->xmax_hard );
+        else if( chopt->xmax_soft != CH_OPT_NO_VALUE && chopt->xmax_soft > svg->xmax ) (void) svg_set_xmax( svg, chopt->xmax_soft );
+
+        if( chopt->ymin_hard != CH_OPT_NO_VALUE ) (void) svg_set_ymin( svg, chopt->ymin_hard );
+        else if( chopt->ymin_soft != CH_OPT_NO_VALUE && chopt->ymin_soft < svg->ymin ) (void) svg_set_ymin( svg, chopt->ymin_soft );
+
+        if( chopt->ymax_hard != CH_OPT_NO_VALUE ) (void) svg_set_ymax( svg, chopt->ymax_hard );
+        else if( chopt->ymax_soft != CH_OPT_NO_VALUE && chopt->ymax_soft > svg->ymax ) (void) svg_set_ymax( svg, chopt->ymax_soft );
     }
+
 
     if( *rc == RC_NORMAL) *rc = svg_set_chart_title( svg, title);
     if( *rc == RC_NORMAL) *rc = svg_set_xax_title( svg, xax_title);
@@ -189,6 +207,7 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
     char *result = 0, *title = 0, *mst_type = 0;
     float *elap = 0, *recbytes = 0, delta;
     struct ckpt_chain *stime, *walk;
+    struct chart_options *chopt = 0;
     struct milestone *mstone = 0, *curr = 0, *last = 0;
 
     title = combine_strings( rc, GR_ACCDAT_TITLE_LEAD, url);
@@ -237,34 +256,40 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
 		}
 	    }
 
-            for( walk = fetch->checkpoint; walk; walk = walk->next)
+            chopt = alloc_chart_options();
+            if( !chopt ) *rc = ERR_MALLOC_FAILED;
+            else
             {
-                if( walk->event == EVENT_DNS_LOOKUP) mst_type = MSTONE_DNS;
-                else if( walk->event == EVENT_CONNECT_SERVER) mst_type = MSTONE_CONN;
-                else if( walk->event == EVENT_SSL_HANDSHAKE) mst_type = MSTONE_SSL;
-                else if( walk->event == EVENT_REQUEST_SENT) mst_type = MSTONE_SEND;
-                else if( walk->event == EVENT_FIRST_RESPONSE) mst_type = MSTONE_1STREAD;
-                else if( walk->event == EVENT_READ_ALL_DATA) mst_type = MSTONE_ALLDATA;
-                else mst_type = 0;
-
-                if( mst_type)
+                for( walk = fetch->checkpoint; walk && *rc == RC_NORMAL; walk = walk->next)
                 {
-                    curr = (struct milestone *) malloc( sizeof *curr);
-                    if( curr)
+                    if( walk->event == EVENT_DNS_LOOKUP) mst_type = MSTONE_DNS;
+                    else if( walk->event == EVENT_CONNECT_SERVER) mst_type = MSTONE_CONN;
+                    else if( walk->event == EVENT_SSL_HANDSHAKE) mst_type = MSTONE_SSL;
+                    else if( walk->event == EVENT_REQUEST_SENT) mst_type = MSTONE_SEND;
+                    else if( walk->event == EVENT_FIRST_RESPONSE) mst_type = MSTONE_1STREAD;
+                    else if( walk->event == EVENT_READ_ALL_DATA) mst_type = MSTONE_ALLDATA;
+                    else mst_type = 0;
+
+                    if( mst_type)
                     {
-                        if( !mstone) mstone = curr;
-                        if( last) last->next = curr;
-                        curr->offset = calc_time_difference( &stime->clock, &walk->clock, fetch->clock_res);
-                        curr->label = mst_type;
-                        curr->next = 0;
-                        last = curr;
+                        curr = (struct milestone *) malloc( sizeof *curr);
+                        if( !curr) *rc = ERR_MALLOC_FAILED;
+                        else
+                        {
+                            if( !mstone) chopt->mstone = mstone = curr;
+                            if( last) last->next = curr;
+                            curr->offset = calc_time_difference( &stime->clock, &walk->clock, fetch->clock_res);
+                            curr->label = mst_type;
+                            curr->next = 0;
+                            last = curr;
+			}
 		    }
 		}
 	    }
 	}
 
         result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE,
-          GR_ACCDAT_YAX_TITLE, mstone);
+          GR_ACCDAT_YAX_TITLE, chopt);
 
         for( curr = mstone; curr; curr = last)
         {
@@ -289,6 +314,7 @@ char *make_psize_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
     char *result = 0, *title = 0;
     float *psfreq = 0, *bracket = 0, span;
     struct ckpt_chain *walk;
+    struct chart_options *chopt = 0;
 
     heaps = GR_FREQ_BRACKETS;
     title = combine_strings( rc, GR_FR_PSIZE_TITLE_LEAD, url);
@@ -370,8 +396,12 @@ for( off = 0; off < heaps; off++)
 	    }
 	}
 
+        chopt = alloc_chart_options();
+        if( !chopt ) *rc = ERR_MALLOC_FAILED;
+        else chopt->ymin_soft = 0;
+
         result = hf_generate_graph( rc, heaps, bracket, psfreq, style, title, GR_FR_PSIZE_XAX_TITLE,
-          GR_FR_PSIZE_YAX_TITLE, 0);
+          GR_FR_PSIZE_YAX_TITLE, chopt);
     }
 
     if( title) free( title);
@@ -390,6 +420,7 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
     char *result = 0, *title = 0;
     float *waitfreq = 0, *bracket = 0, span, delta, dmin, dmax;
     struct ckpt_chain *walk, *prev = 0;
+    struct chart_options *chopt = 0;
 
     heaps = GR_FREQ_BRACKETS;
     title = combine_strings( rc, GR_FR_RWAIT_TITLE_LEAD, url);
@@ -481,8 +512,12 @@ for( off = 0; off < heaps; off++)
 	    }
 	}
 
+        chopt = alloc_chart_options();
+        if( !chopt ) *rc = ERR_MALLOC_FAILED;
+        else chopt->ymin_soft = 0;
+
         result = hf_generate_graph( rc, heaps, bracket, waitfreq, style, title, GR_FR_RWAIT_XAX_TITLE,
-          GR_FR_RWAIT_YAX_TITLE, 0);
+          GR_FR_RWAIT_YAX_TITLE, chopt);
     }
 
     if( title) free( title);

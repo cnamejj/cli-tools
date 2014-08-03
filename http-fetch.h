@@ -28,6 +28,10 @@
 
 /* --- */
 
+#define CH_OPT_NO_VALUE -999999
+
+/* --- */
+
 #define FL_HEADER         "h"
 #define FL_HEADER_2       "header"
 #define FL_OUTPUT         "pe"
@@ -638,6 +642,12 @@ struct stat_work {
       readlag_sum, xfrate_sum;
 };
 
+struct chart_options {
+    int xmin_hard, xmin_soft, xmax_hard, xmax_soft, 
+      ymin_hard, ymin_soft, ymax_hard, ymax_soft;
+    struct milestone *mstone;
+};
+
 struct milestone {
     float offset;
     char *label;
@@ -770,7 +780,7 @@ void calc_standard_moments( struct fetch_status *status, struct stat_work *swork
 struct stat_work *alloc_stat_work();
 
 char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *style, char *title,
-  char *xax_title, char *yax_title, struct milestone *mstones);
+  char *xax_title, char *yax_title, struct chart_options *chopt);
 
 char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
 
@@ -779,6 +789,8 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
 char *make_psize_freq_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
 
 char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fetch_status *fetch);
+
+struct chart_options *alloc_chart_options();
 
 /* --- */
 
