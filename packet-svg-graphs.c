@@ -14,8 +14,8 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct svg_model *svg;
-    struct milestone *walk;
-    struct svg_chart_milestone *ckpt, *mstone = 0;
+    struct milestone *walk, *mstone = 0;
+    struct svg_chart_milestone *ckpt;
 
     if( *rc == RC_NORMAL)
     {
