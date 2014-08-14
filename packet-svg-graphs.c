@@ -123,6 +123,12 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         if( *rc == RC_NORMAL) *rc = svg_set_circ_line_alpha( svg, GR_ALL_CIRC_LINE_ALPHA);
         if( *rc == RC_NORMAL) *rc = svg_set_data_fill_alpha( svg, GR_ALL_DATA_FILL_ALPHA);
         if( *rc == RC_NORMAL) *rc = svg_set_data_line_alpha( svg, GR_ALL_DATA_LINE_ALPHA);
+
+        if( chopt )
+        {
+            if( chopt->data_line_alpha != CH_OPT_NO_VALUE ) (void) svg_set_data_line_alpha( svg, chopt->data_line_alpha );
+            if( chopt->data_line_color ) (void) svg_set_data_line_color( svg, chopt->data_line_color );
+	}
     }
 
     if( *rc == RC_NORMAL) svg_doc = svg_render( rc, svg);
@@ -140,6 +146,7 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
     int event, cases, off;
     char *result = 0, *title = 0;
     float *elap = 0, *psize = 0, delta;
+    struct chart_options *chopt = 0;
     struct ckpt_chain *stime, *walk;
 
     title = combine_strings( rc, GR_PACK_TITLE_LEAD, url);
@@ -164,8 +171,9 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
     {
         elap = (float *) malloc( cases * (sizeof *elap));
         psize = (float *) malloc( cases * (sizeof *psize));
+        chopt = alloc_chart_options();
 
-        if( !elap || !psize) *rc = ERR_MALLOC_FAILED;
+        if( !elap || !psize || !chopt ) *rc = ERR_MALLOC_FAILED;
         else
         {
             off = 0;
@@ -184,15 +192,23 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
                     off++;
 		}
 	    }
+
+            chopt->data_line_alpha = GR_PACK_DATA_LINE_ALPHA;
+            chopt->data_line_color = strdup( GR_PACK_DATA_LINE_COLOR );
 	}
 
         result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE,
-          GR_PACK_YAX_TITLE, 0);
+          GR_PACK_YAX_TITLE, chopt );
     }
 
     if( title) free( title);
     if( elap) free( elap);
     if( psize) free( psize);
+    if( chopt )
+    {
+        if( chopt->data_line_color ) free( chopt->data_line_color );
+        free( chopt );
+    }
 
     return( result);
 }

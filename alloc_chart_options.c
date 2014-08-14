@@ -17,6 +17,8 @@ struct chart_options *alloc_chart_options()
         chopt->ymax_soft = CH_OPT_NO_VALUE;
         chopt->ymax_hard = CH_OPT_NO_VALUE;
         chopt->mstone = 0;
+        chopt->data_line_alpha = CH_OPT_NO_VALUE; 
+        chopt->data_line_color = 0;
     }
 
     return( chopt );

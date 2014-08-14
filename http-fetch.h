@@ -452,6 +452,8 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 #define GR_PACK_TITLE_LEAD "Packet Receipt - URL: "
 #define GR_PACK_XAX_TITLE "Elapsed Time (secs since 1st read)"
 #define GR_PACK_YAX_TITLE "Packetsize"
+#define GR_PACK_DATA_LINE_COLOR "#a47e28"
+#define GR_PACK_DATA_LINE_ALPHA 0.35
 
 #define GR_ACCDAT_TITLE_LEAD "Data Rec'd - URL: "
 #define GR_ACCDAT_XAX_TITLE "Elapsed Time (secs)"
@@ -645,6 +647,8 @@ struct stat_work {
 struct chart_options {
     int xmin_hard, xmin_soft, xmax_hard, xmax_soft, 
       ymin_hard, ymin_soft, ymax_hard, ymax_soft;
+    float data_line_alpha;
+    char *data_line_color;
     struct milestone *mstone;
 };
 
