@@ -11,6 +11,15 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <errno.h>
+
+/* --- */
+
+char *context_desc( int context );
+
+void bail_out( int rc, int err, int context, char *explain );
+
+struct data_pair_list *load_data( char *source );
 
 /* --- */
 
@@ -33,10 +42,29 @@ char *context_desc( int context )
 
 /* --- */
 
-struct data_pair_list *load_data( int *rc, char *source )
+void bail_out( int rc, int err, int context, char *explain )
 
 {
-    int indata, dsize, total = 0, off, nconv, nlines = 0;
+    fprintf( stderr, "Err(%d) %s", rc, context_desc(context) );
+
+    if( explain ) if( *explain ) fprintf( stderr, ", %s", explain );
+
+    if( err )
+    {
+        fprintf( stderr, " (%s)", strerror(err) );
+    }
+
+    fprintf( stderr, "\n" );
+
+    exit( rc );
+}
+
+/* --- */
+
+struct data_pair_list *load_data( char *source )
+
+{
+    int indata, dsize, total = 0, off, nconv, nlines = 0, rc;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos;
     struct data_pair_list *data = 0;
@@ -45,114 +73,83 @@ struct data_pair_list *load_data( int *rc, char *source )
 
     /* --- */
 
-    if( *rc == RC_NORMAL )
+    if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
+    else
     {
-        if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
+        indata = open( source, DATA_OPEN_FLAGS );
+        if( indata == -1 ) bail_out( ERR_OPEN_FAILED, errno, DO_LOAD_DATA, "can't open data file" );
+    }
+
+    dsize = read( indata, databuff, DATABUFFSIZE );
+    for( ; dsize > 0; dsize = read( indata, databuff, DATABUFFSIZE ) )
+    {
+        blink = (struct data_block_list *) malloc( sizeof *blink );
+        chunk = (char *) malloc( dsize );
+        if( !chunk || !blink ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+        total += dsize;
+        memcpy( chunk, databuff, dsize );
+        blink->data = chunk;
+        blink->size = dsize;
+        blink->next = 0;
+
+        if( !dlist ) dlist = walk = blink;
         else
         {
-            indata = open( source, DATA_OPEN_FLAGS );
-            if( indata == -1 ) *rc = ERR_OPEN_FAILED;
-	}
+            walk->next = blink;
+            walk = blink;
+        }
     }
 
-    if( *rc == RC_NORMAL )
-    {
-        dsize = read( indata, databuff, DATABUFFSIZE );
-        for( ; *rc == RC_NORMAL && dsize > 0; dsize = read( indata, databuff, DATABUFFSIZE ) )
-        {
-            blink = (struct data_block_list *) malloc( sizeof *blink );
-            chunk = (char *) malloc( dsize );
-            if( !chunk || !blink ) *rc = ERR_MALLOC_FAILED;
-            else
-            {
-                total += dsize;
-                memcpy( chunk, databuff, dsize );
-                blink->data = chunk;
-                blink->size = dsize;
-                blink->next = 0;
+    alldata = (char *) malloc( total + 1);
+    if( !alldata ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
 
-                if( !dlist ) dlist = walk = blink;
-                else
-                {
-                    walk->next = blink;
-                    walk = blink;
-		}
-	    }
-	}
+    pos = alldata;
+    for( walk = dlist; walk; walk = walk->next )
+    {
+        memcpy( pos, walk->data, walk->size );
+        pos += walk->size;
     }
 
-    if( *rc == RC_NORMAL )
+    *pos = '\0';
+
+    for( walk = dlist; walk; )
     {
-        alldata = (char *) malloc( total + 1);
-        if( !alldata ) *rc = ERR_MALLOC_FAILED;
-        else
-        {
-            pos = alldata;
-            for( walk = dlist; walk; walk = walk->next )
-            {
-                memcpy( pos, walk->data, walk->size );
-                pos += walk->size;
-	    }
-
-            *pos = '\0';
-
-            for( walk = dlist; walk; )
-            {
-                blink = walk->next;
-                free( walk->data);
-                free( walk);
-                walk = blink;
-	    }
-	}
+        blink = walk->next;
+        free( walk->data);
+        free( walk);
+        walk = blink;
     }
 
-    if( *rc == RC_NORMAL )
+    lines = explode_string( &rc, alldata, "\n" );
+    if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
+
+    nlines = lines->np - 1;
+    if( nlines < 1 ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "no LF's in input file" );
+
+    free( alldata );
+
+    data = (struct data_pair_list *) malloc( sizeof *data );
+    if( !data ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+    cx = (float *) malloc( nlines * (sizeof *cx) );
+    if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+    cy = (float *) malloc( nlines * (sizeof *cy) );
+    if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+    data->cases = 0;
+    data->xval = cx;
+    data->yval = cy;
+
+    for( off = 0; off < nlines; off++ )
     {
-        lines = explode_string( rc, alldata, "\n" );
-        if( *rc == RC_NORMAL)
-        {
-            nlines = lines->np - 1;
-            if( nlines < 1 ) *rc = ERR_INVALID_DATA;
-	}
+        nconv = sscanf( lines->list[off], "%f %f", cx, cy);
+        if( nconv != 2 ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain two blank delimited numbers" );
 
-        free( alldata );
-    }
-
-    if( *rc == RC_NORMAL)
-    {
-        data = (struct data_pair_list *) malloc( sizeof *data );
-        if( !data ) *rc = ERR_MALLOC_FAILED;
-    }
-
-    if( *rc == RC_NORMAL)
-    {
-        cx = (float *) malloc( nlines * (sizeof *cx) );
-        if( !cx ) *rc = ERR_MALLOC_FAILED;
-    }
-
-    if( *rc == RC_NORMAL)
-    {
-        cy = (float *) malloc( nlines * (sizeof *cy) );
-        if( !cy ) *rc = ERR_MALLOC_FAILED;
-    }
-
-    if( *rc == RC_NORMAL )
-    {
-        data->cases = 0;
-        data->xval = cx;
-        data->yval = cy;
-
-        for( off = 0; *rc == RC_NORMAL && off < nlines; off++ )
-        {
-            nconv = sscanf( lines->list[off], "%f %f", cx, cy);
-            if( nconv != 2 ) *rc = ERR_INVALID_DATA;
-            else
-            {
-                data->cases++;
-                cx++;
-                cy++;
-	    }
-	}
+        data->cases++;
+        cx++;
+        cy++;
     }
 
     if( lines )
@@ -204,194 +201,146 @@ int main( int narg, char **opts )
 print_parse_summary( extra_opts, opset, nflags );
  *dbg*/
 
-    for( walk = extra_opts; rc == RC_NORMAL && walk; walk = walk->next)
-      if( walk->opt ) if( *walk->opt ) rc = ERR_SYNTAX;
+    for( walk = extra_opts; walk; walk = walk->next)
+      if( walk->opt ) if( *walk->opt ) bail_out( ERR_SYNTAX, 0, context, "extraneous parameters on commandline" );
     
     /* --- */
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_DEBUG, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.debug = *((int *) co->parsed);
-    }
+    co = get_matching_option( OP_DEBUG, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.debug = *((int *) co->parsed);
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_HELP, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.help = *((int *) co->parsed);
-    }
+    co = get_matching_option( OP_HELP, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.help = *((int *) co->parsed);
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_CHART_TITLE, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.chart_title = (char *) co->parsed;
-    }
+    co = get_matching_option( OP_CHART_TITLE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.chart_title = (char *) co->parsed;
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_XAX_TITLE, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.xax_title = (char *) co->parsed;
-    }
+    co = get_matching_option( OP_XAX_TITLE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.xax_title = (char *) co->parsed;
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_YAX_TITLE, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.yax_title = (char *) co->parsed;
-    }
+    co = get_matching_option( OP_YAX_TITLE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.yax_title = (char *) co->parsed;
     
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_XAX_GRIDS, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.xax_grids = *((int *) co->parsed);
-    }
-    
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_YAX_GRIDS, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.yax_grids = *((int *) co->parsed);
-    }
+    co = get_matching_option( OP_XAX_GRIDS, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.xax_grids = *((int *) co->parsed);
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_OUTFILE, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.out_file = (char *) co->parsed;
-    }
+    co = get_matching_option( OP_YAX_GRIDS, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.yax_grids = *((int *) co->parsed);
 
-    if( rc == RC_NORMAL )
-    {
-        co = get_matching_option( OP_DATAFILE, opset, nflags );
-        if( !co ) rc = ERR_UNSUPPORTED;
-        else popt.data_file = (char *) co->parsed;
-    }
+    co = get_matching_option( OP_OUTFILE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.out_file = (char *) co->parsed;
 
-    if( rc == RC_NORMAL )
-    {
-        if( !popt.chart_title ) popt.chart_title = "";
-        if( !popt.xax_title ) popt.xax_title = "";
-        if( !popt.yax_title ) popt.yax_title = "";
-        if( !popt.out_file ) popt.out_file = "";
-        if( !popt.data_file ) popt.data_file = "";
-    }
+    co = get_matching_option( OP_DATAFILE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.data_file = (char *) co->parsed;
+
+    if( !popt.chart_title ) popt.chart_title = "";
+    if( !popt.xax_title ) popt.xax_title = "";
+    if( !popt.yax_title ) popt.yax_title = "";
+    if( !popt.out_file ) popt.out_file = "";
+    if( !popt.data_file ) popt.data_file = "";
     
     /* --- */
 
-    if( rc == RC_NORMAL )
-    {
-        context = DO_ALLOC_CHART_OBJECT;
-        svg = svg_make_chart();
-        if( !svg ) rc = ERR_MALLOC_FAILED;
-    }
+    context = DO_ALLOC_CHART_OBJECT;
+    svg = svg_make_chart();
+    if( !svg ) bail_out( ERR_MALLOC_FAILED, errno, context, 0 );
 
-    if( rc == RC_NORMAL )
-    {
-        context = DO_LOAD_DATA;
-        data = load_data( &rc, popt.data_file );
-    }
+    context = DO_LOAD_DATA;
+    data = load_data( popt.data_file );
 
-    if( rc == RC_NORMAL )
-    {
-        rc = svg_add_float_data( svg, data->cases, data->xval, data->yval );
-    }
+    rc = svg_add_float_data( svg, data->cases, data->xval, data->yval );
+    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
 
-    if( rc == RC_NORMAL )
-    {
-        context = DO_CONFIGURE_CHART;
+    context = DO_CONFIGURE_CHART;
 
-        rc = svg_set_circ_line_size( svg, SC_CIRC_LINE_SIZE );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_radius( svg, SC_CIRC_RADIUS );
-
-        if( rc == RC_NORMAL ) rc = svg_set_text_color( svg, SC_TEXT_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_axis_color( svg, SC_AXIS_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_chart_color( svg, SC_CHART_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_graph_color( svg, SC_GRAPH_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( svg, SC_CIRC_FILL_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( svg, SC_CIRC_LINE_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( svg, SC_DATA_FILL_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_data_line_color( svg, SC_DATA_LINE_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_x_gridline_color( svg, SC_XGRID_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
-
-        if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( svg, SC_CIRC_FILL_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( svg, SC_CIRC_LINE_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( svg, SC_DATA_FILL_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( svg, SC_DATA_LINE_ALPHA );
-    }
-
-    if( rc == RC_NORMAL )
-    {
-        rc = svg_set_screen_width( svg, "100%" );
-        if( rc == RC_NORMAL ) rc = svg_set_screen_height( svg, "50%" );
-
-        if( rc == RC_NORMAL ) rc = svg_set_chart_title( svg, popt.chart_title );
-        if( rc == RC_NORMAL ) rc = svg_set_xax_title( svg, popt.xax_title );
-        if( rc == RC_NORMAL ) rc = svg_set_yax_title( svg, popt.yax_title );
-
-        if( rc == RC_NORMAL && popt.xax_grids > 0 ) rc = svg_set_xax_num_grids( svg, popt.xax_grids );
-        if( rc == RC_NORMAL && popt.yax_grids > 0 ) rc = svg_set_yax_num_grids( svg, popt.yax_grids );
-
-        if( rc == RC_NORMAL ) rc = svg_finalize_model( svg );
-
-        if( rc == RC_NORMAL)
-        {
-            dmin = svg_get_xmin( svg );
-            dmax = svg_get_xmax( svg );
-            grids = svg_get_xax_num_grids( svg );
-            if( grids > 0 )
-            {
-                span = (dmax - dmin) / grids;
-                if( span >= 1.0 ) digits = 0;
-                else if( span == 0.0 ) digits = 0;
-                else digits = (int) (1 - log10( span));
-                dataformat = string_from_int( &rc, digits, LABEL_META_FORMAT );
-                if( rc == RC_NORMAL ) rc = svg_set_xax_disp( svg, dataformat );
-                if( dataformat ) free( dataformat );
-	    }
-        }
-    }
-
-    if( rc == RC_NORMAL )
-    {
-        context = DO_RENDER_CHART;
-        svg_doc = svg_render( &rc, svg );
-    }
-
-    if( rc == RC_NORMAL )
-    {
-        context = DO_OPEN_OUTPUT_FILE;
-
-        if( *popt.out_file && strcmp(popt.out_file, IS_STDOUT) )
-        {
-            out = open( popt.out_file, OUT_OPEN_FLAGS, OUT_OPEN_MODE );
-            if( out == -1 ) rc = ERR_OPEN_FAILED;
-	}
-        else out = fileno( stdout );
-    }
-
-    if( rc == RC_NORMAL )
-    {
-        context = DO_WRITE_SVG_DOC;
-        svg_doc_len = strlen(svg_doc);
-        nbyte = write( out, svg_doc, svg_doc_len );
-	if( nbyte != svg_doc_len ) rc = ERR_WRITE_FAILED;
-    }
-
-    if( rc == RC_NORMAL ) svg_free_model( svg );
+    rc = svg_set_circ_line_size( svg, SC_CIRC_LINE_SIZE );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_radius( svg, SC_CIRC_RADIUS );
 
     /* --- */
 
-    if( rc != RC_NORMAL )
+    if( rc == RC_NORMAL ) rc = svg_set_text_color( svg, SC_TEXT_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_axis_color( svg, SC_AXIS_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_chart_color( svg, SC_CHART_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_graph_color( svg, SC_GRAPH_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( svg, SC_CIRC_FILL_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( svg, SC_CIRC_LINE_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( svg, SC_DATA_FILL_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_data_line_color( svg, SC_DATA_LINE_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_x_gridline_color( svg, SC_XGRID_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
+
+    if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( svg, SC_CIRC_FILL_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( svg, SC_CIRC_LINE_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( svg, SC_DATA_FILL_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( svg, SC_DATA_LINE_ALPHA );
+
+    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart color/alpha options failed" );
+
+    /* --- */
+
+    rc = svg_set_screen_width( svg, "100%" );
+    if( rc == RC_NORMAL ) rc = svg_set_screen_height( svg, "50%" );
+
+    if( rc == RC_NORMAL ) rc = svg_set_chart_title( svg, popt.chart_title );
+    if( rc == RC_NORMAL ) rc = svg_set_xax_title( svg, popt.xax_title );
+    if( rc == RC_NORMAL ) rc = svg_set_yax_title( svg, popt.yax_title );
+
+    if( rc == RC_NORMAL && popt.xax_grids > 0 ) rc = svg_set_xax_num_grids( svg, popt.xax_grids );
+    if( rc == RC_NORMAL && popt.yax_grids > 0 ) rc = svg_set_yax_num_grids( svg, popt.yax_grids );
+
+    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart size and detail options failed" );
+
+    /* --- */
+
+    rc = svg_finalize_model( svg );
+    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "error finalizeing SVG model" );
+
+    dmin = svg_get_xmin( svg );
+    dmax = svg_get_xmax( svg );
+    grids = svg_get_xax_num_grids( svg );
+    if( grids > 0 )
     {
-        fprintf( stderr, "Err: RC=%d, context: %s\n", rc, context_desc(context));
+        span = (dmax - dmin) / grids;
+        if( span >= 1.0 ) digits = 0;
+        else if( span == 0.0 ) digits = 0;
+        else digits = (int) (1 - log10( span));
+        dataformat = string_from_int( &rc, digits, LABEL_META_FORMAT );
+        rc = svg_set_xax_disp( svg, dataformat );
+        if( rc != RC_NORMAL ) bail_out( rc, 0, context, "can't set x-axis label precision" );
+        if( dataformat ) free( dataformat );
     }
+
+    context = DO_RENDER_CHART;
+    svg_doc = svg_render( &rc, svg );
+    if( rc != RC_NORMAL) bail_out( rc, errno, context, "chart rendering error" );
+
+    context = DO_OPEN_OUTPUT_FILE;
+
+    if( *popt.out_file && strcmp(popt.out_file, IS_STDOUT) )
+    {
+        out = open( popt.out_file, OUT_OPEN_FLAGS, OUT_OPEN_MODE );
+        if( out == -1 ) bail_out( ERR_OPEN_FAILED, errno, context, "can't open output file" );
+    }
+    else out = fileno( stdout );
+
+    context = DO_WRITE_SVG_DOC;
+    svg_doc_len = strlen(svg_doc);
+    nbyte = write( out, svg_doc, svg_doc_len );
+    if( nbyte != svg_doc_len ) bail_out( ERR_WRITE_FAILED, errno, context, "writing SVG document failed" );
+
+    svg_free_model( svg );
+
+    /* --- */
 
     return( rc );
 }
