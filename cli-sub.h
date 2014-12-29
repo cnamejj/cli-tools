@@ -203,6 +203,11 @@ struct http_status_response {
   char *version, *reason;
 };
 
+struct string_parts {
+   int np;
+   char **list;
+};
+
 /* --- */
 
 struct word_chain *parse_command_options( int *rc, struct option_set *plist, int nopt, int narg, char **opts);
@@ -302,6 +307,8 @@ char *combine_strings( int *rc, char *lead, char *trail);
 char *string_from_int( int *rc, int number, char *format);
 
 char *string_from_float( int *rc, float number, char *format);
+
+struct string_parts *explode_string( int *rc, char *string, char *delim);
 
 /* --- */
 

@@ -26,9 +26,11 @@ iso8859-collapse
 http-fetch
 extended-letters-collapse
 actor
+svg-it
 
 # temporary local backup directories
 BACKUP
 
 # local-only scripts, docs, etc...
 local
+test
