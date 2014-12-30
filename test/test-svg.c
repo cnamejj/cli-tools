@@ -11,12 +11,14 @@
 #include "../svg-tools.h"
 #include "../err_ref.h"
 
+#ifdef INLINE_EXPLODE_STRING
 struct string_parts {
    int np;
    char **list;
 };
 
 struct string_parts *explode_string( int *rc, char *string, char *delim);
+#endif
 
 #define CASES 25
 #define SCOPE 200
@@ -238,6 +240,7 @@ int main(int narg, char **opts)
     exit(0);
 }
 
+#ifdef INLINE_EXPLODE_STRING
 
 /* --- */
 
@@ -305,3 +308,4 @@ struct string_parts *explode_string( int *rc, char *string, char *delim)
    return rez;
 }
 
+#endif

@@ -19,7 +19,7 @@ char *context_desc( int context );
 
 void bail_out( int rc, int err, int context, char *explain );
 
-struct data_pair_list *load_data( char *source );
+struct data_pair_list *load_data( struct parsed_options *popt );
 
 /* --- */
 
@@ -61,17 +61,22 @@ void bail_out( int rc, int err, int context, char *explain )
 
 /* --- */
 
-struct data_pair_list *load_data( char *source )
+struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
-    int indata, dsize, total = 0, off, nconv, nlines = 0, rc;
+    int indata, dsize, total = 0, off, nconv, nlines = 0, rc, xcol, ycol,
+      minwords;
     float *cx, *cy;
-    char databuff[DATABUFFSIZE], *chunk, *alldata, *pos;
+    char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source;
     struct data_pair_list *data = 0;
     struct data_block_list *dlist = 0, *walk, *blink;
-    struct string_parts *lines = 0;
+    struct string_parts *lines = 0, *words = 0;
 
     /* --- */
+
+    source = popt->data_file;
+    xcol = popt->x_col;
+    ycol = popt->y_col;
 
     if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
     else
@@ -124,7 +129,8 @@ struct data_pair_list *load_data( char *source )
     lines = explode_string( &rc, alldata, "\n" );
     if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
 
-    nlines = lines->np - 1;
+    remove_empty_strings( lines );
+    nlines = lines->np;
     if( nlines < 1 ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "no LF's in input file" );
 
     free( alldata );
@@ -142,10 +148,30 @@ struct data_pair_list *load_data( char *source )
     data->xval = cx;
     data->yval = cy;
 
+    minwords = xcol;
+    if( ycol > minwords ) minwords = ycol;
+
     for( off = 0; off < nlines; off++ )
     {
-        nconv = sscanf( lines->list[off], "%f %f", cx, cy);
-        if( nconv != 2 ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain two blank delimited numbers" );
+        words = explode_string( &rc, lines->list[off], " " );
+        if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
+
+        remove_empty_strings( words );
+        if( words->np < minwords ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain enough fields" );
+
+        if( !popt->x_data ) *cx = (float) off;
+        else
+        {
+            nconv = sscanf( words->list[xcol-1], "%f", cx);
+            if( !nconv ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
+	}
+
+        if( !popt->y_data ) *cy = (float) off;
+        else
+        {
+            nconv = sscanf( words->list[ycol-1], "%f", cy);
+            if( !nconv ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
+	}
 
         data->cases++;
         cx++;
@@ -155,6 +181,7 @@ struct data_pair_list *load_data( char *source )
     if( lines )
     {
         for( off = 0; off < lines->np; off++) free( lines->list[off] );
+        free( lines->list );
         free( lines );
     }
 
@@ -183,6 +210,10 @@ int main( int narg, char **opts )
       { OP_YAX_GRIDS,   OP_TYPE_INT,  OP_FL_BLANK, FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
       { OP_OUTFILE,     OP_TYPE_CHAR, OP_FL_BLANK, FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
       { OP_DATAFILE,    OP_TYPE_CHAR, OP_FL_BLANK, FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
+      { OP_XCOL,        OP_TYPE_INT,  OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
+      { OP_YCOL,        OP_TYPE_INT,  OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
+      { OP_XDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
+      { OP_YDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
@@ -191,8 +222,12 @@ int main( int narg, char **opts )
 
     /* --- */
 
-    popt.debug = popt.help = popt.xax_grids = popt.yax_grids = 0;
-    popt.chart_title = popt.xax_title = popt.yax_title = popt.out_file = popt.data_file = 0;
+    popt.debug = popt.help = 0;
+    popt.xax_grids = popt.yax_grids = 0;
+    popt.x_col = popt.y_col = 0;
+    popt.x_data = popt.y_data = 0;
+    popt.chart_title = popt.xax_title = popt.yax_title = 0;
+    popt.out_file = popt.data_file = 0;
 
     context = DO_PARSE_COMMAND;
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
@@ -242,11 +277,30 @@ print_parse_summary( extra_opts, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
     popt.data_file = (char *) co->parsed;
 
+    co = get_matching_option( OP_XCOL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.x_col = *((int *) co->parsed);
+
+    co = get_matching_option( OP_YCOL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.y_col = *((int *) co->parsed);
+
+    co = get_matching_option( OP_XDATA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.x_data = *((int *) co->parsed);
+
+    co = get_matching_option( OP_YDATA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.y_data = *((int *) co->parsed);
+
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
     if( !popt.yax_title ) popt.yax_title = "";
     if( !popt.out_file ) popt.out_file = "";
     if( !popt.data_file ) popt.data_file = "";
+
+    if( popt.x_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "X data column invalid" );
+    if( popt.y_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "Y data column invalid" );
     
     /* --- */
 
@@ -255,7 +309,7 @@ print_parse_summary( extra_opts, opset, nflags );
     if( !svg ) bail_out( ERR_MALLOC_FAILED, errno, context, 0 );
 
     context = DO_LOAD_DATA;
-    data = load_data( popt.data_file );
+    data = load_data( &popt );
 
     rc = svg_add_float_data( svg, data->cases, data->xval, data->yval );
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );

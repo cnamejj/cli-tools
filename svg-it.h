@@ -53,6 +53,10 @@ static struct context_info context_list[] = {
 #define OP_DEBUG       6
 #define OP_HELP        7
 #define OP_DATAFILE    8
+#define OP_XCOL        9
+#define OP_YCOL        10
+#define OP_XDATA       11
+#define OP_YDATA       12
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -63,6 +67,10 @@ static struct context_info context_list[] = {
 #define FL_DEBUG       "debug"
 #define FL_HELP        "help"
 #define FL_DATAFILE    "data"
+#define FL_XCOL        "xcol"
+#define FL_YCOL        "ycol"
+#define FL_XDATA       "xdata"
+#define FL_YDATA       "ydata"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -73,6 +81,10 @@ static struct context_info context_list[] = {
 #define DEF_DEBUG       "0"
 #define DEF_HELP        "0"
 #define DEF_DATAFILE    "svg.data"
+#define DEF_XCOL        "1"
+#define DEF_YCOL        "2"
+#define DEF_XDATA       "1"
+#define DEF_YDATA       "1"
 
 #define IS_STDIN "-"
 #define IS_STDOUT "-"
@@ -104,7 +116,7 @@ static struct context_info context_list[] = {
 /* --- */
 
 struct parsed_options {
-    int debug, help, xax_grids, yax_grids;
+    int debug, help, xax_grids, yax_grids, x_col, y_col, x_data, y_data;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title;
 };
 

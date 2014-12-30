@@ -310,6 +310,8 @@ char *string_from_float( int *rc, float number, char *format);
 
 struct string_parts *explode_string( int *rc, char *string, char *delim);
 
+void remove_empty_strings( struct string_parts *plist);
+
 /* --- */
 
 #endif

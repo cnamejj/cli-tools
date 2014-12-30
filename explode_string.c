@@ -58,7 +58,7 @@ struct string_parts *explode_string( int *rc, char *string, char *delim)
       {
          rez->list[ ii] = strdup( st);
          if( !rez->list[ ii]) err = ERR_MALLOC_FAILED;
-         else st += strlen( st) + dlen;;
+         else st += strlen( st) + dlen;
       }
 
       if( buff) free( buff);
