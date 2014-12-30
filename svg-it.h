@@ -57,6 +57,7 @@ static struct context_info context_list[] = {
 #define OP_YCOL        10
 #define OP_XDATA       11
 #define OP_YDATA       12
+#define OP_IG_BAD_DATA 13
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -71,6 +72,7 @@ static struct context_info context_list[] = {
 #define FL_YCOL        "ycol"
 #define FL_XDATA       "xdata"
 #define FL_YDATA       "ydata"
+#define FL_IG_BAD_DATA "ignore-bad-data"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -85,6 +87,7 @@ static struct context_info context_list[] = {
 #define DEF_YCOL        "2"
 #define DEF_XDATA       "1"
 #define DEF_YDATA       "1"
+#define DEF_IG_BAD_DATA "0"
 
 #define IS_STDIN "-"
 #define IS_STDOUT "-"
@@ -116,7 +119,8 @@ static struct context_info context_list[] = {
 /* --- */
 
 struct parsed_options {
-    int debug, help, xax_grids, yax_grids, x_col, y_col, x_data, y_data;
+    int debug, help, xax_grids, yax_grids, x_col, y_col,
+      x_data, y_data, ign_bad_data;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title;
 };
 

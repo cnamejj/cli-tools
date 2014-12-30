@@ -65,7 +65,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, xcol, ycol,
-      minwords;
+      minwords, keep;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source;
     struct data_pair_list *data = 0;
@@ -154,28 +154,46 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     for( off = 0; off < nlines; off++ )
     {
         words = explode_string( &rc, lines->list[off], " " );
-        if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
+        if( rc != RC_NORMAL ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
 
         remove_empty_strings( words );
-        if( words->np < minwords ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain enough fields" );
-
-        if( !popt->x_data ) *cx = (float) off;
+        if( words->np < minwords)
+        {
+            if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain enough fields" );
+	}
         else
         {
-            nconv = sscanf( words->list[xcol-1], "%f", cx);
-            if( !nconv ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
-	}
+            keep = 1;
 
-        if( !popt->y_data ) *cy = (float) off;
-        else
-        {
-            nconv = sscanf( words->list[ycol-1], "%f", cy);
-            if( !nconv ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
-	}
+            if( !popt->x_data ) *cx = (float) off;
+            else
+            {
+                nconv = sscanf( words->list[xcol-1], "%f", cx);
+                if( !nconv )
+                {
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
+                    keep= 0;
+		}
+            }
 
-        data->cases++;
-        cx++;
-        cy++;
+            if( !popt->y_data ) *cy = (float) off;
+            else
+            {
+                nconv = sscanf( words->list[ycol-1], "%f", cy);
+                if( !nconv )
+                {
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
+                    keep= 0;
+		}
+	    }
+
+            if( keep )
+            {
+                data->cases++;
+                cx++;
+                cy++;
+	    }
+	}
     }
 
     if( lines )
@@ -214,6 +232,7 @@ int main( int narg, char **opts )
       { OP_YCOL,        OP_TYPE_INT,  OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
       { OP_XDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
       { OP_YDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
+      { OP_IG_BAD_DATA, OP_TYPE_FLAG, OP_FL_BLANK, FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
@@ -226,6 +245,7 @@ int main( int narg, char **opts )
     popt.xax_grids = popt.yax_grids = 0;
     popt.x_col = popt.y_col = 0;
     popt.x_data = popt.y_data = 0;
+    popt.ign_bad_data = 0;
     popt.chart_title = popt.xax_title = popt.yax_title = 0;
     popt.out_file = popt.data_file = 0;
 
@@ -292,6 +312,10 @@ print_parse_summary( extra_opts, opset, nflags );
     co = get_matching_option( OP_YDATA, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
     popt.y_data = *((int *) co->parsed);
+
+    co = get_matching_option( OP_IG_BAD_DATA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.ign_bad_data = *((int *) co->parsed);
 
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
