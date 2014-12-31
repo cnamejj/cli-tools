@@ -220,6 +220,7 @@ int main( int narg, char **opts )
     char *dataformat, *svg_doc = 0;
     struct data_pair_list *data = 0;
     struct svg_model *svg;
+    struct series_data *series = 0;
     static struct option_set opset[] = {
       { OP_DEBUG,       OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
       { OP_HELP,        OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
@@ -347,13 +348,13 @@ print_parse_summary( extra_opts, opset, nflags );
     context = DO_LOAD_DATA;
     data = load_data( &popt );
 
-    rc = svg_add_float_data( svg, data->cases, data->xval, data->yval );
+    series = svg_add_float_data( &rc, svg, data->cases, data->xval, data->yval );
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
 
     context = DO_CONFIGURE_CHART;
 
-    rc = svg_set_circ_line_size( svg, SC_CIRC_LINE_SIZE );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_radius( svg, SC_CIRC_RADIUS );
+    rc = svg_set_circ_line_size( series, SC_CIRC_LINE_SIZE );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_radius( series, SC_CIRC_RADIUS );
 
     /* --- */
 
@@ -361,18 +362,18 @@ print_parse_summary( extra_opts, opset, nflags );
     if( rc == RC_NORMAL ) rc = svg_set_axis_color( svg, SC_AXIS_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_chart_color( svg, SC_CHART_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_graph_color( svg, SC_GRAPH_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( svg, SC_CIRC_FILL_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( svg, SC_CIRC_LINE_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( svg, SC_DATA_FILL_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_data_line_color( svg, SC_DATA_LINE_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( series, SC_CIRC_FILL_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( series, SC_CIRC_LINE_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( series, SC_DATA_FILL_COLOR );
+    if( rc == RC_NORMAL ) rc = svg_set_data_line_color( series, SC_DATA_LINE_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_x_gridline_color( svg, SC_XGRID_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
 
     if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( svg, SC_CIRC_FILL_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( svg, SC_CIRC_LINE_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( svg, SC_DATA_FILL_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( svg, SC_DATA_LINE_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( series, SC_CIRC_FILL_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( series, SC_CIRC_LINE_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( series, SC_DATA_FILL_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( series, SC_DATA_LINE_ALPHA );
 
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart color/alpha options failed" );
 

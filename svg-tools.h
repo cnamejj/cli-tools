@@ -15,6 +15,7 @@
 #pragma GCC diagnostic ignored "-Woverlength-strings"
 
 #define SVG_NO_VALUE -999999
+#define SVG_EMPTY_SERIES -1
 
 #define ALPHA_DISP_FORMAT "%.4f"
 
@@ -244,6 +245,15 @@ struct svg_chart_milestone
     struct svg_chart_milestone *next;
 };
 
+struct series_data
+{
+    int id, cases, circ_line_size, circ_radius, data_line_size;
+    float circ_fill_alpha, circ_line_alpha, data_fill_alpha, data_line_alpha;
+    double loc_xmin, loc_xmax, loc_ymin, loc_ymax, *xdata, *ydata;
+    char *circ_fill_color, *circ_line_color, *data_fill_color, *data_line_color;
+    struct series_data *next;
+};
+
 struct svg_model
 {
     int axis_size, xax_num_grids, yax_num_grids,
@@ -253,26 +263,23 @@ struct svg_model
       graph_bottom, graph_height_midp, graph_width_midp,
       chart_height, chart_width_midp, chart_height_midp, chart_width,
       head_height_midp,
-      circ_line_size, circ_radius,
-      data_line_size,
       reserve_height, reserve_width,
       shift_width, shift_height, shift_bottom,
-      cases;
+      total_cases;
 
     float axis_alpha, graph_alpha, chart_alpha, text_alpha,
-      circ_fill_alpha, circ_line_alpha,
-      data_fill_alpha, data_line_alpha,
       x_gridline_alpha, y_gridline_alpha;
 
-    double xmin, xmax, ymin, ymax, *xdata, *ydata;
+    double xmin, xmax, ymin, ymax;
 
     char *chart_title, *xax_title, *yax_title, *text_size,
-      *axis_color, *chart_color, *graph_color, *circ_fill_color,
-      *circ_line_color, *data_fill_color, *data_line_color, *text_color,
+      *axis_color, *chart_color, *graph_color, *text_color,
       *x_gridline_color, *y_gridline_color, *xax_disp, *yax_disp,
       *screen_height, *screen_width, 
       *svt_row_label, *svt_row_line, *svt_col_label, *svt_col_line,
       *svt_circ_elem, *svt_path_start, *svt_path_points, *svt_chart;
+
+    struct series_data *series;
 
     struct svg_chart_milestone *xmiles, *ymiles;
 };
@@ -285,11 +292,11 @@ void svg_free_model(struct svg_model *svg);
 
 int svg_finalize_model(struct svg_model *svg);
 
-int svg_add_double_data(struct svg_model *svg, int cases, double *xval, double *yval);
+struct series_data *svg_add_double_data(int *rc, struct svg_model *svg, int cases, double *xval, double *yval);
 
-int svg_add_float_data(struct svg_model *svg, int cases, float *xval, float *yval);
+struct series_data *svg_add_float_data(int *rc, struct svg_model *svg, int cases, float *xval, float *yval);
 
-int svg_add_int_data(struct svg_model *svg, int cases, int *xval, int *yval);
+struct series_data *svg_add_int_data(int *rc, struct svg_model *svg, int cases, int *xval, int *yval);
 
 char *svg_make_yax_labels(int *rc, struct svg_model *svg);
 
@@ -321,10 +328,6 @@ int svg_set_text_color(struct svg_model *svg, char *val);
 int svg_set_axis_color(struct svg_model *svg, char *val);
 int svg_set_chart_color(struct svg_model *svg, char *val);
 int svg_set_graph_color(struct svg_model *svg, char *val);
-int svg_set_circ_fill_color(struct svg_model *svg, char *val);
-int svg_set_circ_line_color(struct svg_model *svg, char *val);
-int svg_set_data_fill_color(struct svg_model *svg, char *val);
-int svg_set_data_line_color(struct svg_model *svg, char *val);
 int svg_set_x_gridline_color(struct svg_model *svg, char *val);
 int svg_set_y_gridline_color(struct svg_model *svg, char *val);
 int svg_set_xax_disp(struct svg_model *svg, char *val);
@@ -338,9 +341,6 @@ int svg_set_reserve_width(struct svg_model *svg, int size);
 int svg_set_shift_height(struct svg_model *svg, int size);
 int svg_set_shift_width(struct svg_model *svg, int size);
 int svg_set_shift_bottom(struct svg_model *svg, int size);
-int svg_set_data_line_size(struct svg_model *svg, int size);
-int svg_set_circ_line_size(struct svg_model *svg, int size);
-int svg_set_circ_radius(struct svg_model *svg, int size);
 int svg_set_x_gridline_size(struct svg_model *svg, int size);
 int svg_set_y_gridline_size(struct svg_model *svg, int size);
 int svg_set_xax_text_adj(struct svg_model *svg, int size);
@@ -350,10 +350,6 @@ int svg_set_axis_alpha(struct svg_model *svg, float val);
 int svg_set_graph_alpha(struct svg_model *svg, float val);
 int svg_set_chart_alpha(struct svg_model *svg, float val);
 int svg_set_text_alpha(struct svg_model *svg, float val);
-int svg_set_circ_fill_alpha(struct svg_model *svg, float val);
-int svg_set_circ_line_alpha(struct svg_model *svg, float val);
-int svg_set_data_fill_alpha(struct svg_model *svg, float val);
-int svg_set_data_line_alpha(struct svg_model *svg, float val);
 int svg_set_x_gridline_alpha(struct svg_model *svg, float val);
 int svg_set_y_gridline_alpha(struct svg_model *svg, float val);
 int svg_set_xmin(struct svg_model *svg, double val);
@@ -367,6 +363,17 @@ void svg_set_checkpoint_line_alpha(struct svg_chart_milestone *ckpt, float line_
 int svg_set_checkpoint_text_color(struct svg_chart_milestone *ckpt, char *text_color);
 int svg_set_checkpoint_line_color(struct svg_chart_milestone *ckpt, char *line_color);
 int svg_set_checkpoint_text_size(struct svg_chart_milestone *ckpt, char *text_size);
+int svg_set_circ_fill_color(struct series_data *ds, char *val);
+int svg_set_circ_line_color(struct series_data *ds, char *val);
+int svg_set_data_fill_color(struct series_data *ds, char *val);
+int svg_set_data_line_color(struct series_data *ds, char *val);
+int svg_set_data_line_size(struct series_data *ds, int size);
+int svg_set_circ_line_size(struct series_data *ds, int size);
+int svg_set_circ_radius(struct series_data *ds, int size);
+int svg_set_circ_fill_alpha(struct series_data *ds, float val);
+int svg_set_circ_line_alpha(struct series_data *ds, float val);
+int svg_set_data_fill_alpha(struct series_data *ds, float val);
+int svg_set_data_line_alpha(struct series_data *ds, float val);
 
 char *svg_get_chart_title(struct svg_model *svg);
 char *svg_get_xax_title(struct svg_model *svg);
@@ -376,10 +383,6 @@ char *svg_get_text_color(struct svg_model *svg);
 char *svg_get_axis_color(struct svg_model *svg);
 char *svg_get_chart_color(struct svg_model *svg);
 char *svg_get_graph_color(struct svg_model *svg);
-char *svg_get_circ_fill_color(struct svg_model *svg);
-char *svg_get_circ_line_color(struct svg_model *svg);
-char *svg_get_data_fill_color(struct svg_model *svg);
-char *svg_get_data_line_color(struct svg_model *svg);
 char *svg_get_x_gridline_color(struct svg_model *svg);
 char *svg_get_y_gridline_color(struct svg_model *svg);
 char *svg_get_xax_disp(struct svg_model *svg);
@@ -393,9 +396,6 @@ int svg_get_reserve_width(struct svg_model *svg);
 int svg_get_shift_height(struct svg_model *svg);
 int svg_get_shift_width(struct svg_model *svg);
 int svg_get_shift_bottom(struct svg_model *svg);
-int svg_get_data_line_size(struct svg_model *svg);
-int svg_get_circ_line_size(struct svg_model *svg);
-int svg_get_circ_radius(struct svg_model *svg);
 int svg_get_x_gridline_size(struct svg_model *svg);
 int svg_get_y_gridline_size(struct svg_model *svg);
 int svg_get_xax_text_adj(struct svg_model *svg);
@@ -405,10 +405,6 @@ float svg_get_axis_alpha(struct svg_model *svg);
 float svg_get_graph_alpha(struct svg_model *svg);
 float svg_get_chart_alpha(struct svg_model *svg);
 float svg_get_text_alpha(struct svg_model *svg);
-float svg_get_circ_fill_alpha(struct svg_model *svg);
-float svg_get_circ_line_alpha(struct svg_model *svg);
-float svg_get_data_fill_alpha(struct svg_model *svg);
-float svg_get_data_line_alpha(struct svg_model *svg);
 float svg_get_x_gridline_alpha(struct svg_model *svg);
 float svg_get_y_gridline_alpha(struct svg_model *svg);
 double svg_get_xmin(struct svg_model *svg);
@@ -422,10 +418,25 @@ float svg_get_checkpoint_line_alpha(struct svg_chart_milestone *ckpt);
 char *svg_get_checkpoint_text_color(struct svg_chart_milestone *ckpt);
 char *svg_get_checkpoint_line_color(struct svg_chart_milestone *ckpt);
 char *svg_get_checkpoint_text_size(struct svg_chart_milestone *ckpt);
+char *svg_get_circ_fill_color(struct series_data *ds);
+char *svg_get_circ_line_color(struct series_data *ds);
+char *svg_get_data_fill_color(struct series_data *ds);
+char *svg_get_data_line_color(struct series_data *ds);
+int svg_get_data_line_size(struct series_data *ds);
+int svg_get_circ_line_size(struct series_data *ds);
+int svg_get_circ_radius(struct series_data *ds);
+float svg_get_circ_fill_alpha(struct series_data *ds);
+float svg_get_circ_line_alpha(struct series_data *ds);
+float svg_get_data_fill_alpha(struct series_data *ds);
+float svg_get_data_line_alpha(struct series_data *ds);
 
 struct svg_chart_milestone *svg_add_xax_checkpoint(struct svg_model *svg, float offset, char *label);
 struct svg_chart_milestone *svg_add_yax_checkpoint(struct svg_model *svg, float offset, char *label);
 
 int svg_xax_raw_to_gc(struct svg_model *svg, float offset);
+
+struct series_data *add_data_series(struct svg_model *svg);
+
+struct series_data *get_empty_data_series(struct svg_model *svg);
 
 #endif

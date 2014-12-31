@@ -16,6 +16,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     struct svg_model *svg;
     struct milestone *walk, *mstone = 0;
     struct svg_chart_milestone *ckpt;
+    struct series_data *series = 0;
 
     if( *rc == RC_NORMAL)
     {
@@ -23,7 +24,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         if( !svg) *rc = ERR_MALLOC_FAILED;
     }
 
-    if( *rc == RC_NORMAL) *rc = svg_add_float_data( svg, cases, xdata, ydata);
+    if( *rc == RC_NORMAL) series = svg_add_float_data( rc, svg, cases, xdata, ydata);
 
     if( chopt )
     {
@@ -104,30 +105,30 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
 
     if( strcmp( style, SVG_STYLE_DARK))
     {
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_size( svg, GR_ALL_CIRC_LINE_SIZE);
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_radius( svg, GR_ALL_CIRC_RADIUS);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_size( series, GR_ALL_CIRC_LINE_SIZE);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_radius( series, GR_ALL_CIRC_RADIUS);
 
         if( *rc == RC_NORMAL) *rc = svg_set_text_color( svg, GR_ALL_TEXT_COLOR);
         if( *rc == RC_NORMAL) *rc = svg_set_axis_color( svg, GR_ALL_AXIS_COLOR);
         if( *rc == RC_NORMAL) *rc = svg_set_chart_color( svg, GR_ALL_CHART_COLOR);
         if( *rc == RC_NORMAL) *rc = svg_set_graph_color( svg, GR_ALL_GRAPH_COLOR);
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_fill_color( svg, GR_ALL_CIRC_FILL_COLOR);
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_color( svg, GR_ALL_CIRC_LINE_COLOR);
-        if( *rc == RC_NORMAL) *rc = svg_set_data_fill_color( svg, GR_ALL_DATA_FILL_COLOR);
-        if( *rc == RC_NORMAL) *rc = svg_set_data_line_color( svg, GR_ALL_DATA_LINE_COLOR);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_fill_color( series, GR_ALL_CIRC_FILL_COLOR);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_color( series, GR_ALL_CIRC_LINE_COLOR);
+        if( *rc == RC_NORMAL) *rc = svg_set_data_fill_color( series, GR_ALL_DATA_FILL_COLOR);
+        if( *rc == RC_NORMAL) *rc = svg_set_data_line_color( series, GR_ALL_DATA_LINE_COLOR);
         if( *rc == RC_NORMAL) *rc = svg_set_x_gridline_color( svg, GR_ALL_XGRID_COLOR);
         if( *rc == RC_NORMAL) *rc = svg_set_y_gridline_color( svg, GR_ALL_YGRID_COLOR);
 
         if( *rc == RC_NORMAL) *rc = svg_set_graph_alpha( svg, GR_ALL_GRAPH_ALPHA);
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_fill_alpha( svg, GR_ALL_CIRC_FILL_ALPHA);
-        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_alpha( svg, GR_ALL_CIRC_LINE_ALPHA);
-        if( *rc == RC_NORMAL) *rc = svg_set_data_fill_alpha( svg, GR_ALL_DATA_FILL_ALPHA);
-        if( *rc == RC_NORMAL) *rc = svg_set_data_line_alpha( svg, GR_ALL_DATA_LINE_ALPHA);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_fill_alpha( series, GR_ALL_CIRC_FILL_ALPHA);
+        if( *rc == RC_NORMAL) *rc = svg_set_circ_line_alpha( series, GR_ALL_CIRC_LINE_ALPHA);
+        if( *rc == RC_NORMAL) *rc = svg_set_data_fill_alpha( series, GR_ALL_DATA_FILL_ALPHA);
+        if( *rc == RC_NORMAL) *rc = svg_set_data_line_alpha( series, GR_ALL_DATA_LINE_ALPHA);
 
         if( chopt )
         {
-            if( chopt->data_line_alpha != CH_OPT_NO_VALUE ) (void) svg_set_data_line_alpha( svg, chopt->data_line_alpha );
-            if( chopt->data_line_color ) (void) svg_set_data_line_color( svg, chopt->data_line_color );
+            if( chopt->data_line_alpha != CH_OPT_NO_VALUE ) (void) svg_set_data_line_alpha( series, chopt->data_line_alpha );
+            if( chopt->data_line_color ) (void) svg_set_data_line_color( series, chopt->data_line_color );
 	}
     }
 
