@@ -116,6 +116,31 @@ static struct context_info context_list[] = {
 #define SC_DATA_FILL_ALPHA 0.0
 #define SC_DATA_LINE_ALPHA 0.6
 
+#define SHOW_SYNTAX "\
+Syntax is: %s <options>\n\
+Options are:\n\
+  <--title 'Chart Title'>\n\
+  <--xtitle 'X-Axis Title'>\n\
+  <--ytitle 'Y-Axis Title'>\n\
+  <--xgrids ##>\n\
+  <--ygrids ##>\n\
+  <--out name-of-output-file>\n\
+  <--debug ##>\n\
+  <--help>\n\
+  <--data name-of-input-file> | <--data ->\n\
+  <--xcol ##>\n\
+  <--ycol ##>\n\
+  <--no-xdata>\n\
+  <--no-ydata>\n\
+  <--ignore-bad-data>\n\
+\n\
+If no output file is specified, the SVG document is written to STDOUT.  To read\n\
+data from STDIN specify '--data -'.  The '--no-xdata' option directs the program\n\
+to generate sequential numbers for the 'x' data rather than parsing the input\n\
+record.  And '--no-ydata' does the same thing for 'y'.  You can specific both but\n\
+the resulting graph will be pretty pointless...\n\
+"  
+
 /* --- */
 
 struct parsed_options {

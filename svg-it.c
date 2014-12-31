@@ -169,6 +169,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             else
             {
                 nconv = sscanf( words->list[xcol-1], "%f", cx);
+/* fprintf(stderr, "dbg:: line:%d xc:%d val'%s' nc:%d f:%f\n", off, xcol, words->list[xcol-1], nconv, *cx); */
                 if( !nconv )
                 {
                     if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
@@ -180,6 +181,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             else
             {
                 nconv = sscanf( words->list[ycol-1], "%f", cy);
+/* fprintf(stderr, "dbg:: line:%d yc:%d val'%s' nc:%d f:%f\n", off, ycol, words->list[ycol-1], nconv, *cy); */
                 if( !nconv )
                 {
                     if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
@@ -325,6 +327,16 @@ print_parse_summary( extra_opts, opset, nflags );
 
     if( popt.x_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "X data column invalid" );
     if( popt.y_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "Y data column invalid" );
+
+    if( narg < 2 ) popt.help = 1;
+
+    /* --- */
+
+    if( popt.help )
+    {
+        printf( SHOW_SYNTAX, opts[ 0 ] );
+        exit( 0 );
+    }
     
     /* --- */
 
