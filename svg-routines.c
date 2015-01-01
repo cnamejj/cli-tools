@@ -222,7 +222,8 @@ struct svg_model *svg_make_chart()
         if( st ) st = svg->svt_circ_elem = strdup( SVG_CIRC_ELEM );
         if( st ) st = svg->svt_path_start = strdup( SVG_PATH_START );
         if( st ) st = svg->svt_path_points = strdup( SVG_PATH_POINTS );
-        if( st ) st = svg->svt_chart = strdup( SVG_CHART_TEMPLATE );
+/*        if( st ) st = svg->svt_chart = strdup( SVG_CHART_TEMPLATE ); */
+        if( st ) st = svg->svt_chart = strdup( MULTI_LINE_SVG_CHART_TEMPLATE );
 
         if( !st )
         {
@@ -466,15 +467,22 @@ int svg_finalize_model( struct svg_model *svg )
 struct series_data *svg_add_double_data( int *rc, struct svg_model *svg, int cases, double *xval, double *yval)
 
 {
-    int off;
+    int off, maxid;
     double *xdata = 0, *ydata = 0, xmin, ymin, xmax, ymax, xd, yd;
-    struct series_data *slot = 0;
+    struct series_data *slot = 0, *walk;
 
     if( !svg || cases <= 0 ) *rc = ERR_UNSUPPORTED;
     else
     {
         slot = get_empty_data_series( svg );
         if( !slot ) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            maxid = 0;
+            for( walk = svg->series; walk; walk = walk->next )
+              if( walk->id > maxid ) maxid = walk->id;
+            slot->id = maxid + 1;
+	}
     }
         
     if( *rc == RC_NORMAL )
@@ -529,15 +537,22 @@ struct series_data *svg_add_double_data( int *rc, struct svg_model *svg, int cas
 struct series_data *svg_add_float_data( int *rc, struct svg_model *svg, int cases, float *xval, float *yval)
 
 {
-    int off;
+    int off, maxid;
     double *xdata = 0, *ydata = 0, xmin, ymin, xmax, ymax, xd, yd;
-    struct series_data *slot = 0;
+    struct series_data *slot = 0, *walk;
 
     if( !svg || cases <= 0 ) *rc = ERR_UNSUPPORTED;
     else
     {
         slot = get_empty_data_series( svg );
         if( !slot ) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            maxid = 0;
+            for( walk = svg->series; walk; walk = walk->next )
+              if( walk->id > maxid ) maxid = walk->id;
+            slot->id = maxid + 1;
+	}
     }
         
     if( *rc == RC_NORMAL )
@@ -592,15 +607,22 @@ struct series_data *svg_add_float_data( int *rc, struct svg_model *svg, int case
 struct series_data *svg_add_int_data( int *rc, struct svg_model *svg, int cases, int *xval, int *yval)
 
 {
-    int off;
+    int off, maxid;
     double *xdata = 0, *ydata = 0, xmin, ymin, xmax, ymax, xd, yd;
-    struct series_data *slot = 0;
+    struct series_data *slot = 0, *walk;
 
     if( !svg || cases <= 0 ) *rc = ERR_UNSUPPORTED;
     else
     {
         slot = get_empty_data_series( svg );
         if( !slot ) *rc = ERR_MALLOC_FAILED;
+        else
+        {
+            maxid = 0;
+            for( walk = svg->series; walk; walk = walk->next )
+              if( walk->id > maxid ) maxid = walk->id;
+            slot->id = maxid + 1;
+	}
     }
         
     if( *rc == RC_NORMAL )
@@ -895,7 +917,154 @@ char *svg_make_xax_grid( int *rc, struct svg_model *svg )
 
 /* --- */
 
-char *svg_make_data_points( int *rc, struct svg_model *svg )
+int update_series_point_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds )
+
+{
+    int *rc, stat = RC_NORMAL;
+    char *specs = 0, *replace = 0, *intermed = 0;
+    struct sub_list *rule = 0, *pending = 0, *walk = 0;
+
+    rc = &stat;
+
+    intermed = svg_make_data_points( rc, svg, ds );
+
+    if( *rc == RC_NORMAL )
+    {
+        if( !*subs )
+        {
+            ADD_SUB_PAIR_RULE( S_CIR_FILL_RGB, strdup( ds->circ_fill_color ) )
+            *subs = rule;
+            ADD_SUB_PAIR_RULE( S_CIR_LIN_RGB, strdup( ds->circ_line_color ) )
+            ADD_SUB_PAIR_RULE( S_CIR_FILL_OP, string_from_float( rc, ds->circ_fill_alpha, ALPHA_DISP_FORMAT ) )
+            ADD_SUB_PAIR_RULE( S_CIR_LIN_OP, string_from_float( rc, ds->circ_line_alpha, ALPHA_DISP_FORMAT ) )
+            ADD_SUB_PAIR_RULE( S_CIR_LIN_SIZE, string_from_int( rc, ds->circ_line_size, 0 ) )
+            ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, ds->circ_radius, 0 ) )
+
+            if( *rc == RC_NORMAL )
+            {
+                specs = gsub_string( rc, intermed, *subs );
+                if( intermed ) free( intermed );
+                ADD_SUB_PAIR_RULE( S_ST_DATA_POINT, specs )
+	    }
+	}
+        else for( walk = *subs; *rc == RC_NORMAL && walk; walk = walk->next )
+        {
+            replace = 0;
+            if( !strcmp(walk->from, S_CIR_FILL_RGB) ) replace = strdup( ds->circ_fill_color );
+            else if( !strcmp(walk->from, S_CIR_LIN_RGB) ) replace = strdup( ds->circ_line_color );
+            else if( !strcmp(walk->from, S_CIR_FILL_OP) ) replace = string_from_float( rc, ds->circ_fill_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(walk->from, S_CIR_LIN_OP) ) replace = string_from_float( rc, ds->circ_line_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(walk->from, S_CIR_LIN_SIZE) ) replace = string_from_int( rc, ds->circ_line_size, 0 );
+            else if( !strcmp(walk->from, S_CIR_RAD) ) replace = string_from_int( rc, ds->circ_radius, 0 );
+            else if( !strcmp(walk->from, S_ST_DATA_POINT) )
+            {
+                replace = gsub_string( rc, intermed, *subs );
+                if( intermed ) free( intermed );
+	    }
+
+            if( replace )
+            {
+                free( walk->to );
+                walk->to = replace;
+	    }
+	}
+    }
+
+    return( stat );
+}
+
+/* --- */
+
+int update_series_line_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds )
+
+{
+    int *rc, stat = RC_NORMAL;
+    char *path_specs = 0, *line_specs = 0, *replace = 0;
+    struct sub_list *rule = 0, *pending = 0, *walk = 0;
+
+    rc = &stat;
+
+    path_specs = svg_make_path_start( rc, svg, ds );
+    if( *rc == RC_NORMAL ) line_specs = svg_make_data_lines( rc, svg, ds );
+
+    if( *rc == RC_NORMAL )
+    {
+        if( !*subs )
+        {
+            ADD_SUB_PAIR_RULE( S_DAT_FILL_RGB, strdup( ds->data_fill_color ) )
+            *subs = rule;
+            ADD_SUB_PAIR_RULE( S_DAT_LIN_RGB, strdup( ds->data_line_color ) )
+            ADD_SUB_PAIR_RULE( S_DAT_FILL_OP, string_from_float( rc, ds->data_fill_alpha, ALPHA_DISP_FORMAT ) )
+            ADD_SUB_PAIR_RULE( S_DAT_LIN_OP, string_from_float( rc, ds->data_line_alpha, ALPHA_DISP_FORMAT ) )
+            ADD_SUB_PAIR_RULE( S_DAT_LIN_SIZE, string_from_int( rc, ds->data_line_size, 0 ) )
+            ADD_SUB_PAIR_RULE( S_ST_START_PATH, path_specs )
+            ADD_SUB_PAIR_RULE( S_ST_DATA_LINE, line_specs )
+	}
+        else for( walk = *subs; *rc == RC_NORMAL && walk; walk = walk->next )
+        {
+            replace = 0;
+            if( !strcmp(walk->from, S_DAT_FILL_RGB) ) replace = strdup( ds->data_fill_color );
+            else if( !strcmp(walk->from, S_DAT_LIN_RGB) ) replace = strdup( ds->data_line_color );
+            else if( !strcmp(walk->from, S_DAT_FILL_OP) ) replace = string_from_float( rc, ds->data_fill_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(walk->from, S_DAT_LIN_OP) ) replace = string_from_float( rc, ds->data_line_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(walk->from, S_DAT_LIN_SIZE) ) replace = string_from_int( rc, ds->data_line_size, 0 );
+            else if( !strcmp(walk->from, S_ST_START_PATH) ) replace = path_specs;
+            else if( !strcmp(walk->from, S_ST_DATA_LINE) ) replace = line_specs;
+
+            if( replace )
+            {
+                free( walk->to );
+                walk->to = replace;
+	    }
+	}
+    }
+
+    return( stat );
+}
+
+/* --- */
+
+char *svg_make_series_points( int *rc, struct svg_model *svg )
+
+{
+    char *all_points = 0, *point_seg = 0, *template, *agg = 0;
+    struct series_data *ds;
+    struct sub_list *subs = 0, *walk = 0;
+
+    template = strdup( MULTI_LINE_SVG_SERIES_POINTS );
+    if( !template ) *rc = ERR_MALLOC_FAILED;
+
+    for( ds = svg->series; *rc == RC_NORMAL && ds; ds = ds->next )
+    {
+        *rc = update_series_point_subs( &subs, svg, ds );
+        if( *rc == RC_NORMAL ) point_seg = gsub_string( rc, template, subs );
+
+        agg = combine_strings( rc, all_points, point_seg );
+
+        if( *rc == RC_NORMAL )
+        {
+            free( all_points );
+            free( point_seg );
+            all_points = agg;
+	}
+    }
+
+    if( template ) free( template );
+
+    for( walk = subs; walk; )
+    {
+        subs = walk->next;
+        free( walk->to );
+        free( walk );
+        walk = subs;
+    }
+
+    return( all_points );
+}
+
+/* --- */
+
+char *svg_make_data_points( int *rc, struct svg_model *svg, struct series_data *ds )
 
 {
     int xpos, ypos, xbase, ybase, xscale, yscale, pt;
@@ -931,17 +1100,17 @@ char *svg_make_data_points( int *rc, struct svg_model *svg )
             ypos_sub->next = 0;
 	}
 
-        xdata = svg->series->xdata;
-        ydata = svg->series->ydata;
+        xdata = ds->xdata;
+        ydata = ds->ydata;
 
-        for( pt = 0; pt < svg->series->cases && *rc == RC_NORMAL; pt++ )
+        for( pt = 0; pt < ds->cases && *rc == RC_NORMAL; pt++ )
         {
             xval = *(xdata + pt);
-            xpc = (xval - svg->series->loc_xmin) / (svg->series->loc_xmax - svg->series->loc_xmin);
+            xpc = (xval - svg->xmin) / (svg->xmax - svg->xmin);
             xpos = xbase + (xscale * xpc);
 
             yval = *(ydata + pt);
-            ypc = (yval - svg->series->loc_ymin) / (svg->series->loc_ymax - svg->series->loc_ymin);
+            ypc = (yval - svg->ymin) / (svg->ymax - svg->ymin);
             ypos = ybase - (yscale * ypc);
 
             if( xpos_sub->to ) free( xpos_sub->to );
@@ -981,7 +1150,47 @@ char *svg_make_data_points( int *rc, struct svg_model *svg )
 
 /* --- */
 
-char *svg_make_path_start( int *rc, struct svg_model *svg )
+char *svg_make_series_lines( int *rc, struct svg_model *svg )
+
+{
+    char *all_lines = 0, *line_seg = 0, *agg = 0, *template = 0;
+    struct series_data *ds;
+    struct sub_list *subs = 0, *walk = 0;
+
+    template = strdup( MULTI_LINE_SVG_SERIES_LINE );
+    if( !template ) *rc = ERR_MALLOC_FAILED;
+
+    for( ds = svg->series; *rc == RC_NORMAL && ds; ds = ds->next )
+    {
+        *rc = update_series_line_subs( &subs, svg, ds );
+        if( *rc == RC_NORMAL) line_seg = gsub_string( rc, template, subs );
+
+        agg = combine_strings( rc, all_lines, line_seg );
+
+        if( *rc == RC_NORMAL )
+        {
+            free( all_lines );
+            free( line_seg );
+            all_lines = agg;
+	}
+    }
+
+    if( template ) free( template );
+
+    for( walk = subs; walk; )
+    {
+        subs = walk->next;
+        free( walk->to );
+        free( walk );
+        walk = subs;
+    }
+
+    return( all_lines );   
+}
+
+/* --- */
+
+char *svg_make_path_start( int *rc, struct svg_model *svg, struct series_data *ds )
 
 {
     int xpos, ypos, xscale, yscale;
@@ -994,11 +1203,11 @@ char *svg_make_path_start( int *rc, struct svg_model *svg )
         template = svg->svt_path_start;
 
         xscale = svg->xax_border - svg->graph_left_col;
-        xpc = (*svg->series->xdata - svg->series->loc_xmin) / (svg->series->loc_xmax - svg->series->loc_xmin);
+        xpc = (*ds->xdata - svg->xmin) / (ds->loc_xmax - svg->xmin);
         xpos = svg->graph_left_col + (xscale * xpc);
 
         yscale = svg->yax_border - svg->graph_top_row;
-        ypc = (*svg->series->ydata - svg->series->loc_ymin) / (svg->series->loc_ymax - svg->series->loc_ymin); 
+        ypc = (*ds->ydata - svg->ymin) / (ds->loc_ymax - svg->ymin); 
         ypos = svg->graph_top_row + (yscale * ypc); 
         ypos = svg->yax_border - (yscale * ypc); 
 
@@ -1041,7 +1250,7 @@ char *svg_make_path_start( int *rc, struct svg_model *svg )
 
 /* --- */
 
-char *svg_make_data_lines( int *rc, struct svg_model *svg )
+char *svg_make_data_lines( int *rc, struct svg_model *svg, struct series_data *ds )
 
 {
     int xpos, ypos, xbase, ybase, xscale, yscale, pt;
@@ -1077,17 +1286,17 @@ char *svg_make_data_lines( int *rc, struct svg_model *svg )
             ypos_sub->next = 0;
 	}
 
-        xdata = svg->series->xdata;
-        ydata = svg->series->ydata;
+        xdata = ds->xdata;
+        ydata = ds->ydata;
 
-        for( pt = 0; pt < svg->series->cases && *rc == RC_NORMAL; pt++ )
+        for( pt = 0; pt < ds->cases && *rc == RC_NORMAL; pt++ )
         {
             xval = *(xdata + pt);
-            xpc = (xval - svg->series->loc_xmin) / (svg->series->loc_xmax - svg->series->loc_xmin);
+            xpc = (xval - svg->xmin) / (svg->xmax - svg->xmin);
             xpos = xbase + (xscale * xpc);
 
             yval = *(ydata + pt);
-            ypc = (yval - svg->series->loc_ymin) / (svg->series->loc_ymax - svg->series->loc_ymin);
+            ypc = (yval - svg->ymin) / (svg->ymax - svg->ymin);
             ypos = ybase - (yscale * ypc);
 
             if( xpos_sub->to ) free( xpos_sub->to );
@@ -1132,7 +1341,8 @@ char *svg_render( int *rc, struct svg_model *svg )
 {
     char *chart = 0, *template = 0, *xax_label = 0, *yax_label = 0,
       *xax_grid = 0, *yax_grid = 0, *data_points = 0, *path_start = 0,
-      *data_lines = 0, *xax_milestones = 0, *yax_milestones = 0;
+      *data_lines = 0, *xax_milestones = 0, *yax_milestones = 0,
+      *series_points = 0, *series_lines = 0;
     struct sub_list *subs = 0, *walk = 0, *rule = 0, *pending = 0;
 
     if( *rc == RC_NORMAL ) *rc = svg_finalize_model( svg );
@@ -1169,22 +1379,36 @@ char *svg_render( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
-        template = svg_make_data_points( rc, svg );
+        template = svg_make_data_points( rc, svg, svg->series );
         if( *rc == RC_NORMAL) data_points = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
 
     if( *rc == RC_NORMAL )
     {
-        template = svg_make_path_start( rc, svg );
+        template = svg_make_path_start( rc, svg, svg->series );
         if( *rc == RC_NORMAL) path_start = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
 
     if( *rc == RC_NORMAL )
     {
-        template = svg_make_data_lines( rc, svg );
+        template = svg_make_data_lines( rc, svg, svg->series );
         if( *rc == RC_NORMAL) data_lines = gsub_string( rc, template, subs );
+        if( template ) free( template );
+    }
+
+    if( *rc == RC_NORMAL )
+    {
+        template = svg_make_series_points( rc, svg );
+        if( *rc == RC_NORMAL) series_points = gsub_string( rc, template, subs );
+        if( template ) free( template );
+    }
+
+    if( *rc == RC_NORMAL )
+    {
+        template = svg_make_series_lines( rc, svg );
+        if( *rc == RC_NORMAL) series_lines = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
 
@@ -1208,6 +1432,8 @@ char *svg_render( int *rc, struct svg_model *svg )
         ADD_SUB_PAIR_RULE( S_ST_DATA_POINT, data_points )
         ADD_SUB_PAIR_RULE( S_ST_START_PATH, path_start )
         ADD_SUB_PAIR_RULE( S_ST_DATA_LINE, data_lines )
+        ADD_SUB_PAIR_RULE( S_ST_SERIES_POINTS, series_points )
+        ADD_SUB_PAIR_RULE( S_ST_SERIES_LINES, series_lines )
         ADD_SUB_PAIR_RULE( S_ST_XAX_MSTONES, xax_milestones )
         ADD_SUB_PAIR_RULE( S_ST_YAX_MSTONES, yax_milestones )
     }
@@ -1250,10 +1476,10 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     }
 
     ADD_SUB_PAIR_RULE( S_BG_RGB, strdup( svg->chart_color ) )
-    ADD_SUB_PAIR_RULE( S_CIR_FILL_RGB, strdup( svg->series->circ_fill_color ) )
-    ADD_SUB_PAIR_RULE( S_CIR_LIN_RGB, strdup( svg->series->circ_line_color ) )
-    ADD_SUB_PAIR_RULE( S_DAT_FILL_RGB, strdup( svg->series->data_fill_color ) )
-    ADD_SUB_PAIR_RULE( S_DAT_LIN_RGB, strdup( svg->series->data_line_color ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_FILL_RGB, strdup( svg->series->circ_fill_color ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_LIN_RGB, strdup( svg->series->circ_line_color ) )
+//    ADD_SUB_PAIR_RULE( S_DAT_FILL_RGB, strdup( svg->series->data_fill_color ) )
+//    ADD_SUB_PAIR_RULE( S_DAT_LIN_RGB, strdup( svg->series->data_line_color ) )
     ADD_SUB_PAIR_RULE( S_GR_FILL_RGB, strdup( svg->graph_color ) )
     ADD_SUB_PAIR_RULE( S_SC_HI, strdup( svg->screen_height ) )
     ADD_SUB_PAIR_RULE( S_SC_WID, strdup( svg->screen_width ) )
@@ -1269,13 +1495,13 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     ADD_SUB_PAIR_RULE( S_AXIS_SIZE, string_from_int( rc, svg->axis_size, 0 ) )
     ADD_SUB_PAIR_RULE( S_CH_HI, string_from_int( rc, svg->chart_height, 0 ) )
     ADD_SUB_PAIR_RULE( S_CH_WID, string_from_int( rc, svg->chart_width, 0 ) )
-    ADD_SUB_PAIR_RULE( S_CIR_FILL_OP, string_from_float( rc, svg->series->circ_fill_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_CIR_LIN_OP, string_from_float( rc, svg->series->circ_line_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_CIR_LIN_SIZE, string_from_int( rc, svg->series->circ_line_size, 0 ) )
-    ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, svg->series->circ_radius, 0 ) )
-    ADD_SUB_PAIR_RULE( S_DAT_FILL_OP, string_from_float( rc, svg->series->data_fill_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_DAT_LIN_OP, string_from_float( rc, svg->series->data_line_alpha, ALPHA_DISP_FORMAT ) )
-    ADD_SUB_PAIR_RULE( S_DAT_LIN_SIZE, string_from_int( rc, svg->series->data_line_size, 0 ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_FILL_OP, string_from_float( rc, svg->series->circ_fill_alpha, ALPHA_DISP_FORMAT ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_LIN_OP, string_from_float( rc, svg->series->circ_line_alpha, ALPHA_DISP_FORMAT ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_LIN_SIZE, string_from_int( rc, svg->series->circ_line_size, 0 ) )
+//    ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, svg->series->circ_radius, 0 ) )
+//    ADD_SUB_PAIR_RULE( S_DAT_FILL_OP, string_from_float( rc, svg->series->data_fill_alpha, ALPHA_DISP_FORMAT ) )
+//    ADD_SUB_PAIR_RULE( S_DAT_LIN_OP, string_from_float( rc, svg->series->data_line_alpha, ALPHA_DISP_FORMAT ) )
+//    ADD_SUB_PAIR_RULE( S_DAT_LIN_SIZE, string_from_int( rc, svg->series->data_line_size, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_FILL_OP, string_from_float( rc, svg->graph_alpha, ALPHA_DISP_FORMAT ) )
     ADD_SUB_PAIR_RULE( S_GR_AREA_HI, string_from_int( rc, svg->graph_height, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_AREA_WID, string_from_int( rc, svg->graph_width, 0 ) )

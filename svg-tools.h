@@ -130,6 +130,8 @@
 #define S_ST_DATA_LINE "++path-points++"
 #define S_ST_XAX_MSTONES "++xax-milestones++"
 #define S_ST_YAX_MSTONES "++yax-milestones++"
+#define S_ST_SERIES_POINTS "++data-series-points++"
+#define S_ST_SERIES_LINES "++data-series-lines++"
 
 #define S_MST_LINE_COLOR "++mst-line-color++"
 #define S_MST_LINE_SIZE "++mst-line-size++"
@@ -235,6 +237,81 @@
 \n\
 </svg>"
 
+#define MULTI_LINE_SVG_CHART_TEMPLATE "\
+<svg version=\"1.1\" baseProfile=\"full\"\n\
+  width=\"++screen-width++\" height=\"++screen-height++\"\n\
+  viewbox=\"0 0 ++chart-width++ ++chart-height++\"\n\
+  xmlns=\"http://www.w3.org/2000/svg\">\n\
+\n\
+  <rect width=\"100%\" height=\"100%\" fill=\"++bg-color++\" />\n\
+\n\
+  <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++\"\n\
+    stroke=\"++axis-color++\" stroke-opacity=\"++axis-opacity++\" fill=\"transparent\"\n\
+    stroke-width=\"++axis-size++\" />\n\
+\n\
+  <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++ v -++graph-area-height++\"\n\
+    stroke-opacity=\"0\" fill=\"++chart-bg-color++\" fill-opacity=\"++chart-bg-opacity++\"\n\
+    stroke-width=\"++axis-size++\" />\n\
+\n\
+  <g fill=\"++text-color++\" font-size=\"++text-size++\" fill-opacity=\"++text-opacity++\" style=\"font-family:Verdana, Arial, Helvetica, sans-serif; font-weight:100\">\n\
+    <text style=\"font-size:150%\">\n\
+      <tspan x=\"++chart-width-midpoint++\" y=\"++header-height-midpoint++\"\n\
+        style=\"dominant-baseline:central; font-weight:100\" text-anchor=\"middle\">++chart-title++</tspan>\n\
+    </text>\n\
+\n\
+    <text x=\"++width-reserve++\" y=\"++graph-height-midpoint++\" text-anchor=\"middle\"\n\
+      style=\"dominant-baseline:text-after-edge\"\n\
+      transform=\"rotate(-90, ++width-reserve++, ++graph-height-midpoint++)\">++y-axis-title++</text>\n\
+\n\
+    <text x=\"++graph-width-midpoint++\" y=\"++graph-bottom++\" text-anchor=\"middle\"\n\
+      style=\"dominant-baseline:hanging\">++x-axis-title++</text>\n\
+\n\
+<!--    <text x=\"++y-axis-text-col++\" y=\"++y-axis-text-floor++\" style=\"dominant-baseline:central\" text-anchor=\"end\"> -->\n\
+    <text x=\"++y-axis-text-col++\" y=\"++y-chart-border++\" style=\"dominant-baseline:central\" text-anchor=\"end\">\n\
+++row-label++\n\
+      <tspan x=\"0\" y=\"0\" stroke=\"transparent\">.</tspan>\n\
+    </text>\n\
+\n\
+    <g stroke=\"++x-gridline-color++\" stroke-width=\"++x-gridline-size++\" stroke-opacity=\"++x-gridline-opacity++\">\n\
+      <path d=\"M ++x-chart-border++ ++y-chart-border++\n\
+++row-line++\n\
+        \"/>\n\
+    </g>\n\
+\n\
+    <text text-anchor=\"middle\" style=\"dominant-baseline:text-before-edge\">\n\
+++col-label++\n\
+    </text>\n\
+  </g>\n\
+\n\
+  <g stroke=\"++y-gridline-color++\" stroke-width=\"++y-gridline-size++\" stroke-opacity=\"++y-gridline-opacity++\">\n\
+    <path d=\"M ++graph-left-col++ ++y-chart-border++\n\
+++col-line++\n\
+      \"/>\n\
+  </g>\n\
+\n\
+++data-series-points++\n\
+\n\
+++data-series-lines++\n\
+\n\
+++xax-milestones++\n\
+++yax-milestones++\n\
+\n\
+</svg>"
+
+#define MULTI_LINE_SVG_SERIES_POINTS "\
+  <g fill=\"++circle-fill-color++\" stroke=\"++circle-line-color++\" stroke-width=\"++circle-line-size++\"\n\
+    stroke-opacity=\"++circle-line-opacity++\" fill-opacity=\"++circle-fill-opacity++\">\n\
+++circ-elem++\n\
+  </g>\n"
+
+#define MULTI_LINE_SVG_SERIES_LINE "\
+  <path d=\"\n\
+++path-start++\n\
+++path-points++\n\
+    \"\n\
+    stroke=\"++data-line-color++\" stroke-opacity=\"++data-line-opacity++\" stroke-width=\"++data-line-size++\"\n\
+    fill=\"++data-fill-color++\" fill-opacity=\"++data-fill-opacity++\"/>\n"
+
 /* --- */
 
 struct svg_chart_milestone
@@ -306,11 +383,15 @@ char *svg_make_xax_grid(int *rc, struct svg_model *svg);
 
 char *svg_make_yax_grid(int *rc, struct svg_model *svg);
 
-char *svg_make_data_points(int *rc, struct svg_model *svg);
+char *svg_make_data_points(int *rc, struct svg_model *svg, struct series_data *ds);
 
-char *svg_make_path_start(int *rc, struct svg_model *svg);
+char *svg_make_path_start(int *rc, struct svg_model *svg, struct series_data *ds);
 
-char *svg_make_data_lines(int *rc, struct svg_model *svg);
+char *svg_make_data_lines(int *rc, struct svg_model *svg, struct series_data *ds);
+
+char *svg_make_series_points(int *rc, struct svg_model *svg);
+
+char *svg_make_series_lines(int *rc, struct svg_model *svg);
 
 char *svg_make_xax_mstones(int *rc, struct svg_model *svg);
 
