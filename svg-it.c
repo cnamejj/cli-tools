@@ -386,7 +386,7 @@ int main( int narg, char **opts )
 
 {
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
-      nseries_styles;
+      nseries_styles, fl_circ_alpha;
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct data_pair_list *data = 0;
@@ -394,21 +394,28 @@ int main( int narg, char **opts )
     struct series_data *ds = 0;
     struct data_series_visuals *viz = 0;
     static struct option_set opset[] = {
-      { OP_DEBUG,       OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
-      { OP_HELP,        OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
-      { OP_CHART_TITLE, OP_TYPE_CHAR, OP_FL_BLANK, FL_CHART_TITLE, 0, DEF_CHART_TITLE, 0, 0 },
-      { OP_XAX_TITLE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_XAX_TITLE,   0, DEF_XAX_TITLE,   0, 0 },
-      { OP_YAX_TITLE,   OP_TYPE_CHAR, OP_FL_BLANK, FL_YAX_TITLE,   0, DEF_YAX_TITLE,   0, 0 },
-      { OP_XAX_GRIDS,   OP_TYPE_INT,  OP_FL_BLANK, FL_XAX_GRIDS,   0, DEF_XAX_GRIDS,   0, 0 },
-      { OP_YAX_GRIDS,   OP_TYPE_INT,  OP_FL_BLANK, FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
-      { OP_OUTFILE,     OP_TYPE_CHAR, OP_FL_BLANK, FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
-      { OP_DATAFILE,    OP_TYPE_CHAR, OP_FL_BLANK, FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
-      { OP_XCOL,        OP_TYPE_CHAR, OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
-      { OP_YCOL,        OP_TYPE_CHAR, OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
-      { OP_XDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
-      { OP_YDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
-      { OP_IG_BAD_DATA, OP_TYPE_FLAG, OP_FL_BLANK, FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
-      { OP_DATA_DELIM,  OP_TYPE_CHAR, OP_FL_BLANK, FL_DATA_DELIM,  0, DEF_DATA_DELIM,  0, 0 },
+      { OP_DEBUG,       OP_TYPE_INT,   OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
+      { OP_HELP,        OP_TYPE_FLAG,  OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
+      { OP_CHART_TITLE, OP_TYPE_CHAR,  OP_FL_BLANK, FL_CHART_TITLE, 0, DEF_CHART_TITLE, 0, 0 },
+      { OP_XAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK, FL_XAX_TITLE,   0, DEF_XAX_TITLE,   0, 0 },
+      { OP_YAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK, FL_YAX_TITLE,   0, DEF_YAX_TITLE,   0, 0 },
+      { OP_XAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK, FL_XAX_GRIDS,   0, DEF_XAX_GRIDS,   0, 0 },
+      { OP_YAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK, FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
+      { OP_OUTFILE,     OP_TYPE_CHAR,  OP_FL_BLANK, FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
+      { OP_DATAFILE,    OP_TYPE_CHAR,  OP_FL_BLANK, FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
+      { OP_XCOL,        OP_TYPE_CHAR,  OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
+      { OP_YCOL,        OP_TYPE_CHAR,  OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
+      { OP_XDATA,       OP_TYPE_FLAG,  OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
+      { OP_YDATA,       OP_TYPE_FLAG,  OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
+      { OP_IG_BAD_DATA, OP_TYPE_FLAG,  OP_FL_BLANK, FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
+      { OP_DATA_DELIM,  OP_TYPE_CHAR,  OP_FL_BLANK, FL_DATA_DELIM,  0, DEF_DATA_DELIM,  0, 0 },
+      { OP_CIRC_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK, FL_CIRC_ALPHA,  0, DEF_CIRC_ALPHA,  0, 0 },
+      { OP_DATA_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK, FL_DATA_ALPHA,  0, DEF_DATA_ALPHA,  0, 0 },
+      { OP_CFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK, FL_CFILL_ALPHA, 0, DEF_CFILL_ALPHA, 0, 0 },
+      { OP_DFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK, FL_DFILL_ALPHA, 0, DEF_DFILL_ALPHA, 0, 0 },
+      { OP_CIRC_RADIUS, OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_RADIUS, 0, DEF_CIRC_RADIUS, 0, 0 },
+      { OP_CIRC_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_LSIZE,  0, DEF_CIRC_LSIZE,  0, 0 },
+      { OP_DATA_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_DATA_LSIZE,  0, DEF_DATA_LSIZE,  0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
@@ -435,9 +442,15 @@ int main( int narg, char **opts )
     popt.chart_title = popt.xax_title = popt.yax_title = 0;
     popt.out_file = popt.data_file = 0;
     popt.delim = 0;
+    popt.circ_line_alpha = popt.circ_fill_alpha = popt.data_line_alpha = popt.data_fill_alpha = 0.0;
+    popt.circ_radius = popt.circ_line_size = popt.data_line_size = 0;
 
     context = DO_PARSE_COMMAND;
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
+
+    co = get_matching_option( OP_DEBUG, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.debug = *((int *) co->parsed);
 
     if( popt.debug ) print_parse_summary( extra_opts, opset, nflags );
 
@@ -445,10 +458,6 @@ int main( int narg, char **opts )
       if( walk->opt ) if( *walk->opt ) bail_out( ERR_SYNTAX, 0, context, "extraneous parameters on commandline" );
     
     /* --- */
-
-    co = get_matching_option( OP_DEBUG, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
-    popt.debug = *((int *) co->parsed);
 
     co = get_matching_option( OP_HELP, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
@@ -505,6 +514,36 @@ int main( int narg, char **opts )
     co = get_matching_option( OP_DATA_DELIM, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
     popt.delim = (char *) co->parsed;
+
+    co = get_matching_option( OP_CIRC_ALPHA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.circ_line_alpha = *((float *) co->parsed);
+    fl_circ_alpha = co->flags & OP_FL_FOUND;
+
+    co = get_matching_option( OP_DATA_ALPHA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.data_line_alpha = *((float *) co->parsed);
+
+    co = get_matching_option( OP_CFILL_ALPHA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.circ_fill_alpha = *((float *) co->parsed);
+    if( !co->flags & OP_FL_FOUND && fl_circ_alpha ) popt.circ_fill_alpha = popt.circ_line_alpha;
+
+    co = get_matching_option( OP_DFILL_ALPHA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.data_fill_alpha = *((float *) co->parsed);
+
+    co = get_matching_option( OP_CIRC_RADIUS, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.circ_radius = *((int *) co->parsed);
+
+    co = get_matching_option( OP_CIRC_LSIZE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.circ_line_size = *((int *) co->parsed);
+
+    co = get_matching_option( OP_DATA_LSIZE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.data_line_size = *((int *) co->parsed);
 
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
@@ -572,16 +611,18 @@ int main( int narg, char **opts )
         viz = &def_series_visuals[(ds->id - 1) % nseries_styles];
         if( popt.debug ) fprintf( stderr, "dbg:: Visual-Config: series #%d setting %d of %d, cf/cl/dl %s/%s/%s\n",
           ds->id, (ds->id-1) % nseries_styles, nseries_styles, viz->circle_fill, viz->circle_line, viz->data_line );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_radius( ds, SC_CIRC_RADIUS );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_line_size( ds, SC_CIRC_LINE_SIZE );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_radius( ds, popt.circ_radius );
+
+        if( rc == RC_NORMAL ) rc = svg_set_data_line_size( ds, popt.data_line_size );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_size( ds, popt.circ_line_size );
         if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( ds, viz->circle_fill );
         if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( ds, viz->circle_line );
         if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( ds, SC_DATA_FILL_COLOR );
         if( rc == RC_NORMAL ) rc = svg_set_data_line_color( ds, viz->data_line );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( ds, SC_CIRC_FILL_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( ds, SC_CIRC_LINE_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( ds, SC_DATA_FILL_ALPHA );
-        if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( ds, SC_DATA_LINE_ALPHA );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( ds, popt.circ_fill_alpha );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( ds, popt.circ_line_alpha );
+        if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( ds, popt.data_fill_alpha );
+        if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( ds, popt.data_line_alpha );
     }
 
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart color/alpha options failed" );

@@ -69,6 +69,13 @@ static struct context_info context_list[] =
 #define OP_YDATA       12
 #define OP_IG_BAD_DATA 13
 #define OP_DATA_DELIM  14
+#define OP_CIRC_ALPHA 15
+#define OP_DATA_ALPHA  16
+#define OP_CFILL_ALPHA 17
+#define OP_DFILL_ALPHA 18
+#define OP_CIRC_RADIUS 19
+#define OP_CIRC_LSIZE  20
+#define OP_DATA_LSIZE  21
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -85,6 +92,13 @@ static struct context_info context_list[] =
 #define FL_YDATA       "ydata"
 #define FL_IG_BAD_DATA "ignore-bad-data"
 #define FL_DATA_DELIM  "delim"
+#define FL_CIRC_ALPHA  "circle-alpha"
+#define FL_DATA_ALPHA  "data-alpha"
+#define FL_CFILL_ALPHA "cfill-alpha"
+#define FL_DFILL_ALPHA "dfill-alpha"
+#define FL_CIRC_RADIUS "circle-radius"
+#define FL_CIRC_LSIZE  "circle-line-size"
+#define FL_DATA_LSIZE  "data-line-size"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -101,6 +115,13 @@ static struct context_info context_list[] =
 #define DEF_YDATA       "1"
 #define DEF_IG_BAD_DATA "0"
 #define DEF_DATA_DELIM  IS_BLANK
+#define DEF_CIRC_ALPHA  "0.4"
+#define DEF_DATA_ALPHA  "0.6"
+#define DEF_CFILL_ALPHA "0.3"
+#define DEF_DFILL_ALPHA "0.0"
+#define DEF_CIRC_RADIUS "22"
+#define DEF_CIRC_LSIZE  "10"
+#define DEF_DATA_LSIZE  "-999999"
 
 #define DATABUFFSIZE 8192
 
@@ -108,8 +129,8 @@ static struct context_info context_list[] =
 
 #define SC_XAX_GRIDS 7
 #define SC_YAX_GRIDS 5
-#define SC_CIRC_LINE_SIZE 10
-#define SC_CIRC_RADIUS 22
+// #define SC_CIRC_LINE_SIZE 10
+// #define SC_CIRC_RADIUS 22
 #define SC_TEXT_COLOR "#124488"
 #define SC_AXIS_COLOR "#444444"
 #define SC_CHART_COLOR "#FFFFFF"
@@ -130,8 +151,8 @@ static struct context_info context_list[] =
  * -- ------- ------- -------
  * 1. #088ea0 #e0da24 #744e18
  * 2. #a98013 #84c061 #18744e
- * 3. #659894 #4682c2 #4e1874
- * 4. #d02814 #c832d0 #233482
+ * 3. #659894 #3652a5 #4e1874
+ * 4. #d02814 #9832a0 #233482
  * 5. matches #1
  * 6. matches #2
  * etc...
@@ -155,8 +176,8 @@ static struct data_series_visuals def_series_visuals[] =
 {
     {"#088ea0", "#e0da24", "#744e18"},
     {"#a98013", "#84c061", "#18744e"}, 
-    {"#659894", "#4682c2", "#4e1874"},
-    {"#d02814", "#c832d0", "#233482"},
+    {"#659894", "#3652a5", "#4e1874"},
+    {"#d02814", "#9832a0", "#233482"},
 };
 
 #define SHOW_SYNTAX "\
@@ -177,6 +198,13 @@ Options are:\n\
   <--no-ydata>\n\
   <--ignore-bad-data>\n\
   <--delim #>\n\
+  <--circle-alpha #.##>\n\
+  <--data-alpha #.##>\n\
+  <--cfill-alpha #.##>\n\
+  <--dfill-alpha #.##>\n\
+  <--circle-radius ##>\n\
+  <--circle-line-size ##>\n\
+  <--data-line-size ##>\n\
 \n\
 If no output file is specified, the SVG document is written to STDOUT.  To read\n\
 data from STDIN specify '--data -'.\n\
@@ -185,17 +213,19 @@ The default input field delimiter is ' ' and duplicates between words are ignore
 similar to how AWK parses fields.  You can specific another strings to be used with\n\
 '--data-delim', in which case repeated delimiters will not be ignored.\n\
 \n\
-The '--no-xdata' option directs the program\n\
-to generate sequential numbers for the 'x' data rather than parsing the input\n\
-record.  And '--no-ydata' does the same thing for 'y'.  You can specific both but\n\
-the resulting graph will be pretty pointless...\n\
+The '--no-xdata' option directs the program to generate sequential numbers for the\n\
+'x' data rather than parsing the input record.  And '--no-ydata' does the same thing\n\
+for 'y'.  You can specific both but the resulting graph will be pretty pointless...\n\
 "  
 
 /* --- */
 
 struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
-      x_data, y_data, ign_bad_data, nseries;
+      x_data, y_data, ign_bad_data, nseries, circ_radius, circ_line_size,
+      data_line_size;
+    float circ_line_alpha, circ_fill_alpha, data_line_alpha,
+      data_fill_alpha;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
       *x_col_req, *y_col_req, *delim;
 };
