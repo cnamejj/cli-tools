@@ -150,8 +150,8 @@ static struct context_info context_list[] =
  * S# CFILL   CLINE   DLINE
  * -- ------- ------- -------
  * 1. #088ea0 #e0da24 #744e18
- * 2. #a98013 #84c061 #18744e
- * 3. #659894 #3652a5 #4e1874
+ * 2. #659894 #3652a5 #4e1874
+ * 3. #a98013 #84c061 #18744e
  * 4. #d02814 #9832a0 #233482
  * 5. matches #1
  * 6. matches #2
@@ -175,8 +175,8 @@ struct data_series_visuals
 static struct data_series_visuals def_series_visuals[] = 
 {
     {"#088ea0", "#e0da24", "#744e18"},
-    {"#a98013", "#84c061", "#18744e"}, 
     {"#659894", "#3652a5", "#4e1874"},
+    {"#a98013", "#84c061", "#18744e"}, 
     {"#d02814", "#9832a0", "#233482"},
 };
 
