@@ -26,12 +26,14 @@
 
 #ifdef ALLOC_CONTEXT_DATA
 
-struct context_info {
+struct context_info
+{
     int ref;
     char *desc;
 };
 
-static struct context_info context_list[] = {
+static struct context_info context_list[] =
+{
     {DO_PARSE_COMMAND, TASK_PARSE_COMMAND},
     {DO_LOAD_DATA, TASK_LOAD_DATA},
     {DO_ALLOC_CHART_OBJECT, TASK_ALLOC_CHART_OBJECT},
@@ -112,10 +114,7 @@ static struct context_info context_list[] = {
 #define SC_AXIS_COLOR "#444444"
 #define SC_CHART_COLOR "#FFFFFF"
 #define SC_GRAPH_COLOR "#000000"
-#define SC_CIRC_FILL_COLOR "#088ea0"
-#define SC_CIRC_LINE_COLOR "#e0da24"
 #define SC_DATA_FILL_COLOR "#FFFFFF"
-#define SC_DATA_LINE_COLOR "#744e18"
 #define SC_XGRID_COLOR "#2e2e2e"
 #define SC_YGRID_COLOR "#2e2e2e"
 #define SC_GRAPH_ALPHA 0.05
@@ -123,6 +122,42 @@ static struct context_info context_list[] = {
 #define SC_CIRC_LINE_ALPHA 0.4
 #define SC_DATA_FILL_ALPHA 0.0
 #define SC_DATA_LINE_ALPHA 0.6
+
+/* ---
+ * Data series use the following default colors:
+ *
+ * S# CFILL   CLINE   DLINE
+ * -- ------- ------- -------
+ * 1. #088ea0 #e0da24 #744e18
+ * 2. #a98013 #84c061 #18744e
+ * 3. #659894 #4682c2 #4e1874
+ * 4. #d02814 #c832d0 #233482
+ * 5. matches #1
+ * 6. matches #2
+ * etc...
+ *
+ * S# - Data series number (the order they are added)
+ * CF - Circle fill color
+ * CL - Outline of circle
+ * DL - Data line color
+ *
+ * Data fill is "transparent", color #ffffff w/ alpha 0.0, meaning no color under the
+ * data lines.  The alpha values are: 0.4 for circle outlines, 0.3 for circle fills,
+ * and 0.6 for data lines across all data series.
+ */
+
+struct data_series_visuals
+{
+    char *circle_fill, *circle_line, *data_line;
+};
+
+static struct data_series_visuals def_series_visuals[] = 
+{
+    {"#088ea0", "#e0da24", "#744e18"},
+    {"#a98013", "#84c061", "#18744e"}, 
+    {"#659894", "#4682c2", "#4e1874"},
+    {"#d02814", "#c832d0", "#233482"},
+};
 
 #define SHOW_SYNTAX "\
 Syntax is: %s <options>\n\

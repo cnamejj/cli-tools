@@ -385,12 +385,14 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 int main( int narg, char **opts )
 
 {
-    int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum;
+    int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
+      nseries_styles;
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
+    struct data_series_visuals *viz = 0;
     static struct option_set opset[] = {
       { OP_DEBUG,       OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
       { OP_HELP,        OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
@@ -419,6 +421,7 @@ int main( int narg, char **opts )
 /*  bug_control( BUG_FLAG_SET, BUG_OPT_KEEPONFREE | BUG_OPT_STRICT_FREE | BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
 #endif
 
+    nseries_styles = (sizeof def_series_visuals) / (sizeof def_series_visuals[0]);
 
     /* --- */
 
@@ -566,12 +569,15 @@ int main( int narg, char **opts )
     if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
     for( ds = svg->series; ds; ds = ds->next )
     {
+        viz = &def_series_visuals[(ds->id - 1) % nseries_styles];
+        if( popt.debug ) fprintf( stderr, "dbg:: Visual-Config: series #%d setting %d of %d, cf/cl/dl %s/%s/%s\n",
+          ds->id, (ds->id-1) % nseries_styles, nseries_styles, viz->circle_fill, viz->circle_line, viz->data_line );
         if( rc == RC_NORMAL ) rc = svg_set_circ_radius( ds, SC_CIRC_RADIUS );
         if( rc == RC_NORMAL ) rc = svg_set_circ_line_size( ds, SC_CIRC_LINE_SIZE );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( ds, SC_CIRC_FILL_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( ds, SC_CIRC_LINE_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( ds, viz->circle_fill );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( ds, viz->circle_line );
         if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( ds, SC_DATA_FILL_COLOR );
-        if( rc == RC_NORMAL ) rc = svg_set_data_line_color( ds, SC_DATA_LINE_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_data_line_color( ds, viz->data_line );
         if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( ds, SC_CIRC_FILL_ALPHA );
         if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( ds, SC_CIRC_LINE_ALPHA );
         if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( ds, SC_DATA_FILL_ALPHA );

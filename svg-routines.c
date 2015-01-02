@@ -214,8 +214,7 @@ struct svg_model *svg_make_chart()
         if( st ) st = svg->svt_circ_elem = strdup( SVG_CIRC_ELEM );
         if( st ) st = svg->svt_path_start = strdup( SVG_PATH_START );
         if( st ) st = svg->svt_path_points = strdup( SVG_PATH_POINTS );
-/*        if( st ) st = svg->svt_chart = strdup( SVG_CHART_TEMPLATE ); */
-        if( st ) st = svg->svt_chart = strdup( MULTI_LINE_SVG_CHART_TEMPLATE );
+        if( st ) st = svg->svt_chart = strdup( SVG_CHART_TEMPLATE );
 
         if( !st )
         {
@@ -1033,7 +1032,7 @@ char *svg_make_series_points( int *rc, struct svg_model *svg )
     struct series_data *ds;
     struct sub_list *subs = 0, *walk = 0;
 
-    template = strdup( MULTI_LINE_SVG_SERIES_POINTS );
+    template = strdup( SVG_SERIES_POINTS );
     if( !template ) *rc = ERR_MALLOC_FAILED;
 
     for( ds = svg->series; *rc == RC_NORMAL && ds; ds = ds->next )
@@ -1159,7 +1158,7 @@ char *svg_make_series_lines( int *rc, struct svg_model *svg )
     struct series_data *ds;
     struct sub_list *subs = 0, *walk = 0;
 
-    template = strdup( MULTI_LINE_SVG_SERIES_LINE );
+    template = strdup( SVG_SERIES_LINE );
     if( !template ) *rc = ERR_MALLOC_FAILED;
 
     for( ds = svg->series; *rc == RC_NORMAL && ds; ds = ds->next )
