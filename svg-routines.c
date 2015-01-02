@@ -115,18 +115,10 @@ struct svg_model *svg_make_chart()
     struct svg_model *svg = 0;
 
     svg = (struct svg_model *) malloc( sizeof *svg );
-    if( svg )
-    {
-        (void) add_data_series( svg );
-        if( !svg->series )
-        {
-            free( svg );
-            svg = 0;
-	}
-    }
 
     if( svg )
     {
+        svg->series = 0;
         svg->total_cases = 0;
 
         svg->xmin = 0.0;
@@ -230,6 +222,16 @@ struct svg_model *svg_make_chart()
             svg_free_model( svg );
             svg = 0;
 	}
+        else
+        {
+            (void) add_data_series( svg );
+            if( !svg->series )
+            {
+                free( svg );
+                svg = 0;
+	    }
+	}
+
     }
 
     /* --- */
@@ -1043,8 +1045,8 @@ char *svg_make_series_points( int *rc, struct svg_model *svg )
 
         if( *rc == RC_NORMAL )
         {
-            free( all_points );
-            free( point_seg );
+            if( all_points ) free( all_points );
+            if( point_seg ) free( point_seg );
             all_points = agg;
 	}
     }
@@ -1169,8 +1171,8 @@ char *svg_make_series_lines( int *rc, struct svg_model *svg )
 
         if( *rc == RC_NORMAL )
         {
-            free( all_lines );
-            free( line_seg );
+            if( all_lines ) free( all_lines );
+            if( line_seg ) free( line_seg );
             all_lines = agg;
 	}
     }

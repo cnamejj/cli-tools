@@ -21,6 +21,10 @@ void bail_out( int rc, int err, int context, char *explain );
 
 struct data_pair_list *load_data( struct parsed_options *popt );
 
+void expand_series_col_req( struct parsed_options *popt );
+
+int *parse_col_list_req( int *rc, int *ncols, char *req );
+
 /* --- */
 
 char *context_desc( int context )
@@ -61,11 +65,161 @@ void bail_out( int rc, int err, int context, char *explain )
 
 /* --- */
 
+int *parse_col_list_req( int *rc, int *ncols, char *req )
+
+{
+    int *clist = 0, cword, off, nconv, number;
+    struct col_pair *cpair = 0, *end = 0, *curr = 0;
+    struct string_parts *ents = 0, *range = 0;
+
+    ents = explode_string( rc, req, "," );
+    if( *rc != RC_NORMAL ) return( 0 );
+
+    for( cword = 0; cword < ents->np; cword++ )
+    {
+        curr = (struct col_pair *) malloc( sizeof *cpair );
+        if( !curr )
+        {
+            *rc = ERR_MALLOC_FAILED;
+            return( 0 );
+	}
+
+        curr->low = 0;
+        curr->hi = 0;
+        curr->next = 0;
+        if( end ) end->next = curr;
+        end = curr;
+        if( !cpair ) cpair = curr;
+
+        range = explode_string( rc, ents->list[cword], "-" );
+        if( *rc != RC_NORMAL ) return( 0 );
+        if( range->np > 2 )
+        {
+            *rc = ERR_UNSUPPORTED;
+            return( 0 );
+	}
+
+        nconv = sscanf( range->list[0], "%d", &curr->low );
+        if( !nconv )
+        {
+            *rc = ERR_UNSUPPORTED;
+            return( 0 );
+	}
+
+        if( range->np == 1 ) curr->hi = curr->low;
+        else
+        {
+            nconv = sscanf( range->list[1], "%d", &curr->hi );
+            if( !nconv )
+            {
+                *rc = ERR_UNSUPPORTED;
+                return( 0 );
+            }
+	}
+
+        for( off = 0; off < range->np; off++ ) free( range->list[off] );
+        free( range );
+    }
+
+    for( off = 0; off < ents->np; off++ ) free( ents->list[off] );
+    free( ents );
+
+    *ncols = 0;
+    for( curr = cpair; curr; curr = curr->next )
+    {
+        if( curr->hi < curr->low )
+        {
+            *rc = ERR_UNSUPPORTED;
+            return( 0 );
+    	}
+
+        *ncols += (curr->hi - curr->low) + 1;
+    }
+
+
+    clist = (int *) malloc( *ncols * (sizeof *clist) );
+    if( !clist )
+    {
+        *rc = ERR_MALLOC_FAILED;
+        return( 0 );
+    }
+
+    off = 0;
+    for( curr = cpair; curr; curr = curr->next )
+    {
+        for( number = curr->low; number <= curr->hi; number++ )
+        {
+            clist[off] = number;
+            off++;
+	}
+    }
+
+    return( clist );
+}
+
+/* --- */
+
+void expand_series_col_req( struct parsed_options *popt )
+
+{
+    int nx = 0, ny = 0, *xlist = 0, *ylist = 0, rc = RC_NORMAL, curr, bigger, *cols, **extend, off;
+
+    if( !popt->x_data && !popt->y_data ) return;
+
+    if( popt->x_data )
+    {
+        if( !*popt->x_col_req ) bail_out( ERR_UNSUPPORTED, 0, DO_PARSE_COMMAND, "No X data columns given" );
+        xlist = parse_col_list_req( &rc, &nx, popt->x_col_req );
+        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+    }
+
+    if( popt->y_data )
+    {
+        if( !*popt->y_col_req ) bail_out( ERR_UNSUPPORTED, 0, DO_PARSE_COMMAND, "No Y data columns given" );
+        ylist = parse_col_list_req( &rc, &ny, popt->y_col_req );
+        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+    }
+
+    if( nx && ny && nx != ny )
+    {
+        if( ny > nx )
+        {
+            curr = ny;
+            bigger = nx;
+            extend = &xlist;
+	}
+        else
+        {
+            curr = nx;
+            bigger = ny;
+            extend = &ylist;
+	}
+
+        cols = (int *) malloc( bigger * (sizeof *cols) );
+        if( !cols ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+
+        for( off = 0; off < curr; off++ ) cols[off] = *extend[off];
+        for( off = curr; off <= bigger; off++ ) cols[off] = *extend[curr];
+        free( *extend );
+        *extend = cols;
+    }
+
+    if( ny > nx ) popt->nseries = ny;
+    else popt->nseries = nx;
+
+    popt->x_col_list = xlist;
+    popt->y_col_list = ylist;
+
+    return;
+}
+
+/* --- */
+
 struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
-    int indata, dsize, total = 0, off, nconv, nlines = 0, rc, xcol, ycol,
-      minwords, keep;
+    int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
+      minwords, keep, nseries, snum, cl;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source;
     struct data_pair_list *data = 0;
@@ -75,8 +229,9 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     /* --- */
 
     source = popt->data_file;
-    xcol = popt->x_col;
-    ycol = popt->y_col;
+    xcols = popt->x_col_list;
+    ycols = popt->y_col_list;
+    nseries = popt->nseries;
 
     if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
     else
@@ -106,7 +261,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         }
     }
 
-    alldata = (char *) malloc( total + 1);
+    alldata = (char *) malloc( total + 1 );
     if( !alldata ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
 
     pos = alldata;
@@ -135,25 +290,32 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
     free( alldata );
 
-    data = (struct data_pair_list *) malloc( sizeof *data );
+    data = (struct data_pair_list *) malloc( nseries * (sizeof *data) );
     if( !data ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
 
-    cx = (float *) malloc( nlines * (sizeof *cx) );
-    if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
-
-    cy = (float *) malloc( nlines * (sizeof *cy) );
-    if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
-
-    data->cases = 0;
-    data->xval = cx;
-    data->yval = cy;
-
-    minwords = xcol;
-    if( ycol > minwords ) minwords = ycol;
-
-    for( off = 0; off < nlines; off++ )
+    for( off = 0; off < nseries; off++ )
     {
-        words = explode_string( &rc, lines->list[off], " " );
+        cx = (float *) malloc( nlines * (sizeof *cx) );
+        if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+        cy = (float *) malloc( nlines * (sizeof *cy) );
+        if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+
+        data[off].cases = 0;
+        data[off].xval = cx;
+        data[off].yval = cy;
+    }
+
+    minwords = 1;
+    for( off = 0; off < nseries; off++ )
+    {
+        if( popt->x_data ) if( xcols[off] > minwords ) minwords = xcols[off];
+        if( popt->y_data ) if( ycols[off] > minwords ) minwords = ycols[off];
+    }
+
+    for( cl = 0; cl < nlines; cl++ )
+    {
+        words = explode_string( &rc, lines->list[cl], " " );
         if( rc != RC_NORMAL ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
 
         remove_empty_strings( words );
@@ -165,36 +327,36 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         {
             keep = 1;
 
-            if( !popt->x_data ) *cx = (float) off;
-            else
+            for( snum = 0; snum < nseries; snum++ )
             {
-                nconv = sscanf( words->list[xcol-1], "%f", cx);
-/* fprintf(stderr, "dbg:: line:%d xc:%d val'%s' nc:%d f:%f\n", off, xcol, words->list[xcol-1], nconv, *cx); */
-                if( !nconv )
+                cx = &data[snum].xval[cl];
+                if( !popt->x_data ) *cx = (float) cl;
+                else 
                 {
-                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
-                    keep= 0;
+                    nconv = sscanf( words->list[xcols[snum]-1], "%f", cx);
+/* fprintf(stderr, "dbg:: line:%d xc:%d val'%s' nc:%d f:%f\n", cl, xcol, words->list[xcols[snum]-1], nconv, *cx); */
+                    if( !nconv )
+                    {
+                        if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
+                        keep= 0;
+		    }
 		}
-            }
 
-            if( !popt->y_data ) *cy = (float) off;
-            else
-            {
-                nconv = sscanf( words->list[ycol-1], "%f", cy);
-/* fprintf(stderr, "dbg:: line:%d yc:%d val'%s' nc:%d f:%f\n", off, ycol, words->list[ycol-1], nconv, *cy); */
-                if( !nconv )
+                cy = &data[snum].yval[cl];
+                if( !popt->y_data ) *cy = (float) cl;
+                else
                 {
-                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
-                    keep= 0;
+                    nconv = sscanf( words->list[ycols[snum]-1], "%f", cy);
+/* fprintf(stderr, "dbg:: line:%d yc:%d val'%s' nc:%d f:%f\n", cl, ycol, words->list[ycols[snum]-1], nconv, *cy); */
+                    if( !nconv )
+                    {
+                        if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
+                        keep= 0;
+		    }
 		}
 	    }
 
-            if( keep )
-            {
-                data->cases++;
-                cx++;
-                cy++;
-	    }
+            if( keep ) for( snum = 0; snum < nseries; snum++ ) data[snum].cases++;
 	}
     }
 
@@ -215,12 +377,12 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 int main( int narg, char **opts )
 
 {
-    int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out;
+    int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum;
     float dmin, dmax, span;
     char *dataformat, *svg_doc = 0;
     struct data_pair_list *data = 0;
-    struct svg_model *svg;
-    struct series_data *series = 0;
+    struct svg_model *svg = 0;
+    struct series_data *ds = 0;
     static struct option_set opset[] = {
       { OP_DEBUG,       OP_TYPE_INT,  OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
       { OP_HELP,        OP_TYPE_FLAG, OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
@@ -231,8 +393,8 @@ int main( int narg, char **opts )
       { OP_YAX_GRIDS,   OP_TYPE_INT,  OP_FL_BLANK, FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
       { OP_OUTFILE,     OP_TYPE_CHAR, OP_FL_BLANK, FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
       { OP_DATAFILE,    OP_TYPE_CHAR, OP_FL_BLANK, FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
-      { OP_XCOL,        OP_TYPE_INT,  OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
-      { OP_YCOL,        OP_TYPE_INT,  OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
+      { OP_XCOL,        OP_TYPE_CHAR, OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
+      { OP_YCOL,        OP_TYPE_CHAR, OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
       { OP_XDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
       { OP_YDATA,       OP_TYPE_FLAG, OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
       { OP_IG_BAD_DATA, OP_TYPE_FLAG, OP_FL_BLANK, FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
@@ -242,11 +404,20 @@ int main( int narg, char **opts )
     struct word_chain *extra_opts, *walk;
     int nflags = (sizeof opset) / (sizeof opset[0]);
 
+#ifdef DEBUG_MALLOC
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
+ bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE );
+/*  bug_control( BUG_FLAG_SET, BUG_OPT_KEEPONFREE | BUG_OPT_STRICT_FREE | BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
+#endif
+
+
     /* --- */
 
     popt.debug = popt.help = 0;
     popt.xax_grids = popt.yax_grids = 0;
-    popt.x_col = popt.y_col = 0;
+    popt.nseries = 0;
+    popt.x_col_list = popt.y_col_list = 0;
+    popt.x_col_req = popt.y_col_req = 0;
     popt.x_data = popt.y_data = 0;
     popt.ign_bad_data = 0;
     popt.chart_title = popt.xax_title = popt.yax_title = 0;
@@ -302,11 +473,11 @@ print_parse_summary( extra_opts, opset, nflags );
 
     co = get_matching_option( OP_XCOL, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
-    popt.x_col = *((int *) co->parsed);
+    popt.x_col_req = (char *) co->parsed;
 
     co = get_matching_option( OP_YCOL, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
-    popt.y_col = *((int *) co->parsed);
+    popt.y_col_req = (char *) co->parsed;
 
     co = get_matching_option( OP_XDATA, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
@@ -325,9 +496,10 @@ print_parse_summary( extra_opts, opset, nflags );
     if( !popt.yax_title ) popt.yax_title = "";
     if( !popt.out_file ) popt.out_file = "";
     if( !popt.data_file ) popt.data_file = "";
+    if( !popt.x_col_req ) popt.x_col_req = "";
+    if( !popt.y_col_req ) popt.x_col_req = "";
 
-    if( popt.x_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "X data column invalid" );
-    if( popt.y_col < 1 ) bail_out( ERR_INVALID_DATA, 0, context, "Y data column invalid" );
+    expand_series_col_req( &popt );
 
     if( narg < 2 ) popt.help = 1;
 
@@ -348,13 +520,27 @@ print_parse_summary( extra_opts, opset, nflags );
     context = DO_LOAD_DATA;
     data = load_data( &popt );
 
-    series = svg_add_float_data( &rc, svg, data->cases, data->xval, data->yval );
-    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
+    if( popt.debug )
+    {
+        int off;
+
+        for( off = 0; off < data[0].cases; off++ )
+        {
+            fprintf( stderr, "dbg:: Rec#%d ", off );
+            for( snum = 0; snum < popt.nseries; snum++ )
+              fprintf( stderr, " %f/%f", data[snum].xval[off], data[snum].yval[off] );
+            fprintf( stderr, "\n");
+	}
+    }
+
+    for( snum = 0; snum < popt.nseries; snum++ )
+    {
+        if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, context, "Empty data series cannot be charted" );
+        ds = svg_add_float_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
+        if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
+    }
 
     context = DO_CONFIGURE_CHART;
-
-    rc = svg_set_circ_line_size( series, SC_CIRC_LINE_SIZE );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_radius( series, SC_CIRC_RADIUS );
 
     /* --- */
 
@@ -362,18 +548,22 @@ print_parse_summary( extra_opts, opset, nflags );
     if( rc == RC_NORMAL ) rc = svg_set_axis_color( svg, SC_AXIS_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_chart_color( svg, SC_CHART_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_graph_color( svg, SC_GRAPH_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( series, SC_CIRC_FILL_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( series, SC_CIRC_LINE_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( series, SC_DATA_FILL_COLOR );
-    if( rc == RC_NORMAL ) rc = svg_set_data_line_color( series, SC_DATA_LINE_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_x_gridline_color( svg, SC_XGRID_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
-
     if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( series, SC_CIRC_FILL_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( series, SC_CIRC_LINE_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( series, SC_DATA_FILL_ALPHA );
-    if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( series, SC_DATA_LINE_ALPHA );
+    for( ds = svg->series; ds; ds = ds->next )
+    {
+        if( rc == RC_NORMAL ) rc = svg_set_circ_radius( ds, SC_CIRC_RADIUS );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_size( ds, SC_CIRC_LINE_SIZE );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_color( ds, SC_CIRC_FILL_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_color( ds, SC_CIRC_LINE_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_data_fill_color( ds, SC_DATA_FILL_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_data_line_color( ds, SC_DATA_LINE_COLOR );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_fill_alpha( ds, SC_CIRC_FILL_ALPHA );
+        if( rc == RC_NORMAL ) rc = svg_set_circ_line_alpha( ds, SC_CIRC_LINE_ALPHA );
+        if( rc == RC_NORMAL ) rc = svg_set_data_fill_alpha( ds, SC_DATA_FILL_ALPHA );
+        if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( ds, SC_DATA_LINE_ALPHA );
+    }
 
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart color/alpha options failed" );
 

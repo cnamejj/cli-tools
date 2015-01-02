@@ -2,6 +2,10 @@
 
 #define ___CNAMEjj_SVG_IT_H__
 
+#ifdef DEBUG_MALLOC
+#include "bug_malloc.h"
+#endif
+
 /* --- */
 
 #define TASK_PARSE_COMMAND      "Parse command line options"
@@ -144,9 +148,10 @@ the resulting graph will be pretty pointless...\n\
 /* --- */
 
 struct parsed_options {
-    int debug, help, xax_grids, yax_grids, x_col, y_col,
-      x_data, y_data, ign_bad_data;
-    char *data_file, *out_file, *chart_title, *xax_title, *yax_title;
+    int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
+      x_data, y_data, ign_bad_data, nseries;
+    char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
+      *x_col_req, *y_col_req;
 };
 
 struct data_pair_list {
@@ -158,6 +163,11 @@ struct data_block_list {
     int size;
     char *data;
     struct data_block_list *next;
+};
+
+struct col_pair {
+    int low, hi;
+    struct col_pair *next;
 };
 
 /* --- */
