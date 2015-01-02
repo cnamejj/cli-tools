@@ -1204,11 +1204,11 @@ char *svg_make_path_start( int *rc, struct svg_model *svg, struct series_data *d
         template = svg->svt_path_start;
 
         xscale = svg->xax_border - svg->graph_left_col;
-        xpc = (*ds->xdata - svg->xmin) / (ds->loc_xmax - svg->xmin);
+        xpc = (*ds->xdata - svg->xmin) / (svg->xmax - svg->xmin);
         xpos = svg->graph_left_col + (xscale * xpc);
 
         yscale = svg->yax_border - svg->graph_top_row;
-        ypc = (*ds->ydata - svg->ymin) / (ds->loc_ymax - svg->ymin); 
+        ypc = (*ds->ydata - svg->ymin) / (svg->ymax - svg->ymin); 
         ypos = svg->graph_top_row + (yscale * ypc); 
         ypos = svg->yax_border - (yscale * ypc); 
 
