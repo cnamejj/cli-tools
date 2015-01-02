@@ -436,9 +436,7 @@ int main( int narg, char **opts )
     context = DO_PARSE_COMMAND;
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
 
-/*dbg*/
-print_parse_summary( extra_opts, opset, nflags );
-/*dbg*/
+    if( popt.debug ) print_parse_summary( extra_opts, opset, nflags );
 
     for( walk = extra_opts; walk; walk = walk->next)
       if( walk->opt ) if( *walk->opt ) bail_out( ERR_SYNTAX, 0, context, "extraneous parameters on commandline" );
