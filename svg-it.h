@@ -129,8 +129,6 @@ static struct context_info context_list[] =
 
 #define SC_XAX_GRIDS 7
 #define SC_YAX_GRIDS 5
-// #define SC_CIRC_LINE_SIZE 10
-// #define SC_CIRC_RADIUS 22
 #define SC_TEXT_COLOR "#124488"
 #define SC_AXIS_COLOR "#444444"
 #define SC_CHART_COLOR "#FFFFFF"
@@ -245,6 +243,18 @@ struct col_pair {
     int low, hi;
     struct col_pair *next;
 };
+
+/* --- */
+
+char *context_desc( int context );
+
+void bail_out( int rc, int err, int context, char *explain );
+
+struct data_pair_list *load_data( struct parsed_options *popt );
+
+void expand_series_col_req( struct parsed_options *popt );
+
+int *parse_col_list_req( int *rc, int *ncols, char *req );
 
 /* --- */
 

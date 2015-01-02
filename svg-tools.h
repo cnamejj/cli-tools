@@ -451,4 +451,10 @@ struct series_data *add_data_series(struct svg_model *svg);
 
 struct series_data *get_empty_data_series(struct svg_model *svg);
 
+int svg_replace_string( char **current, char *replacement);
+
+int update_series_line_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
+
+int update_series_point_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
+
 #endif

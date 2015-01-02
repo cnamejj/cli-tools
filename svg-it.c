@@ -15,18 +15,6 @@
 
 /* --- */
 
-char *context_desc( int context );
-
-void bail_out( int rc, int err, int context, char *explain );
-
-struct data_pair_list *load_data( struct parsed_options *popt );
-
-void expand_series_col_req( struct parsed_options *popt );
-
-int *parse_col_list_req( int *rc, int *ncols, char *req );
-
-/* --- */
-
 char *context_desc( int context )
 
 {
