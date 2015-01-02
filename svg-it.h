@@ -48,6 +48,10 @@ static struct context_info context_list[] = {
 
 #define DATA_OPEN_FLAGS O_RDONLY
 
+#define IS_STDIN "-"
+#define IS_STDOUT "-"
+#define IS_BLANK " "
+
 #define OP_CHART_TITLE 0
 #define OP_XAX_TITLE   1
 #define OP_YAX_TITLE   2
@@ -62,6 +66,7 @@ static struct context_info context_list[] = {
 #define OP_XDATA       11
 #define OP_YDATA       12
 #define OP_IG_BAD_DATA 13
+#define OP_DATA_DELIM  14
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -77,6 +82,7 @@ static struct context_info context_list[] = {
 #define FL_XDATA       "xdata"
 #define FL_YDATA       "ydata"
 #define FL_IG_BAD_DATA "ignore-bad-data"
+#define FL_DATA_DELIM  "delim"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -92,9 +98,7 @@ static struct context_info context_list[] = {
 #define DEF_XDATA       "1"
 #define DEF_YDATA       "1"
 #define DEF_IG_BAD_DATA "0"
-
-#define IS_STDIN "-"
-#define IS_STDOUT "-"
+#define DEF_DATA_DELIM  IS_BLANK
 
 #define DATABUFFSIZE 8192
 
@@ -151,7 +155,7 @@ struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
       x_data, y_data, ign_bad_data, nseries;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
-      *x_col_req, *y_col_req;
+      *x_col_req, *y_col_req, *delim;
 };
 
 struct data_pair_list {
