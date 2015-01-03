@@ -88,7 +88,7 @@ int *parse_col_list_req( int *rc, int *ncols, char *req )
 	}
 
         nconv = sscanf( range->list[0], "%d", &curr->low );
-        if( !nconv )
+        if( nconv != 1 )
         {
             *rc = ERR_UNSUPPORTED;
             return( 0 );
@@ -98,7 +98,7 @@ int *parse_col_list_req( int *rc, int *ncols, char *req )
         else
         {
             nconv = sscanf( range->list[1], "%d", &curr->hi );
-            if( !nconv )
+            if( nconv != 1 )
             {
                 *rc = ERR_UNSUPPORTED;
                 return( 0 );
@@ -207,7 +207,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
-      minwords, keep, nseries, snum, cl, cases;
+      minwords, keep, nseries, snum, cl;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source, *delim;
     struct data_pair_list *data = 0;
@@ -302,7 +302,6 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         if( popt->y_data ) if( ycols[off] > minwords ) minwords = ycols[off];
     }
 
-    cases = 0;
     for( cl = 0; cl < nlines; cl++ )
     {
         words = explode_string( &rc, lines->list[cl], delim );
@@ -316,45 +315,42 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 	}
         else
         {
-            keep = 1;
-
             for( snum = 0; snum < nseries; snum++ )
             {
-                cx = &data[snum].xval[cases];
-                if( !popt->x_data ) *cx = (float) cases;
+                keep = 1;
+
+                cx = &data[snum].xval[data[snum].cases];
+                if( !popt->x_data ) *cx = (float) data[snum].cases;
                 else 
                 {
                     nconv = sscanf( words->list[xcols[snum]-1], "%f", cx);
                     if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                      cl, cases, snum, words->list[xcols[snum]-1], nconv, data[snum].xval[cases] );
-                    if( !nconv )
+                      cl, data[snum].cases, snum, words->list[xcols[snum]-1], nconv, data[snum].xval[data[snum].cases] );
+                    if( nconv != 1 )
                     {
                         if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
-                        keep= 0;
+                        keep = 0;
 		    }
 		}
 
-                cy = &data[snum].yval[cases];
-                if( !popt->y_data ) *cy = (float) cases;
+                cy = &data[snum].yval[data[snum].cases];
+                if( !popt->y_data ) *cy = (float) data[snum].cases;
                 else
                 {
                     nconv = sscanf( words->list[ycols[snum]-1], "%f", cy);
                     if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                      cl, cases, snum, words->list[ycols[snum]-1], nconv, data[snum].yval[cases] );
-                    if( !nconv )
+                      cl, data[snum].cases, snum, words->list[ycols[snum]-1], nconv, data[snum].yval[data[snum].cases] );
+                    if( nconv != 1 )
                     {
                         if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
-                        keep= 0;
+                        keep = 0;
 		    }
 		}
+
+                if( keep ) data[snum].cases++;
 	    }
-
-            if( keep ) cases++;
-
 	}
     }
-
-    for( snum = 0; snum < nseries; snum++ ) data[snum].cases = cases;
 
     if( lines )
     {
@@ -578,7 +574,7 @@ int main( int narg, char **opts )
 
     for( snum = 0; snum < popt.nseries; snum++ )
     {
-        if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, context, "Empty data series cannot be charted" );
+        if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, context, "empty data series cannot be charted" );
         ds = svg_add_float_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
         if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
     }
