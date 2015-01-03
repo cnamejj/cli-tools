@@ -523,10 +523,10 @@ struct series_data *svg_add_double_data( int *rc, struct svg_model *svg, int cas
             slot->ydata = ydata;
 
             svg->total_cases += cases;
-            if( xmin < svg->xmin ) svg->xmin = xmin;
-            if( xmax > svg->xmax ) svg->xmax = xmax;
-            if( ymin < svg->ymin ) svg->ymin = ymin;
-            if( ymax > svg->ymax ) svg->ymax = ymax;
+            if( slot->id == 1 || xmin < svg->xmin ) svg->xmin = xmin;
+            if( slot->id == 1 || xmax > svg->xmax ) svg->xmax = xmax;
+            if( slot->id == 1 || ymin < svg->ymin ) svg->ymin = ymin;
+            if( slot->id == 1 || ymax > svg->ymax ) svg->ymax = ymax;
 	}
     }
 
@@ -593,10 +593,10 @@ struct series_data *svg_add_float_data( int *rc, struct svg_model *svg, int case
             slot->ydata = ydata;
 
             svg->total_cases += cases;
-            if( xmin < svg->xmin ) svg->xmin = xmin;
-            if( xmax > svg->xmax ) svg->xmax = xmax;
-            if( ymin < svg->ymin ) svg->ymin = ymin;
-            if( ymax > svg->ymax ) svg->ymax = ymax;
+            if( slot->id == 1 || xmin < svg->xmin ) svg->xmin = xmin;
+            if( slot->id == 1 || xmax > svg->xmax ) svg->xmax = xmax;
+            if( slot->id == 1 || ymin < svg->ymin ) svg->ymin = ymin;
+            if( slot->id == 1 || ymax > svg->ymax ) svg->ymax = ymax;
 	}
     }
 
@@ -663,10 +663,10 @@ struct series_data *svg_add_int_data( int *rc, struct svg_model *svg, int cases,
             slot->ydata = ydata;
 
             svg->total_cases += cases;
-            if( xmin < svg->xmin ) svg->xmin = xmin;
-            if( xmax > svg->xmax ) svg->xmax = xmax;
-            if( ymin < svg->ymin ) svg->ymin = ymin;
-            if( ymax > svg->ymax ) svg->ymax = ymax;
+            if( slot->id == 1 || xmin < svg->xmin ) svg->xmin = xmin;
+            if( slot->id == 1 || xmax > svg->xmax ) svg->xmax = xmax;
+            if( slot->id == 1 || ymin < svg->ymin ) svg->ymin = ymin;
+            if( slot->id == 1 || ymax > svg->ymax ) svg->ymax = ymax;
 	}
     }
 

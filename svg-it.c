@@ -172,14 +172,14 @@ void expand_series_col_req( struct parsed_options *popt )
     {
         if( ny > nx )
         {
-            curr = ny;
-            bigger = nx;
+            curr = nx;
+            bigger = ny;
             extend = &xlist;
 	}
         else
         {
-            curr = nx;
-            bigger = ny;
+            curr = ny;
+            bigger = nx;
             extend = &ylist;
 	}
 
@@ -187,7 +187,7 @@ void expand_series_col_req( struct parsed_options *popt )
         if( !cols ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
 
         for( off = 0; off < curr; off++ ) cols[off] = *extend[off];
-        for( off = curr; off <= bigger; off++ ) cols[off] = *extend[curr];
+        for( off = curr; off < bigger; off++ ) cols[off] = *extend[curr-1];
         free( *extend );
         *extend = cols;
     }
