@@ -207,7 +207,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
-      minwords, keep, nseries, snum, cl, all_good;
+      minwords, keep, nseries, snum, cl, all_good, xword, yword;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source, *delim;
     struct data_pair_list *data = 0;
@@ -311,50 +311,53 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
         if( words->np < minwords)
         {
+            if( popt->debug ) printf( "dbg:: Load-Data: Not enough words in rec #%d, wanted %d and found %d\n", cl, minwords, words->np );
             if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain enough fields" );
 	}
-        else
+
+        all_good = 1;
+
+        for( snum = 0; snum < nseries; snum++ )
         {
-            all_good = 1;
+            keep = 1;
+            xword = xcols[snum] - 1;
+            yword = ycols[snum] - 1;
 
-            for( snum = 0; snum < nseries; snum++ )
+            cx = &data[snum].xval[data[snum].cases];
+            if( !popt->x_data ) *cx = (float) data[snum].cases;
+            else if( xword >= words->np ) keep = 0;
+            else 
             {
-                keep = 1;
-
-                cx = &data[snum].xval[data[snum].cases];
-                if( !popt->x_data ) *cx = (float) data[snum].cases;
-                else 
+                nconv = sscanf( words->list[xword], "%f", cx);
+                if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
+                  cl, data[snum].cases, snum, words->list[xword], nconv, data[snum].xval[data[snum].cases] );
+                if( nconv != 1 )
                 {
-                    nconv = sscanf( words->list[xcols[snum]-1], "%f", cx);
-                    if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                      cl, data[snum].cases, snum, words->list[xcols[snum]-1], nconv, data[snum].xval[data[snum].cases] );
-                    if( nconv != 1 )
-                    {
-                        if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
-                        keep = 0;
-     		    }
-		}
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
+                    keep = 0;
+                }
+            }
 
-                cy = &data[snum].yval[data[snum].cases];
-                if( !popt->y_data ) *cy = (float) data[snum].cases;
-                else
+            cy = &data[snum].yval[data[snum].cases];
+            if( !popt->y_data ) *cy = (float) data[snum].cases;
+            else if( yword >= words->np ) keep = 0;
+            else
+            {
+                nconv = sscanf( words->list[yword], "%f", cy);
+                if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
+                  cl, data[snum].cases, snum, words->list[yword], nconv, data[snum].yval[data[snum].cases] );
+                if( nconv != 1 )
                 {
-                    nconv = sscanf( words->list[ycols[snum]-1], "%f", cy);
-                    if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                      cl, data[snum].cases, snum, words->list[ycols[snum]-1], nconv, data[snum].yval[data[snum].cases] );
-                    if( nconv != 1 )
-                    {
-                        if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
-                        keep = 0;
-		    }
-		}
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
+                    keep = 0;
+                }
+            }
 
-                if( !popt->only_all_good && keep ) data[snum].cases++;
-                all_good = keep;
-	    }
+            if( !popt->only_all_good && keep ) data[snum].cases++;
+            if( all_good ) all_good = keep;
+        }
 
-            if( popt->only_all_good && all_good ) for( snum = 0; snum < nseries; snum++ ) data[snum].cases++;
-	}
+        if( popt->only_all_good && all_good ) for( snum = 0; snum < nseries; snum++ ) data[snum].cases++;
     }
 
     if( lines )
