@@ -207,7 +207,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
-      minwords, keep, nseries, snum, cl;
+      minwords, keep, nseries, snum, cl, all_good;
     float *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source, *delim;
     struct data_pair_list *data = 0;
@@ -315,6 +315,8 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 	}
         else
         {
+            all_good = 1;
+
             for( snum = 0; snum < nseries; snum++ )
             {
                 keep = 1;
@@ -330,7 +332,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
                     {
                         if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
                         keep = 0;
-		    }
+     		    }
 		}
 
                 cy = &data[snum].yval[data[snum].cases];
@@ -347,8 +349,11 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 		    }
 		}
 
-                if( keep ) data[snum].cases++;
+                if( !popt->only_all_good && keep ) data[snum].cases++;
+                all_good = keep;
 	    }
+
+            if( popt->only_all_good && all_good ) for( snum = 0; snum < nseries; snum++ ) data[snum].cases++;
 	}
     }
 
@@ -372,6 +377,7 @@ int main( int narg, char **opts )
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
       nseries_styles, fl_circ_alpha;
     float dmin, dmax, span;
+    double no_value = (double) SVG_NO_VALUE;
     char *dataformat, *svg_doc = 0;
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
@@ -400,6 +406,13 @@ int main( int narg, char **opts )
       { OP_CIRC_RADIUS, OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_RADIUS, 0, DEF_CIRC_RADIUS, 0, 0 },
       { OP_CIRC_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_LSIZE,  0, DEF_CIRC_LSIZE,  0, 0 },
       { OP_DATA_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_DATA_LSIZE,  0, DEF_DATA_LSIZE,  0, 0 },
+      { OP_KP_ALL_GOOD, OP_TYPE_FLAG,  OP_FL_BLANK, FL_KP_ALL_GOOD, 0, DEF_KP_ALL_GOOD, 0, 0 },
+      { OP_XMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_XMIN_VAL,    0, DEF_XMIN_VAL,    0, 0 },
+      { OP_XMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_XMAX_VAL,    0, DEF_XMAX_VAL,    0, 0 },
+      { OP_YMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_YMIN_VAL,    0, DEF_YMIN_VAL,    0, 0 },
+      { OP_YMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_YMAX_VAL,    0, DEF_YMAX_VAL,    0, 0 },
+      { OP_WIDTH,       OP_TYPE_INT,   OP_FL_BLANK, FL_WIDTH,       0, DEF_WIDTH,       0, 0 },
+      { OP_HEIGHT,      OP_TYPE_INT,   OP_FL_BLANK, FL_HEIGHT,      0, DEF_HEIGHT,      0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
@@ -428,6 +441,9 @@ int main( int narg, char **opts )
     popt.delim = 0;
     popt.circ_line_alpha = popt.circ_fill_alpha = popt.data_line_alpha = popt.data_fill_alpha = 0.0;
     popt.circ_radius = popt.circ_line_size = popt.data_line_size = 0;
+    popt.only_all_good = 0;
+    popt.fix_xmin = popt.fix_xmax = popt.fix_ymin = popt.fix_ymax = no_value;
+    popt.chart_width = popt.chart_height = SVG_NO_VALUE;
 
     context = DO_PARSE_COMMAND;
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
@@ -529,6 +545,34 @@ int main( int narg, char **opts )
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
     popt.data_line_size = *((int *) co->parsed);
 
+    co = get_matching_option( OP_KP_ALL_GOOD, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.only_all_good = *((int *) co->parsed);
+
+    co = get_matching_option( OP_XMIN_VAL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.fix_xmin = *((float *) co->parsed);
+
+    co = get_matching_option( OP_XMAX_VAL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.fix_xmax = *((float *) co->parsed);
+
+    co = get_matching_option( OP_YMIN_VAL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.fix_ymin = *((float *) co->parsed);
+
+    co = get_matching_option( OP_YMAX_VAL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.fix_ymax = *((float *) co->parsed);
+
+    co = get_matching_option( OP_WIDTH, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.chart_width = *((int *) co->parsed);
+
+    co = get_matching_option( OP_HEIGHT, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.chart_height = *((int *) co->parsed);
+
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
     if( !popt.yax_title ) popt.yax_title = "";
@@ -537,6 +581,12 @@ int main( int narg, char **opts )
     if( !popt.x_col_req ) popt.x_col_req = "";
     if( !popt.y_col_req ) popt.x_col_req = "";
     if( !popt.delim ) popt.delim = "";
+
+    /* ---
+     * If we're going to accept partial records, that implies that we will accept
+     * records with invalid data.
+     */
+    if( !popt.only_all_good ) popt.ign_bad_data = 1;
 
     expand_series_col_req( &popt );
 
@@ -623,12 +673,38 @@ int main( int narg, char **opts )
     if( rc == RC_NORMAL && popt.xax_grids > 0 ) rc = svg_set_xax_num_grids( svg, popt.xax_grids );
     if( rc == RC_NORMAL && popt.yax_grids > 0 ) rc = svg_set_yax_num_grids( svg, popt.yax_grids );
 
+    if( rc == RC_NORMAL && popt.fix_xmin != no_value ) rc = svg_set_xmin( svg, popt.fix_xmin );
+    if( rc == RC_NORMAL && popt.fix_xmax != no_value ) rc = svg_set_xmax( svg, popt.fix_xmax );
+    if( rc == RC_NORMAL && popt.fix_ymin != no_value ) rc = svg_set_ymin( svg, popt.fix_ymin );
+    if( rc == RC_NORMAL && popt.fix_ymax != no_value ) rc = svg_set_ymax( svg, popt.fix_ymax );
+
+    if( rc == RC_NORMAL && popt.chart_width != SVG_NO_VALUE ) rc = svg_set_chart_width( svg, popt.chart_width );
+    if( rc == RC_NORMAL && popt.chart_height != SVG_NO_VALUE ) rc = svg_set_chart_height( svg, popt.chart_height );
+
+    if( popt.debug )
+    {
+        struct series_data *dds;
+
+        fprintf( stderr, "dbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f\n", svg->xmin, svg->xmax, svg->ymin, svg->ymax );
+        for( dds = svg->series; dds; dds = dds->next )
+          fprintf( stderr, "dbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f\n", dds->id, dds->loc_xmin, dds->loc_xmax, dds->loc_ymin, dds->loc_ymax );
+    }
+
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart size and detail options failed" );
 
     /* --- */
 
     rc = svg_finalize_model( svg );
     if( rc != RC_NORMAL ) bail_out( rc, 0, context, "error finalizeing SVG model" );
+
+    if( popt.debug )
+    {
+        struct series_data *dds;
+
+        fprintf( stderr, "dbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f\n", svg->xmin, svg->xmax, svg->ymin, svg->ymax );
+        for( dds = svg->series; dds; dds = dds->next )
+          fprintf( stderr, "dbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f\n", dds->id, dds->loc_xmin, dds->loc_xmax, dds->loc_ymin, dds->loc_ymax );
+    }
 
     dmin = svg_get_xmin( svg );
     dmax = svg_get_xmax( svg );

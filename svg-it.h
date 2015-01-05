@@ -54,6 +54,8 @@ static struct context_info context_list[] =
 #define IS_STDOUT "-"
 #define IS_BLANK " "
 
+#define ST_NO_VALUE "-999999"
+
 #define OP_CHART_TITLE 0
 #define OP_XAX_TITLE   1
 #define OP_YAX_TITLE   2
@@ -69,13 +71,20 @@ static struct context_info context_list[] =
 #define OP_YDATA       12
 #define OP_IG_BAD_DATA 13
 #define OP_DATA_DELIM  14
-#define OP_CIRC_ALPHA 15
+#define OP_CIRC_ALPHA  15
 #define OP_DATA_ALPHA  16
 #define OP_CFILL_ALPHA 17
 #define OP_DFILL_ALPHA 18
 #define OP_CIRC_RADIUS 19
 #define OP_CIRC_LSIZE  20
 #define OP_DATA_LSIZE  21
+#define OP_KP_ALL_GOOD 22
+#define OP_XMIN_VAL    23
+#define OP_XMAX_VAL    24
+#define OP_YMIN_VAL    25
+#define OP_YMAX_VAL    26
+#define OP_WIDTH       27
+#define OP_HEIGHT      28
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -99,6 +108,13 @@ static struct context_info context_list[] =
 #define FL_CIRC_RADIUS "circle-radius"
 #define FL_CIRC_LSIZE  "circle-line-size"
 #define FL_DATA_LSIZE  "data-line-size"
+#define FL_KP_ALL_GOOD "only-all-good"
+#define FL_XMIN_VAL    "xmin"
+#define FL_XMAX_VAL    "xmax"
+#define FL_YMIN_VAL    "ymin"
+#define FL_YMAX_VAL    "ymax"
+#define FL_WIDTH       "width"
+#define FL_HEIGHT      "height"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -121,7 +137,14 @@ static struct context_info context_list[] =
 #define DEF_DFILL_ALPHA "0.0"
 #define DEF_CIRC_RADIUS "22"
 #define DEF_CIRC_LSIZE  "10"
-#define DEF_DATA_LSIZE  "-999999"
+#define DEF_DATA_LSIZE  ST_NO_VALUE
+#define DEF_KP_ALL_GOOD "1"
+#define DEF_XMIN_VAL    ST_NO_VALUE
+#define DEF_XMAX_VAL    ST_NO_VALUE
+#define DEF_YMIN_VAL    ST_NO_VALUE
+#define DEF_YMAX_VAL    ST_NO_VALUE
+#define DEF_WIDTH       ST_NO_VALUE
+#define DEF_HEIGHT      ST_NO_VALUE
 
 #define DATABUFFSIZE 8192
 
@@ -192,9 +215,9 @@ Options are:\n\
   <--data name-of-input-file> | <--data ->\n\
   <--xcol ##>\n\
   <--ycol ##>\n\
-  <--no-xdata>\n\
-  <--no-ydata>\n\
-  <--ignore-bad-data>\n\
+  <--xdata> | <--no-xdata>\n\
+  <--ydata> | <--no-ydata>\n\
+  <--ignore-bad-data> | <--no-ignore-bad-data>\n\
   <--delim #>\n\
   <--circle-alpha #.##>\n\
   <--data-alpha #.##>\n\
@@ -203,17 +226,27 @@ Options are:\n\
   <--circle-radius ##>\n\
   <--circle-line-size ##>\n\
   <--data-line-size ##>\n\
+  <--only-all-good> | <--no-only-all-good>\n\
+  <--width ##>\n\
+  <--height ##>\n\
 \n\
 If no output file is specified, the SVG document is written to STDOUT.  To read\n\
 data from STDIN specify '--data -'.\n\
 \n\
 The default input field delimiter is ' ' and duplicates between words are ignored,\n\
 similar to how AWK parses fields.  You can specific another strings to be used with\n\
-'--data-delim', in which case repeated delimiters will not be ignored.\n\
+'--delim', in which case repeated delimiters will not be ignored.\n\
 \n\
 The '--no-xdata' option directs the program to generate sequential numbers for the\n\
 'x' data rather than parsing the input record.  And '--no-ydata' does the same thing\n\
 for 'y'.  You can specific both but the resulting graph will be pretty pointless...\n\
+\n\
+Use '--no-only-good-data' if you want the code to retain a data point in an input\n\
+record whether or not other fields in that records could be parsed.  Basically, treat\n\
+each series (defined by an X/Y column pair) independently.\n\
+\n\
+The default values for the boolean flags are, --xdata, --ydata, --no-ignore-bad-data\n\
+and --only-good-data.\n\
 "  
 
 /* --- */
@@ -221,9 +254,10 @@ for 'y'.  You can specific both but the resulting graph will be pretty pointless
 struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
       x_data, y_data, ign_bad_data, nseries, circ_radius, circ_line_size,
-      data_line_size;
+      data_line_size, only_all_good, chart_width, chart_height;
     float circ_line_alpha, circ_fill_alpha, data_line_alpha,
       data_fill_alpha;
+    double fix_xmin, fix_xmax, fix_ymin, fix_ymax;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
       *x_col_req, *y_col_req, *delim;
 };

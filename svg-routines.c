@@ -192,6 +192,9 @@ struct svg_model *svg_make_chart()
         svg->screen_height = 0;
         svg->screen_width = 0;
 
+        svg->matte_width = SVG_NO_VALUE;
+        svg->matte_height = SVG_NO_VALUE;
+
         st = svg->chart_title = strdup( DEF_CHA_TITLE_TEXT );
         if( st ) st = svg->xax_title = strdup( DEF_XAXIS_TITLE );
         if( st ) st = svg->yax_title = strdup( DEF_YAXIS_TITLE );
@@ -368,6 +371,8 @@ int svg_finalize_model( struct svg_model *svg )
         if( svg->shift_bottom == SVG_NO_VALUE ) svg->shift_bottom = svg->chart_height * 0.1;
         if( svg->chart_width_midp == SVG_NO_VALUE ) svg->chart_width_midp = svg->chart_width / 2;
         if( svg->chart_height_midp == SVG_NO_VALUE ) svg->chart_height_midp = svg->chart_height / 2;
+        if( svg->matte_width == SVG_NO_VALUE ) svg->matte_width = svg->chart_width * 0.5;
+        if( svg->matte_height == SVG_NO_VALUE ) svg->matte_height = svg->chart_height * 0.5;
 
         for( ds = svg->series; ds; ds = ds->next )
         {
@@ -1469,6 +1474,7 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
 
 {
     struct sub_list *allsubs = 0, *rule = 0, *pending = 0;
+    struct series_data *ds, *cmax;
 
     if( *rc == RC_NORMAL )
     {
@@ -1517,6 +1523,17 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     ADD_SUB_PAIR_RULE( S_GR_HI_MIDPOINT, string_from_int( rc, svg->graph_height_midp, 0 ) )
     ADD_SUB_PAIR_RULE( S_HDR_HI_MIDPOINT, string_from_int( rc, svg->head_height_midp, 0 ) )
     ADD_SUB_PAIR_RULE( S_GR_BOTTOM, string_from_int( rc, svg->graph_bottom, 0 ) )
+    ADD_SUB_PAIR_RULE( S_MATTE_WID, string_from_int( rc, svg->matte_width, 0 ) )
+    ADD_SUB_PAIR_RULE( S_MATTE_HI, string_from_int( rc, svg->matte_height, 0 ) )
+
+    /* ---
+     * We need the maximum radius used for a data point in any of the defined series
+     * available at the "overall" level.
+     */
+    cmax = svg->series;
+    for( ds = svg->series; ds; ds = ds->next ) if( ds->circ_radius > cmax->circ_radius ) cmax = ds;
+
+    ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, cmax->circ_radius, 0 ) )
 
     if( *rc != RC_NORMAL && allsubs )
     {
@@ -2616,6 +2633,54 @@ double svg_get_ymax( struct svg_model *svg )
     if( !svg ) return( 0.0 );
     else return( svg->ymax );
 }
+
+
+/* --- */
+
+int svg_set_chart_width( struct svg_model *svg, int val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else svg->chart_width = val;
+
+    return( rc );
+}
+
+/* --- */
+
+int svg_get_chart_width( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0.0 );
+    else return( svg->chart_width );
+}
+
+
+
+/* --- */
+
+int svg_set_chart_height( struct svg_model *svg, int val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else svg->chart_height = val;
+
+    return( rc );
+}
+
+/* --- */
+
+int svg_get_chart_height( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0.0 );
+    else return( svg->chart_height );
+}
+
 
 /* --- */
 

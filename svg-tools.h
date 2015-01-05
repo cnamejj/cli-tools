@@ -116,6 +116,8 @@
 #define S_GR_HI_MIDPOINT "++graph-height-midpoint++"
 #define S_HDR_HI_MIDPOINT "++header-height-midpoint++"
 #define S_GR_BOTTOM "++graph-bottom++"
+#define S_MATTE_WID "++matte-width++"
+#define S_MATTE_HI "++matte-height++"
 
 #define S_XPOS "++xpos++"
 #define S_YPOS "++ypos++"
@@ -176,12 +178,31 @@
 \n\
   <rect width=\"100%\" height=\"100%\" fill=\"++bg-color++\" />\n\
 \n\
-  <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++\"\n\
-    stroke=\"++axis-color++\" stroke-opacity=\"++axis-opacity++\" fill=\"transparent\"\n\
-    stroke-width=\"++axis-size++\" />\n\
-\n\
   <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++ v -++graph-area-height++\"\n\
     stroke-opacity=\"0\" fill=\"++chart-bg-color++\" fill-opacity=\"++chart-bg-opacity++\"\n\
+    stroke-width=\"++axis-size++\" />\n\
+\n\
+++data-series-points++\n\
+\n\
+++data-series-lines++\n\
+\n\
+  <path d=\"\n\
+ M -++matte-width++ -++matte-height++\n\
+ H ++chart-width++\n\
+ h ++matte-width++\n\
+ V ++chart-height++\n\
+ v ++matte-height++\n\
+ H -++matte-width++\n\
+ V ++graph-top-row++ v -++circle-radius++\n\
+ H ++graph-left-col++ h -++circle-radius++\n\
+ v ++graph-area-height++ v ++circle-radius++ v ++circle-radius++\n\
+ h ++graph-area-width++ h ++circle-radius++ h ++circle-radius++\n\
+ V ++graph-top-row++ v -++circle-radius++\n\
+ H -++matte-width++ \"\n\
+    stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" fill=\"#a08432\" stroke-width=\"1\" fill-opacity=\"0.75\" />\n\
+\n\
+  <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++\"\n\
+    stroke=\"++axis-color++\" stroke-opacity=\"++axis-opacity++\" fill=\"transparent\"\n\
     stroke-width=\"++axis-size++\" />\n\
 \n\
   <g fill=\"++text-color++\" font-size=\"++text-size++\" fill-opacity=\"++text-opacity++\" style=\"font-family:Verdana, Arial, Helvetica, sans-serif; font-weight:100\">\n\
@@ -200,7 +221,7 @@
 <!--    <text x=\"++y-axis-text-col++\" y=\"++y-axis-text-floor++\" style=\"dominant-baseline:central\" text-anchor=\"end\"> -->\n\
     <text x=\"++y-axis-text-col++\" y=\"++y-chart-border++\" style=\"dominant-baseline:central\" text-anchor=\"end\">\n\
 ++row-label++\n\
-      <tspan x=\"0\" y=\"0\" stroke=\"transparent\">.</tspan>\n\
+      <tspan x=\"0\" y=\"0\" fill=\"transparent\">.</tspan>\n\
     </text>\n\
 \n\
     <g stroke=\"++x-gridline-color++\" stroke-width=\"++x-gridline-size++\" stroke-opacity=\"++x-gridline-opacity++\">\n\
@@ -219,10 +240,6 @@
 ++col-line++\n\
       \"/>\n\
   </g>\n\
-\n\
-++data-series-points++\n\
-\n\
-++data-series-lines++\n\
 \n\
 ++xax-milestones++\n\
 ++yax-milestones++\n\
@@ -273,7 +290,8 @@ struct svg_model
       head_height_midp,
       reserve_height, reserve_width,
       shift_width, shift_height, shift_bottom,
-      total_cases;
+      total_cases,
+      matte_height, matte_width;
 
     float axis_alpha, graph_alpha, chart_alpha, text_alpha,
       x_gridline_alpha, y_gridline_alpha;
@@ -386,6 +404,8 @@ int svg_set_circ_fill_alpha(struct series_data *ds, float val);
 int svg_set_circ_line_alpha(struct series_data *ds, float val);
 int svg_set_data_fill_alpha(struct series_data *ds, float val);
 int svg_set_data_line_alpha(struct series_data *ds, float val);
+int svg_set_chart_width(struct svg_model *svg, int val);
+int svg_set_chart_height(struct svg_model *svg, int val);
 
 char *svg_get_chart_title(struct svg_model *svg);
 char *svg_get_xax_title(struct svg_model *svg);
@@ -441,6 +461,8 @@ float svg_get_circ_fill_alpha(struct series_data *ds);
 float svg_get_circ_line_alpha(struct series_data *ds);
 float svg_get_data_fill_alpha(struct series_data *ds);
 float svg_get_data_line_alpha(struct series_data *ds);
+int svg_get_chart_width(struct svg_model *svg);
+int svg_get_chart_height(struct svg_model *svg);
 
 struct svg_chart_milestone *svg_add_xax_checkpoint(struct svg_model *svg, float offset, char *label);
 struct svg_chart_milestone *svg_add_yax_checkpoint(struct svg_model *svg, float offset, char *label);
