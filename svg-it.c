@@ -378,7 +378,7 @@ int main( int narg, char **opts )
       nseries_styles, fl_circ_alpha;
     float dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
-    char *dataformat, *svg_doc = 0;
+    char *dataformat, *svg_doc = 0, *st;
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
@@ -413,6 +413,8 @@ int main( int narg, char **opts )
       { OP_YMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_YMAX_VAL,    0, DEF_YMAX_VAL,    0, 0 },
       { OP_WIDTH,       OP_TYPE_INT,   OP_FL_BLANK, FL_WIDTH,       0, DEF_WIDTH,       0, 0 },
       { OP_HEIGHT,      OP_TYPE_INT,   OP_FL_BLANK, FL_HEIGHT,      0, DEF_HEIGHT,      0, 0 },
+      { OP_DISP_WIDTH,  OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_WIDTH,  0, DEF_DISP_WIDTH,  0, 0 },
+      { OP_DISP_HEIGHT, OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_HEIGHT, 0, DEF_DISP_HEIGHT, 0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
@@ -444,6 +446,7 @@ int main( int narg, char **opts )
     popt.only_all_good = 0;
     popt.fix_xmin = popt.fix_xmax = popt.fix_ymin = popt.fix_ymax = no_value;
     popt.chart_width = popt.chart_height = SVG_NO_VALUE;
+    popt.display_width = popt.display_height = 0;
 
     context = DO_PARSE_COMMAND;
     extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
@@ -573,6 +576,14 @@ int main( int narg, char **opts )
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
     popt.chart_height = *((int *) co->parsed);
 
+    co = get_matching_option( OP_DISP_WIDTH, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.display_width = (char *) co->parsed;
+
+    co = get_matching_option( OP_DISP_HEIGHT, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    popt.display_height = (char *) co->parsed;
+
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
     if( !popt.yax_title ) popt.yax_title = "";
@@ -581,6 +592,8 @@ int main( int narg, char **opts )
     if( !popt.x_col_req ) popt.x_col_req = "";
     if( !popt.y_col_req ) popt.x_col_req = "";
     if( !popt.delim ) popt.delim = "";
+    if( !popt.display_width ) popt.display_width = "";
+    if( !popt.display_height ) popt.display_height = "";
 
     /* ---
      * If we're going to accept partial records, that implies that we will accept
@@ -663,8 +676,13 @@ int main( int narg, char **opts )
 
     /* --- */
 
-    rc = svg_set_screen_width( svg, "100%" );
-    if( rc == RC_NORMAL ) rc = svg_set_screen_height( svg, "50%" );
+    st = popt.display_width;
+    if( !*st ) st = DEF_DISP_WIDTH;
+    rc = svg_set_screen_width( svg, st );
+
+    st = popt.display_height;
+    if( !*st ) st = DEF_DISP_HEIGHT;
+    if( rc == RC_NORMAL ) rc = svg_set_screen_height( svg, st );
 
     if( rc == RC_NORMAL ) rc = svg_set_chart_title( svg, popt.chart_title );
     if( rc == RC_NORMAL ) rc = svg_set_xax_title( svg, popt.xax_title );

@@ -85,6 +85,8 @@ static struct context_info context_list[] =
 #define OP_YMAX_VAL    26
 #define OP_WIDTH       27
 #define OP_HEIGHT      28
+#define OP_DISP_WIDTH  29
+#define OP_DISP_HEIGHT 30
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -115,6 +117,8 @@ static struct context_info context_list[] =
 #define FL_YMAX_VAL    "ymax"
 #define FL_WIDTH       "width"
 #define FL_HEIGHT      "height"
+#define FL_DISP_WIDTH  "display-width"
+#define FL_DISP_HEIGHT "display-height"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -145,6 +149,8 @@ static struct context_info context_list[] =
 #define DEF_YMAX_VAL    ST_NO_VALUE
 #define DEF_WIDTH       ST_NO_VALUE
 #define DEF_HEIGHT      ST_NO_VALUE
+#define DEF_DISP_WIDTH  "100%"
+#define DEF_DISP_HEIGHT "50%"
 
 #define DATABUFFSIZE 8192
 
@@ -259,7 +265,7 @@ struct parsed_options {
       data_fill_alpha;
     double fix_xmin, fix_xmax, fix_ymin, fix_ymax;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
-      *x_col_req, *y_col_req, *delim;
+      *x_col_req, *y_col_req, *delim, *display_width, *display_height;
 };
 
 struct data_pair_list {
