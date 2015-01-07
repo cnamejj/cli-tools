@@ -320,8 +320,8 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         for( snum = 0; snum < nseries; snum++ )
         {
             keep = 1;
-            xword = xcols[snum] - 1;
-            yword = ycols[snum] - 1;
+            if( popt->x_data ) xword = xcols[snum] - 1;
+            if( popt->y_data ) yword = ycols[snum] - 1;
 
             cx = &data[snum].xval[data[snum].cases];
             if( !popt->x_data ) *cx = (float) data[snum].cases;
