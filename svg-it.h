@@ -226,6 +226,23 @@ Content-type: text/html\r\n\
 <form action=\"http://<:SERVER:><:PORT:><:SCRIPT:>\" method=\"POST\">\n\
 \n\
 <table>\n\
+  <tr><td colspan=\"2\"><b>Required Info/Settings:</b></td></tr>\n\
+\
+  <tr><td>Has X-Data?</td><td>Yes<input type=\"radio\" name=\"xdata\" value=\"yes\" checked>\n\
+No<input type=\"radio\" name=\"xdata\" value=\"no\"></td></tr>\n\
+  <tr><td>X Data Columns (comma delimited)</td><td><input type=\"text\" name=\"xcol\"></td></tr>\n\
+\
+  <tr><td>Has Y-Data?</td><td>Yes<input type=\"radio\" name=\"ydata\" value=\"yes\" checked>\n\
+No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
+  <tr><td>Y Data Columns (comma delimited)</td><td><input type=\"text\" name=\"ycol\"></td></tr>\n\
+\
+  <tr><td>Input Field Delimiter (default is space)</td><td><input type=\"text\" name=\"delim\"></td></tr>\n\
+  <tr><td>Input Data:</td><td>&nbsp;</td></tr>\n\
+  <tr><td colspan=\"2\"><textarea cols=\"100\" rows=\"12\" wrap=\"hard\" name=\"raw-data\"></textarea></tr>\n\
+\
+  <tr><td colspan=\"2\">&nbsp;</td></tr>\n\
+  <tr><td colspan=\"2\"><b>Optional Bits:</b></td></tr>\n\
+\
   <tr><td>Chart Title</td><td><input type=\"text\" name=\"title\"></td></tr>\n\
   <tr><td>X-Axis Title</td><td><input type=\"text\" name=\"xtitle\"></td></tr>\n\
   <tr><td>Y-Axis Title</td><td><input type=\"text\" name=\"ytitle\"></td></tr>\n\
@@ -233,24 +250,16 @@ Content-type: text/html\r\n\
   <tr><td># of X-Axis Grids</td><td><input type=\"text\" name=\"xgrids\" value=\"4\"></td></tr>\n\
   <tr><td># of Y-Axis Grids</td><td><input type=\"text\" name=\"ygrids\" value=\"4\"></td></tr>\n\
 \
-  <tr><td>Has X-Data?</td><td>Yes<input type=\"radio\" name=\"xdata\" value=\"yes\" checked>\n\
-No<input type=\"radio\" name=\"xdata\" value=\"no\"></td></tr>\n\
-  <tr><td>X Data Columns</td><td><input type=\"text\" name=\"xcol\"></td></tr>\n\
-\
-  <tr><td>Has Y-Data?</td><td>Yes<input type=\"radio\" name=\"ydata\" value=\"yes\" checked>\n\
-No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
-  <tr><td>Y Data Columns</td><td><input type=\"text\" name=\"ycol\"></td></tr>\n\
-\
   <tr><td>Ignore Bad Data?</td><td>Yes<input type=\"radio\" name=\"ignore-bad-data\" value=\"yes\" checked>\n\
 No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
   <tr><td>Use Partially Good Input Records?</td><td>Yes<input type=\"radio\" name=\"only-all-good\" value=\"no\" checked>\n\
 No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
 \
-  <tr><td>Data Point Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"circle-alpha\" value=\"0.4\"></td></tr>\n\
+  <tr><td>Data Point Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"circle-alpha\" value=\"0.6\"></td></tr>\n\
   <tr><td>Data Line Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"data-alpha\" value=\"0.6\"></td></tr>\n\
   <tr><td>Data Point Fill Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"cfill-alpha\" value=\"0.3\"></td></tr>\n\
-  <tr><td>Data Point Radius</td><td><input type=\"text\" name=\"circle-radius\" value=\"10\"></td></tr>\n\
-  <tr><td>Data Point Outline Size</td><td><input type=\"text\" name=\"circle-line-size\" value=\"4\"></td></tr>\n\
+  <tr><td>Data Point Radius (automatic if -999999)</td><td><input type=\"text\" name=\"circle-radius\" value=\"-999999\"></td></tr>\n\
+  <tr><td>Data Point Outline Size (automatic if -999999)</td><td><input type=\"text\" name=\"circle-line-size\" value=\"-999999\"></td></tr>\n\
   <tr><td>Data Line Width (automatic if -999999)</td><td><input type=\"text\" name=\"data-line-size\" value=\"-999999\"></td></tr>\n\
 \
   <tr><td>Forced Minimum X Value (autodetect if -999999)</td><td><input type=\"text\" name=\"xmin\" value=\"-999999\"></td></tr>\n\
@@ -262,12 +271,8 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
   <tr><td>Chart Display Width (window percentage)</td><td><input type=\"text\" name=\"display-width\" value=\"100%\"></td></tr>\n\
   <tr><td>Chart Display Height (window percentage)</td><td><input type=\"text\" name=\"display-height\" value=\"100%\"></td></tr>\n\
 \
-  <tr><td>Debug?</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
+  <tr><td>Debug? (view SVG source for info)</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
 No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
-\
-  <tr><td>Input Field Delimiter</td><td><input type=\"text\" name=\"delim\"></td></tr>\n\
-  <tr><td>Input Data:</td><td>&nbsp;</td></tr>\n\
-  <tr><td colspan=\"2\"><textarea cols=\"100\" rows=\"12\" wrap=\"hard\" name=\"raw-data\"></textarea></tr>\n\
 \
   <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
 \
