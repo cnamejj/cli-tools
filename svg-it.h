@@ -188,7 +188,7 @@ Content-type: image/svg+xml\r\n\
 #define SVG_TEXT_HEADER "\
 <svg version=\"1.1\" baseProfile=\"full\" width=\"100%\" height=\"100%\"\n\
   viewbox=\"0 0 800 400\"\n\
-  xmlns=\"http://www.w3.org/2000/svg>\"\n\
+  xmlns=\"http://www.w3.org/2000/svg\">\n\
 \n\
 <rect width=\"100%\" height=\"100%\" fill=\"#FFFFFF\" />\n\
 \n\
