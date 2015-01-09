@@ -68,7 +68,7 @@ void bail_out( int rc, int err, int html_out, int context, char *explain )
 
     /* --- */
 
-    if( html_out ) printf( "%s%s", SVG_TEXT_HEADER, SVG_TEXT_SUFFIX );
+    if( html_out ) printf( "%s%s", SVG_TEXT_HEADER, SVG_TEXT_PREFIX );
 
     fprintf( errout, "Err(%d) %s", rc, context_desc(context) );
 
