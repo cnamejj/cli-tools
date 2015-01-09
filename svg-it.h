@@ -199,7 +199,7 @@ Content-type: image/svg+xml\r\n\
 #define SVG_TEXT_PREFIX "\
 \n\
       <tspan x=\"1\" y=\"200\"\n\
-        style=\"dominant-baseline:central; font-weight:100\" text-anchor=\"middle\">\n\
+        style=\"dominant-baseline:central; font-weight:100\" text-anchor=\"start\">\n\
 \n\
 "
 
