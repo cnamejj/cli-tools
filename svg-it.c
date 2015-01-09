@@ -13,6 +13,8 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <ctype.h>
+
 /* --- */
 
 char *context_desc( int context )
@@ -34,21 +36,64 @@ char *context_desc( int context )
 
 /* --- */
 
-void bail_out( int rc, int err, int context, char *explain )
+char *comm_op( int html_out )
 
 {
-    fprintf( stderr, "Err(%d) %s", rc, context_desc(context) );
+    static char *op = "<!-- ", eos = '\0';
 
-    if( explain ) if( *explain ) fprintf( stderr, ", %s", explain );
+    if( html_out ) return( op );
+    else return( &eos );
+}
+
+/* --- */
+
+char *comm_cl( int html_out )
+
+{
+    static char *cl = " -->", eos = '\0';
+
+    if( html_out ) return( cl );
+    else return( &eos );
+}
+
+/* --- */
+
+void bail_out( int rc, int err, int html_out, int context, char *explain )
+
+{
+    FILE *errout;
+
+    if( html_out ) errout = stdout;
+    else errout = stderr;
+
+    /* --- */
+
+    if( html_out ) printf( "%s%s", SVG_TEXT_HEADER, SVG_TEXT_SUFFIX );
+
+    fprintf( errout, "Err(%d) %s", rc, context_desc(context) );
+
+    if( explain ) if( *explain ) fprintf( errout, ", %s", explain );
 
     if( err )
     {
-        fprintf( stderr, " (%s)", strerror(err) );
+        fprintf( errout, " (%s)", strerror(err) );
     }
 
-    fprintf( stderr, "\n" );
+    fprintf( errout, "\n" );
+
+    if( html_out ) printf( "%s%s", SVG_TEXT_SUFFIX, SVG_TEXT_TRAILER );
 
     exit( rc );
+}
+
+/* --- */
+
+void show_form_and_exit()
+
+{
+    printf( "%s", construct_entry_form( HTML_FORM_TEMPLATE ) );
+
+    exit( 0 );
 }
 
 /* --- */
@@ -156,16 +201,16 @@ void expand_series_col_req( struct parsed_options *popt )
 
     if( popt->x_data )
     {
-        if( !*popt->x_col_req ) bail_out( ERR_UNSUPPORTED, 0, DO_PARSE_COMMAND, "No X data columns given" );
+        if( !*popt->x_col_req ) bail_out( ERR_UNSUPPORTED, 0, popt->html_out, DO_PARSE_COMMAND, "No X data columns given" );
         xlist = parse_col_list_req( &rc, &nx, popt->x_col_req );
-        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_PARSE_COMMAND, "" );
     }
 
     if( popt->y_data )
     {
-        if( !*popt->y_col_req ) bail_out( ERR_UNSUPPORTED, 0, DO_PARSE_COMMAND, "No Y data columns given" );
+        if( !*popt->y_col_req ) bail_out( ERR_UNSUPPORTED, 0, popt->html_out, DO_PARSE_COMMAND, "No Y data columns given" );
         ylist = parse_col_list_req( &rc, &ny, popt->y_col_req );
-        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+        if( rc != RC_NORMAL ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_PARSE_COMMAND, "" );
     }
 
     if( nx && ny && nx != ny )
@@ -184,7 +229,7 @@ void expand_series_col_req( struct parsed_options *popt )
 	}
 
         cols = (int *) malloc( bigger * (sizeof *cols) );
-        if( !cols ) bail_out( ERR_MALLOC_FAILED, errno, DO_PARSE_COMMAND, "" );
+        if( !cols ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_PARSE_COMMAND, "" );
 
         for( off = 0; off < curr; off++ ) cols[off] = *extend[off];
         for( off = curr; off < bigger; off++ ) cols[off] = *extend[curr-1];
@@ -213,6 +258,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     struct data_pair_list *data = 0;
     struct data_block_list *dlist = 0, *walk, *blink;
     struct string_parts *lines = 0, *words = 0;
+    FILE *errout;
 
     /* --- */
 
@@ -222,73 +268,85 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     nseries = popt->nseries;
     delim = popt->delim;
 
-    if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
-    else
+    if( popt->html_out ) errout = stdout;
+    else errout = stderr;
+
+    if( !*popt->raw_data )
     {
-        indata = open( source, DATA_OPEN_FLAGS );
-        if( indata == -1 ) bail_out( ERR_OPEN_FAILED, errno, DO_LOAD_DATA, "can't open data file" );
-    }
-
-    dsize = read( indata, databuff, DATABUFFSIZE );
-    for( ; dsize > 0; dsize = read( indata, databuff, DATABUFFSIZE ) )
-    {
-        blink = (struct data_block_list *) malloc( sizeof *blink );
-        chunk = (char *) malloc( dsize );
-        if( !chunk || !blink ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
-
-        total += dsize;
-        memcpy( chunk, databuff, dsize );
-        blink->data = chunk;
-        blink->size = dsize;
-        blink->next = 0;
-
-        if( !dlist ) dlist = walk = blink;
+        if( !strcmp( source, IS_STDIN ) ) indata = fileno( stdin );
         else
         {
-            walk->next = blink;
-            walk = blink;
+            indata = open( source, DATA_OPEN_FLAGS );
+            if( indata == -1 ) bail_out( ERR_OPEN_FAILED, errno, popt->html_out, DO_LOAD_DATA, "can't open data file" );
         }
+
+        dsize = read( indata, databuff, DATABUFFSIZE );
+        for( ; dsize > 0; dsize = read( indata, databuff, DATABUFFSIZE ) )
+        {
+            blink = (struct data_block_list *) malloc( sizeof *blink );
+            chunk = (char *) malloc( dsize );
+            if( !chunk || !blink ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
+
+            total += dsize;
+            memcpy( chunk, databuff, dsize );
+            blink->data = chunk;
+            blink->size = dsize;
+            blink->next = 0;
+
+            if( !dlist ) dlist = walk = blink;
+            else
+            {
+                walk->next = blink;
+                walk = blink;
+            }
+        }
+
+        alldata = (char *) malloc( total + 1 );
+        if( !alldata ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
+
+        pos = alldata;
+        for( walk = dlist; walk; walk = walk->next )
+        {
+            memcpy( pos, walk->data, walk->size );
+            pos += walk->size;
+        }
+
+        *pos = '\0';
+
+        for( walk = dlist; walk; )
+        {
+            blink = walk->next;
+            free( walk->data);
+            free( walk);
+            walk = blink;
+	}
+
+        lines = explode_string( &rc, alldata, "\n" );
+        if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "can't break input file into lines for parsing" );
+
+        free( alldata );
     }
 
-    alldata = (char *) malloc( total + 1 );
-    if( !alldata ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
-
-    pos = alldata;
-    for( walk = dlist; walk; walk = walk->next )
+    else
     {
-        memcpy( pos, walk->data, walk->size );
-        pos += walk->size;
+        lines = explode_string( &rc, popt->raw_data, popt->raw_eol );
+        if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "can't break input file into lines for parsing" );
     }
-
-    *pos = '\0';
-
-    for( walk = dlist; walk; )
-    {
-        blink = walk->next;
-        free( walk->data);
-        free( walk);
-        walk = blink;
-    }
-
-    lines = explode_string( &rc, alldata, "\n" );
-    if( rc != RC_NORMAL) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
 
     remove_empty_strings( lines );
     nlines = lines->np;
-    if( nlines < 1 ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "no LF's in input file" );
-
-    free( alldata );
+    if( nlines < 1 ) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "no LF's in input file" );
 
     data = (struct data_pair_list *) malloc( nseries * (sizeof *data) );
-    if( !data ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+    if( !data ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
     for( off = 0; off < nseries; off++ )
     {
         cx = (float *) malloc( nlines * (sizeof *cx) );
-        if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+        if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
         cy = (float *) malloc( nlines * (sizeof *cy) );
-        if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, DO_LOAD_DATA, 0 );
+        if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
         data[off].cases = 0;
         data[off].xval = cx;
@@ -305,14 +363,15 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     for( cl = 0; cl < nlines; cl++ )
     {
         words = explode_string( &rc, lines->list[cl], delim );
-        if( rc != RC_NORMAL ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "can't break input file into lines for parsing" );
+        if( rc != RC_NORMAL ) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "can't break input line into words for parsing" );
 
         if( !strcmp(delim, IS_BLANK) ) remove_empty_strings( words );
 
         if( words->np < minwords)
         {
-            if( popt->debug ) printf( "dbg:: Load-Data: Not enough words in rec #%d, wanted %d and found %d\n", cl, minwords, words->np );
-            if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line does not contain enough fields" );
+            if( popt->debug ) printf( "%sdbg:: Load-Data: Not enough words in rec #%d, wanted %d and found %d%s\n", comm_op(popt->html_out), cl,
+              minwords, words->np, comm_cl(popt->html_out) );
+            if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "input line does not contain enough fields" );
 	}
 
         all_good = 1;
@@ -329,11 +388,11 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             else 
             {
                 nconv = sscanf( words->list[xword], "%f", cx);
-                if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                  cl, data[snum].cases, snum, words->list[xword], nconv, data[snum].xval[data[snum].cases] );
+                if( popt->debug ) fprintf( errout, "%sdbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f%s\n",
+                  comm_op(popt->html_out), cl, data[snum].cases, snum, words->list[xword], nconv, data[snum].xval[data[snum].cases], comm_cl(popt->html_out) );
                 if( nconv != 1 )
                 {
-                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric X value" );
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "input line has non-numeric X value" );
                     keep = 0;
                 }
             }
@@ -344,11 +403,11 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             else
             {
                 nconv = sscanf( words->list[yword], "%f", cy);
-                if( popt->debug ) fprintf( stderr, "dbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f\n",
-                  cl, data[snum].cases, snum, words->list[yword], nconv, data[snum].yval[data[snum].cases] );
+                if( popt->debug ) fprintf( errout, "%sdbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f%s\n",
+                  comm_op(popt->html_out), cl, data[snum].cases, snum, words->list[yword], nconv, data[snum].yval[data[snum].cases], comm_cl(popt->html_out) );
                 if( nconv != 1 )
                 {
-                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, DO_LOAD_DATA, "input line has non-numeric Y value" );
+                    if( !popt->ign_bad_data ) bail_out( ERR_INVALID_DATA, 0, popt->html_out, DO_LOAD_DATA, "input line has non-numeric Y value" );
                     keep = 0;
                 }
             }
@@ -378,10 +437,10 @@ int main( int narg, char **opts )
 
 {
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
-      nseries_styles, fl_circ_alpha;
+      nseries_styles, fl_circ_alpha, is_cgi, show_form;
     float dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
-    char *dataformat, *svg_doc = 0, *st;
+    char *dataformat, *svg_doc = 0, *st, *cgi_data;
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
@@ -418,11 +477,14 @@ int main( int narg, char **opts )
       { OP_HEIGHT,      OP_TYPE_INT,   OP_FL_BLANK, FL_HEIGHT,      0, DEF_HEIGHT,      0, 0 },
       { OP_DISP_WIDTH,  OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_WIDTH,  0, DEF_DISP_WIDTH,  0, 0 },
       { OP_DISP_HEIGHT, OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_HEIGHT, 0, DEF_DISP_HEIGHT, 0, 0 },
+      { OP_RAW_DATA,    OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_DATA,    0, DEF_RAW_DATA,    0, 0 },
+      { OP_RAW_EOL,     OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_EOL,     0, DEF_RAW_EOL,     0, 0 },
     };
     struct option_set *co;
     struct parsed_options popt;
     struct word_chain *extra_opts, *walk;
     int nflags = (sizeof opset) / (sizeof opset[0]);
+    FILE *errout;
 
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
@@ -450,142 +512,173 @@ int main( int narg, char **opts )
     popt.fix_xmin = popt.fix_xmax = popt.fix_ymin = popt.fix_ymax = no_value;
     popt.chart_width = popt.chart_height = SVG_NO_VALUE;
     popt.display_width = popt.display_height = 0;
+    popt.html_out = 0;
+    popt.raw_data = 0;
+    popt.raw_eol = 0;
 
     context = DO_PARSE_COMMAND;
-    extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
+
+    is_cgi = called_as_cgi();
+    if( is_cgi )
+    {
+        popt.html_out = 1;
+        errout = stdout;
+        cgi_data = get_cgi_data( &rc );
+        if( !cgi_data ) show_form = 1;
+        else if( !*cgi_data ) show_form = 1;
+        else show_form = 0;
+
+        if( show_form ) show_form_and_exit();
+
+        printf( "%s", SVG_RESPONSE_HEADER );
+        extra_opts = parse_cgi_options( &rc, opset, nflags, cgi_data );
+    }
+    else
+    {
+        errout = stderr;
+        extra_opts = parse_command_options( &rc, opset, nflags, narg, opts );
+    }
 
     co = get_matching_option( OP_DEBUG, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.debug = *((int *) co->parsed);
 
-    if( popt.debug ) print_parse_summary( extra_opts, opset, nflags );
+    if( popt.debug && !popt.html_out ) print_parse_summary( extra_opts, opset, nflags );
 
     for( walk = extra_opts; walk; walk = walk->next)
-      if( walk->opt ) if( *walk->opt ) bail_out( ERR_SYNTAX, 0, context, "extraneous parameters on commandline" );
+      if( walk->opt ) if( *walk->opt ) bail_out( ERR_SYNTAX, 0, popt.html_out, context, "extraneous parameters on commandline" );
     
     /* --- */
 
     co = get_matching_option( OP_HELP, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.help = *((int *) co->parsed);
 
     co = get_matching_option( OP_CHART_TITLE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.chart_title = (char *) co->parsed;
 
     co = get_matching_option( OP_XAX_TITLE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.xax_title = (char *) co->parsed;
 
     co = get_matching_option( OP_YAX_TITLE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.yax_title = (char *) co->parsed;
     
     co = get_matching_option( OP_XAX_GRIDS, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.xax_grids = *((int *) co->parsed);
 
     co = get_matching_option( OP_YAX_GRIDS, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.yax_grids = *((int *) co->parsed);
 
     co = get_matching_option( OP_OUTFILE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.out_file = (char *) co->parsed;
 
     co = get_matching_option( OP_DATAFILE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.data_file = (char *) co->parsed;
 
     co = get_matching_option( OP_XCOL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.x_col_req = (char *) co->parsed;
 
     co = get_matching_option( OP_YCOL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.y_col_req = (char *) co->parsed;
 
     co = get_matching_option( OP_XDATA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.x_data = *((int *) co->parsed);
 
     co = get_matching_option( OP_YDATA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.y_data = *((int *) co->parsed);
 
     co = get_matching_option( OP_IG_BAD_DATA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.ign_bad_data = *((int *) co->parsed);
 
     co = get_matching_option( OP_DATA_DELIM, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.delim = (char *) co->parsed;
 
     co = get_matching_option( OP_CIRC_ALPHA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.circ_line_alpha = *((float *) co->parsed);
     fl_circ_alpha = co->flags & OP_FL_FOUND;
 
     co = get_matching_option( OP_DATA_ALPHA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.data_line_alpha = *((float *) co->parsed);
 
     co = get_matching_option( OP_CFILL_ALPHA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.circ_fill_alpha = *((float *) co->parsed);
     if( !co->flags & OP_FL_FOUND && fl_circ_alpha ) popt.circ_fill_alpha = popt.circ_line_alpha;
 
     co = get_matching_option( OP_DFILL_ALPHA, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.data_fill_alpha = *((float *) co->parsed);
 
     co = get_matching_option( OP_CIRC_RADIUS, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.circ_radius = *((int *) co->parsed);
 
     co = get_matching_option( OP_CIRC_LSIZE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.circ_line_size = *((int *) co->parsed);
 
     co = get_matching_option( OP_DATA_LSIZE, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.data_line_size = *((int *) co->parsed);
 
     co = get_matching_option( OP_KP_ALL_GOOD, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.only_all_good = *((int *) co->parsed);
 
     co = get_matching_option( OP_XMIN_VAL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.fix_xmin = *((float *) co->parsed);
 
     co = get_matching_option( OP_XMAX_VAL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.fix_xmax = *((float *) co->parsed);
 
     co = get_matching_option( OP_YMIN_VAL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.fix_ymin = *((float *) co->parsed);
 
     co = get_matching_option( OP_YMAX_VAL, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.fix_ymax = *((float *) co->parsed);
 
     co = get_matching_option( OP_WIDTH, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.chart_width = *((int *) co->parsed);
 
     co = get_matching_option( OP_HEIGHT, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.chart_height = *((int *) co->parsed);
 
     co = get_matching_option( OP_DISP_WIDTH, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.display_width = (char *) co->parsed;
 
     co = get_matching_option( OP_DISP_HEIGHT, opset, nflags );
-    if( !co ) bail_out( ERR_UNSUPPORTED, 0, context, "internal configuration error" );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.display_height = (char *) co->parsed;
+
+    co = get_matching_option( OP_RAW_DATA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.raw_data = (char *) co->parsed;
+
+    co = get_matching_option( OP_RAW_EOL, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.raw_eol = (char *) co->parsed;
 
     if( !popt.chart_title ) popt.chart_title = "";
     if( !popt.xax_title ) popt.xax_title = "";
@@ -594,9 +687,38 @@ int main( int narg, char **opts )
     if( !popt.data_file ) popt.data_file = "";
     if( !popt.x_col_req ) popt.x_col_req = "";
     if( !popt.y_col_req ) popt.x_col_req = "";
-    if( !popt.delim ) popt.delim = "";
     if( !popt.display_width ) popt.display_width = "";
     if( !popt.display_height ) popt.display_height = "";
+    if( !popt.raw_data ) popt.raw_data = "";
+    if( !popt.raw_eol ) popt.raw_eol = "";
+
+    if( !popt.delim ) popt.delim = "";
+    if( !*popt.delim ) popt.delim = strdup( DEF_DATA_DELIM );
+
+    /* --- */
+
+    if( is_cgi )
+    {
+        popt.data_file = "";
+        popt.out_file = "";
+        popt.help = 0;
+        if( !*popt.raw_eol ) popt.raw_eol = strdup( CGI_RAW_EOL );
+        if( popt.xax_grids < 1 ) popt.xax_grids = SVG_NO_VALUE;
+        if( popt.yax_grids < 1 ) popt.yax_grids = SVG_NO_VALUE;
+        if( !popt.chart_width ) popt.chart_width = SVG_NO_VALUE;
+        if( !popt.chart_height ) popt.chart_height = SVG_NO_VALUE;
+    }
+    else
+    {
+        if( !*popt.raw_eol ) popt.raw_eol = strdup( CLI_RAW_EOL );
+        if( narg < 2 ) popt.help = 1;
+    }
+
+    if( popt.help )
+    {
+        printf( SHOW_SYNTAX, opts[ 0 ] );
+        exit( 0 );
+    }
 
     /* ---
      * If we're going to accept partial records, that implies that we will accept
@@ -606,21 +728,11 @@ int main( int narg, char **opts )
 
     expand_series_col_req( &popt );
 
-    if( narg < 2 ) popt.help = 1;
-
-    /* --- */
-
-    if( popt.help )
-    {
-        printf( SHOW_SYNTAX, opts[ 0 ] );
-        exit( 0 );
-    }
-    
     /* --- */
 
     context = DO_ALLOC_CHART_OBJECT;
     svg = svg_make_chart();
-    if( !svg ) bail_out( ERR_MALLOC_FAILED, errno, context, 0 );
+    if( !svg ) bail_out( ERR_MALLOC_FAILED, errno, popt.html_out, context, 0 );
 
     context = DO_LOAD_DATA;
     data = load_data( &popt );
@@ -631,18 +743,18 @@ int main( int narg, char **opts )
 
         for( off = 0; off < data[0].cases; off++ )
         {
-            fprintf( stderr, "dbg:: Rec#%d ", off );
+            fprintf( errout, "%sdbg:: Rec#%d ", comm_op(popt.html_out), off );
             for( snum = 0; snum < popt.nseries; snum++ )
-              fprintf( stderr, " %f/%f", data[snum].xval[off], data[snum].yval[off] );
-            fprintf( stderr, "\n");
+              fprintf( errout, " %f/%f", data[snum].xval[off], data[snum].yval[off] );
+            fprintf( errout, "%s\n", comm_cl(popt.html_out) );
 	}
     }
 
     for( snum = 0; snum < popt.nseries; snum++ )
     {
-        if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, context, "empty data series cannot be charted" );
+        if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "empty data series cannot be charted" );
         ds = svg_add_float_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
-        if( rc != RC_NORMAL ) bail_out( rc, 0, context, "unable to add data to chart model" );
+        if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "unable to add data to chart model" );
     }
 
     context = DO_CONFIGURE_CHART;
@@ -659,8 +771,8 @@ int main( int narg, char **opts )
     for( ds = svg->series; ds; ds = ds->next )
     {
         viz = &def_series_visuals[(ds->id - 1) % nseries_styles];
-        if( popt.debug ) fprintf( stderr, "dbg:: Visual-Config: series #%d setting %d of %d, cf/cl/dl %s/%s/%s\n",
-          ds->id, (ds->id-1) % nseries_styles, nseries_styles, viz->circle_fill, viz->circle_line, viz->data_line );
+        if( popt.debug ) fprintf( errout, "%sdbg:: Visual-Config: series #%d setting %d of %d, cf/cl/dl %s/%s/%s%s\n",
+          comm_op(popt.html_out), ds->id, (ds->id-1) % nseries_styles, nseries_styles, viz->circle_fill, viz->circle_line, viz->data_line, comm_cl(popt.html_out) );
         if( rc == RC_NORMAL ) rc = svg_set_circ_radius( ds, popt.circ_radius );
 
         if( rc == RC_NORMAL ) rc = svg_set_data_line_size( ds, popt.data_line_size );
@@ -675,7 +787,7 @@ int main( int narg, char **opts )
         if( rc == RC_NORMAL ) rc = svg_set_data_line_alpha( ds, popt.data_line_alpha );
     }
 
-    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart color/alpha options failed" );
+    if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "setting chart color/alpha options failed" );
 
     /* --- */
 
@@ -706,25 +818,27 @@ int main( int narg, char **opts )
     {
         struct series_data *dds;
 
-        fprintf( stderr, "dbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f\n", svg->xmin, svg->xmax, svg->ymin, svg->ymax );
+        fprintf( errout, "%sdbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f%s\n", comm_op(popt.html_out), svg->xmin, svg->xmax, svg->ymin, svg->ymax, comm_cl(popt.html_out) );
         for( dds = svg->series; dds; dds = dds->next )
-          fprintf( stderr, "dbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f\n", dds->id, dds->loc_xmin, dds->loc_xmax, dds->loc_ymin, dds->loc_ymax );
+          fprintf( errout, "%sdbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f%s\n", comm_op(popt.html_out), dds->id, dds->loc_xmin, dds->loc_xmax, dds->loc_ymin, dds->loc_ymax,
+            comm_cl(popt.html_out) );
     }
 
-    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "setting chart size and detail options failed" );
+    if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "setting chart size and detail options failed" );
 
     /* --- */
 
     rc = svg_finalize_model( svg );
-    if( rc != RC_NORMAL ) bail_out( rc, 0, context, "error finalizeing SVG model" );
+    if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "error finalizeing SVG model" );
 
     if( popt.debug )
     {
         struct series_data *dds;
 
-        fprintf( stderr, "dbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f\n", svg->xmin, svg->xmax, svg->ymin, svg->ymax );
+        fprintf( errout, "%sdbg:: Overall, X: min/max: %f/%f, Y: min/max: %f/%f%s\n", comm_op(popt.html_out), svg->xmin, svg->xmax, svg->ymin, svg->ymax, comm_cl(popt.html_out) );
         for( dds = svg->series; dds; dds = dds->next )
-          fprintf( stderr, "dbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f\n", dds->id, dds->loc_xmin, dds->loc_xmax, dds->loc_ymin, dds->loc_ymax );
+          fprintf( errout, "%sdbg:: id: %d, X: min/max: %f/%f, Y: min/max: %f/%f%s\n", comm_op(popt.html_out), dds->id, dds->loc_xmin, dds->loc_xmax,
+            dds->loc_ymin, dds->loc_ymax, comm_cl(popt.html_out) );
     }
 
     dmin = svg_get_xmin( svg );
@@ -738,27 +852,30 @@ int main( int narg, char **opts )
         else digits = (int) (1 - log10( span));
         dataformat = string_from_int( &rc, digits, LABEL_META_FORMAT );
         rc = svg_set_xax_disp( svg, dataformat );
-        if( rc != RC_NORMAL ) bail_out( rc, 0, context, "can't set x-axis label precision" );
+        if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "can't set x-axis label precision" );
         if( dataformat ) free( dataformat );
     }
 
     context = DO_RENDER_CHART;
     svg_doc = svg_render( &rc, svg );
-    if( rc != RC_NORMAL) bail_out( rc, errno, context, "chart rendering error" );
+    if( rc != RC_NORMAL) bail_out( rc, errno, popt.html_out, context, "chart rendering error" );
 
     context = DO_OPEN_OUTPUT_FILE;
 
     if( *popt.out_file && strcmp(popt.out_file, IS_STDOUT) )
     {
         out = open( popt.out_file, OUT_OPEN_FLAGS, OUT_OPEN_MODE );
-        if( out == -1 ) bail_out( ERR_OPEN_FAILED, errno, context, "can't open output file" );
+        if( out == -1 ) bail_out( ERR_OPEN_FAILED, errno, popt.html_out, context, "can't open output file" );
     }
     else out = fileno( stdout );
 
     context = DO_WRITE_SVG_DOC;
+
+    if( popt.html_out ) fflush( stdout );
+
     svg_doc_len = strlen(svg_doc);
     nbyte = write( out, svg_doc, svg_doc_len );
-    if( nbyte != svg_doc_len ) bail_out( ERR_WRITE_FAILED, errno, context, "writing SVG document failed" );
+    if( nbyte != svg_doc_len ) bail_out( ERR_WRITE_FAILED, errno, popt.html_out, context, "writing SVG document failed" );
 
     svg_free_model( svg );
 

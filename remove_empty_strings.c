@@ -1,8 +1,4 @@
 #include "cli-sub.h"
-/*
-#include <string.h>
-#include <stdlib.h>
- */
 
 /* --- */
 

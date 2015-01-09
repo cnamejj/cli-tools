@@ -1,4 +1,4 @@
-#ifndef ___CNAMEjj_SVG_IT_H__
+#ifndef ___CNAMEjj_SVG_IT_H_
 
 #define ___CNAMEjj_SVG_IT_H__
 
@@ -87,6 +87,8 @@ static struct context_info context_list[] =
 #define OP_HEIGHT      28
 #define OP_DISP_WIDTH  29
 #define OP_DISP_HEIGHT 30
+#define OP_RAW_DATA    31
+#define OP_RAW_EOL     32
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -119,6 +121,8 @@ static struct context_info context_list[] =
 #define FL_HEIGHT      "height"
 #define FL_DISP_WIDTH  "display-width"
 #define FL_DISP_HEIGHT "display-height"
+#define FL_RAW_DATA    "raw-data"
+#define FL_RAW_EOL     "raw-eol"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -151,6 +155,8 @@ static struct context_info context_list[] =
 #define DEF_HEIGHT      ST_NO_VALUE
 #define DEF_DISP_WIDTH  "100%"
 #define DEF_DISP_HEIGHT "50%"
+#define DEF_RAW_DATA    ""
+#define DEF_RAW_EOL     ""
 
 #define DATABUFFSIZE 8192
 
@@ -170,6 +176,109 @@ static struct context_info context_list[] =
 #define SC_CIRC_LINE_ALPHA 0.4
 #define SC_DATA_FILL_ALPHA 0.0
 #define SC_DATA_LINE_ALPHA 0.6
+
+#define CGI_RAW_EOL "\r\n"
+#define CLI_RAW_EOL "\n"
+
+#define SVG_RESPONSE_HEADER "\
+Content-type: image/svg+xml\r\n\
+\r\n\
+"
+
+#define SVG_TEXT_HEADER "\
+<svg version=\"1.1\" baseProfile=\"full\" width=\"100%\" height=\"100%\"\n\
+  viewbox=\"0 0 800 400\"\n\
+  xmlns=\"http://www.w3.org/2000/svg>\"\n\
+\n\
+<rect width=\"100%\" height=\"100%\" fill=\"#FFFFFF\" />\n\
+\n\
+<g fill=\"#000000\" font-size=\"20\" fill-opacity=\"1.0\" style=\"font-family:Verdana, Arial, Helvetica, sans-serif; font-weight:100\">\n\
+    <text style=\"font-size:100%\">\n\
+"
+
+#define SVG_TEXT_PREFIX "\
+\n\
+      <tspan x=\"1\" y=\"200\"\n\
+        style=\"dominant-baseline:central; font-weight:100\" text-anchor=\"middle\">\n\
+\n\
+"
+
+#define SVG_TEXT_SUFFIX "\
+</tspan>\n\
+    </text>\n\
+"
+
+#define SVG_TEXT_TRAILER "\
+</g>\n\
+\n\
+</svg>\n\
+"
+
+#define HTML_FORM_TEMPLATE "\
+Content-type: text/html\r\n\
+\r\n\
+\
+<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n\
+<html><head><title>SVG-It submit form</title>\n\
+</head>\n\
+<body bgcolor=\"#ffffff\">\n\
+\n\
+<form action=\"http://<:SERVER:><:PORT:><:SCRIPT:>\" method=\"POST\">\n\
+\n\
+<table>\n\
+  <tr><td>Chart Title</td><td><input type=\"text\" name=\"title\"></td></tr>\n\
+  <tr><td>X-Axis Title</td><td><input type=\"text\" name=\"xtitle\"></td></tr>\n\
+  <tr><td>Y-Axis Title</td><td><input type=\"text\" name=\"ytitle\"></td></tr>\n\
+\
+  <tr><td># of X-Axis Grids</td><td><input type=\"text\" name=\"xgrids\" value=\"4\"></td></tr>\n\
+  <tr><td># of Y-Axis Grids</td><td><input type=\"text\" name=\"ygrids\" value=\"4\"></td></tr>\n\
+\
+  <tr><td>Has X-Data?</td><td>Yes<input type=\"radio\" name=\"xdata\" value=\"yes\" checked>\n\
+No<input type=\"radio\" name=\"xdata\" value=\"no\"></td></tr>\n\
+  <tr><td>X Data Columns</td><td><input type=\"text\" name=\"xcol\"></td></tr>\n\
+\
+  <tr><td>Has Y-Data?</td><td>Yes<input type=\"radio\" name=\"ydata\" value=\"yes\" checked>\n\
+No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
+  <tr><td>Y Data Columns</td><td><input type=\"text\" name=\"ycol\"></td></tr>\n\
+\
+  <tr><td>Ignore Bad Data?</td><td>Yes<input type=\"radio\" name=\"ignore-bad-data\" value=\"yes\" checked>\n\
+No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
+  <tr><td>Use Partially Good Input Records?</td><td>Yes<input type=\"radio\" name=\"only-all-good\" value=\"no\" checked>\n\
+No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
+\
+  <tr><td>Data Point Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"circle-alpha\" value=\"0.4\"></td></tr>\n\
+  <tr><td>Data Line Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"data-alpha\" value=\"0.6\"></td></tr>\n\
+  <tr><td>Data Point Fill Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"cfill-alpha\" value=\"0.3\"></td></tr>\n\
+  <tr><td>Data Point Radius</td><td><input type=\"text\" name=\"circle-radius\" value=\"10\"></td></tr>\n\
+  <tr><td>Data Point Outline Size</td><td><input type=\"text\" name=\"circle-line-size\" value=\"4\"></td></tr>\n\
+  <tr><td>Data Line Width (automatic if -999999)</td><td><input type=\"text\" name=\"data-line-size\" value=\"-999999\"></td></tr>\n\
+\
+  <tr><td>Forced Minimum X Value (autodetect if -999999)</td><td><input type=\"text\" name=\"xmin\" value=\"-999999\"></td></tr>\n\
+  <tr><td>Forced Maximum X Value (autodetect if -999999)</td><td><input type=\"text\" name=\"xmax\" value=\"-999999\"></td></tr>\n\
+  <tr><td>Forced Minimum Y Value (autodetect if -999999)</td><td><input type=\"text\" name=\"ymin\" value=\"-999999\"></td></tr>\n\
+  <tr><td>Forced Maximum Y Value (autodetect if -999999)</td><td><input type=\"text\" name=\"ymax\" value=\"-999999\"></td></tr>\n\
+  <tr><td>Chart Width</td><td><input type=\"text\" name=\"width\" value=\"1000\"></td></tr>\n\
+  <tr><td>Chart Height</td><td><input type=\"text\" name=\"height\" value=\"400\"></td></tr>\n\
+  <tr><td>Chart Display Width (window percentage)</td><td><input type=\"text\" name=\"display-width\" value=\"100%\"></td></tr>\n\
+  <tr><td>Chart Display Height (window percentage)</td><td><input type=\"text\" name=\"display-height\" value=\"100%\"></td></tr>\n\
+\
+  <tr><td>Debug?</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
+No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
+\
+  <tr><td>Input Field Delimiter</td><td><input type=\"text\" name=\"delim\"></td></tr>\n\
+  <tr><td>Input Data:</td><td>&nbsp;</td></tr>\n\
+  <tr><td colspan=\"2\"><textarea cols=\"100\" rows=\"12\" wrap=\"hard\" name=\"raw-data\"></textarea></tr>\n\
+\
+  <tr><td>&nbsp;</td><td>&nbsp;</td></tr>\n\
+\
+  <tr><td>&nbsp;</td><td><input type=\"submit\" value=\"SVG-It\"></td></tr>\n\
+</table>\n\
+\n\
+</form>\n\
+\n\
+</body>\n\
+</html>\n\
+"
 
 /* ---
  * Data series use the following default colors:
@@ -265,12 +374,13 @@ and --only-good-data.\n\
 struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
       x_data, y_data, ign_bad_data, nseries, circ_radius, circ_line_size,
-      data_line_size, only_all_good, chart_width, chart_height;
+      data_line_size, only_all_good, chart_width, chart_height, html_out;
     float circ_line_alpha, circ_fill_alpha, data_line_alpha,
       data_fill_alpha;
     double fix_xmin, fix_xmax, fix_ymin, fix_ymax;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
-      *x_col_req, *y_col_req, *delim, *display_width, *display_height;
+      *x_col_req, *y_col_req, *delim, *display_width, *display_height,
+      *raw_data, *raw_eol;
 };
 
 struct data_pair_list {
@@ -293,13 +403,19 @@ struct col_pair {
 
 char *context_desc( int context );
 
-void bail_out( int rc, int err, int context, char *explain );
+void bail_out( int rc, int err, int html_out, int context, char *explain );
 
 struct data_pair_list *load_data( struct parsed_options *popt );
 
 void expand_series_col_req( struct parsed_options *popt );
 
 int *parse_col_list_req( int *rc, int *ncols, char *req );
+
+void show_form_and_exit();
+
+char *comm_op( int html_out );
+
+char *comm_cl( int html_out );
 
 /* --- */
 

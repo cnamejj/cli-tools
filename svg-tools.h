@@ -199,7 +199,7 @@
  h ++graph-area-width++ h ++circle-radius++ h ++circle-radius++\n\
  V ++graph-top-row++ v -++circle-radius++\n\
  H -++matte-width++ \"\n\
-    stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" fill=\"#a08432\" stroke-width=\"1\" fill-opacity=\"0.75\" />\n\
+    stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" stroke-width=\"1\" fill-opacity=\"0.75\" />\n\
 \n\
   <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++\"\n\
     stroke=\"++axis-color++\" stroke-opacity=\"++axis-opacity++\" fill=\"transparent\"\n\
