@@ -355,7 +355,7 @@ void svg_free_model( struct svg_model *svg )
 int svg_finalize_model( struct svg_model *svg )
 
 {
-    int rc = RC_NORMAL;
+    int rc = RC_NORMAL, ts;
     struct svg_chart_milestone *ckpt = 0, *walk;
     struct series_data *ds = 0;
 
@@ -407,8 +407,12 @@ int svg_finalize_model( struct svg_model *svg )
             free( svg->text_size);
             svg->text_size = 0;
 	}
-        if( !svg->text_size ) svg->text_size = string_from_int( &rc, svg->chart_height / 20, 0);
-
+        if( !svg->text_size )
+        {
+            if( svg->chart_height < svg->chart_width / 2 ) ts = svg->chart_height / 20;
+            else ts = svg->chart_width / 40;
+            svg->text_size = string_from_int( &rc, ts, 0);
+	}
 
         for( ckpt = svg->xmiles; ckpt; ckpt = ckpt->next)
         {
@@ -1534,6 +1538,7 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     for( ds = svg->series; ds; ds = ds->next ) if( ds->circ_radius > cmax->circ_radius ) cmax = ds;
 
     ADD_SUB_PAIR_RULE( S_CIR_RAD, string_from_int( rc, cmax->circ_radius, 0 ) )
+    ADD_SUB_PAIR_RULE( S_CIR_LIN_SIZE, string_from_int( rc, cmax->circ_line_size, 0 ) )
 
     if( *rc != RC_NORMAL && allsubs )
     {

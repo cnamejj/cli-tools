@@ -193,11 +193,11 @@
  V ++chart-height++\n\
  v ++matte-height++\n\
  H -++matte-width++\n\
- V ++graph-top-row++ v -++circle-radius++\n\
- H ++graph-left-col++ h -++circle-radius++\n\
- v ++graph-area-height++ v ++circle-radius++ v ++circle-radius++\n\
- h ++graph-area-width++ h ++circle-radius++ h ++circle-radius++\n\
- V ++graph-top-row++ v -++circle-radius++\n\
+ V ++graph-top-row++ v -++circle-radius++ v -++circle-line-size++\n\
+ H ++graph-left-col++ h -++circle-radius++ h -++circle-line-size++\n\
+ v ++graph-area-height++ v ++circle-radius++ v ++circle-radius++ v ++circle-line-size++ v ++circle-line-size++\n\
+ h ++graph-area-width++ h ++circle-radius++ h ++circle-radius++ h ++circle-line-size++ h ++circle-line-size++\n\
+ V ++graph-top-row++ v -++circle-radius++ v -++circle-line-size++\n\
  H -++matte-width++ \"\n\
     stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" stroke-width=\"1\" fill-opacity=\"0.75\" />\n\
 \n\
