@@ -1601,18 +1601,18 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
         if( npackets)
         {
-            readlag = (float *) malloc( 2 * npackets * (sizeof *readlag));
+            readlag = (float *) malloc( npackets * (sizeof *readlag));
             if( !readlag) *rc = ERR_MALLOC_FAILED;
 
             if( *rc == RC_NORMAL)
             {
-                packsize = (int *) malloc( 2 * npackets * (sizeof *packsize));
+                packsize = (int *) malloc( npackets * (sizeof *packsize));
                 if( !packsize) *rc = ERR_MALLOC_FAILED;
 	    }
 
             if( *rc == RC_NORMAL)
             {
-                xfrate = (float *) malloc( 2 * npackets * (sizeof *xfrate));
+                xfrate = (float *) malloc( npackets * (sizeof *xfrate));
                 if( !xfrate) *rc = ERR_MALLOC_FAILED;
 	    }
 
