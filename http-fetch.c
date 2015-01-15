@@ -3,6 +3,8 @@
  * #define SHOW_GORY_XFRATE_CALC_DETAILS
  */
 
+#define VALGRIND_CLEAN
+
 /*
  * Bugs:
  * ---
@@ -207,9 +209,9 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         target = plan->target;
         fetch = plan->status;
 
-        /* the "conn_url" char pointer references an HTTP header and should not be free()'d */
         if( red->http_host) free( red->http_host);
         if( red->conn_host) free( red->conn_host);
+        if( red->conn_url) free( red->conn_url);
         if( red->conn_uri) free( red->conn_uri);
         if( red->ipv4) free( red->ipv4);
         if( red->ipv6) free( red->ipv6);
@@ -258,7 +260,7 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
 
 {
     int httprc = 0;
-    char *location = 0;
+    char *location = 0, *loc_copy = 0;
     struct output_options *out;
 
     if( *rc == RC_NORMAL) if( plan) if( plan->partlist) if( plan->partlist->response_status)
@@ -269,7 +271,9 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
           || httprc == HTTP_RC_TEMP_RED || httprc == HTTP_RC_PERM_RED)
         {
             location = find_http_header( plan->partlist, HTTP_HEAD_LOCATION);
-            if( location) if( !*location) location = 0;
+
+            if( !location) location = "";
+            else if( *location) loc_copy = strdup( location);
 
             out = plan->out;
             if( out->debug_level >= DEBUG_MEDIUM2)
@@ -281,7 +285,7 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
 	}
     }
 
-    return( location);
+    return( loc_copy);
 }
 
 /* --- */
@@ -348,12 +352,17 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff)
             if( !packet->data) rc = ERR_MALLOC_FAILED;
             else
             {
+                if( checkpoint->detail) free_data_block( checkpoint->detail);
                 (void) memcpy( packet->data, buff, len);
                 checkpoint->detail = packet;
 	    }
 	}
 
-        if( rc != RC_NORMAL) if( packet) free( packet);
+        if( rc != RC_NORMAL) if( packet)
+        {
+            free( packet);
+            packet = 0;
+	}
     }
 
     return( rc);
@@ -375,6 +384,7 @@ int add_datalen_block( struct ckpt_chain *checkpoint, int len)
         {
             packet->len = len;
             packet->data = 0;
+            if( checkpoint->detail) free_data_block( checkpoint->detail);
             checkpoint->detail = packet;
 	}
 
@@ -392,6 +402,7 @@ void free_data_block( struct data_block *detail)
     if( detail)
     {
         if( detail->data) free( detail->data);
+        detail->data = 0;
         free( detail);
     }
 
@@ -439,7 +450,6 @@ int find_connection( struct plan_data *plan)
             req->proxy_ipv6 = parts->ip6;
             req->proxy_port = parts->port;
             req->use_ssl = parts->use_ssl;
-
             parts->host = 0;
             parts->ip4 = 0;
             parts->ip6 = 0;
@@ -469,7 +479,11 @@ int find_connection( struct plan_data *plan)
             if( req->conn_port == NO_PORT) req->conn_port = parts->port;
 
             if( !req->conn_host) empty = 1;
-            else if( !*req->conn_host) empty = 1;
+            else if( !*req->conn_host)
+            {
+                free( req->conn_host);
+                empty = 1;
+	    }
             if( empty)
             {
                 req->conn_host = parts->host;
@@ -477,7 +491,11 @@ int find_connection( struct plan_data *plan)
 	    }
 
             if( !req->conn_uri) empty = 1;
-            else if( !*req->conn_uri) empty = 1;
+            else if( !*req->conn_uri)
+            {
+                free( req->conn_uri);
+                empty = 1;
+	    }
             if( empty)
             {
                 if( parts->query)
@@ -515,7 +533,11 @@ int find_connection( struct plan_data *plan)
     if( rc == RC_NORMAL)
     {
         if( !req->http_host) empty = 1;
-        else if( !*req->http_host) empty = 1;
+        else if( !*req->http_host)
+        {
+            free( req->http_host);
+            empty = 1;
+	}
         else empty = 0;
 
         if( empty)
@@ -574,13 +596,17 @@ int execute_fetch_plan( struct plan_data *plan)
         {
             if( out->debug_level >= DEBUG_HIGH1) fprintf( out->info_out,
               "%sParse redirect, location'%s'\n", disp->line_pref, redirect_url);
+            if( redirect->conn_url) free( redirect->conn_url);
             redirect->conn_url = redirect_url;
+            redirect_url = 0;
             rc = find_connection( plan);
 
             if( rc == RC_NORMAL) rc = construct_request( plan);
 	}
 
         setup_ssl_env( &rc, plan); /* one time setup, subsquent calls just return */
+
+        clear_parsed_headers( &rc, plan);
 
         clear_counters( &rc, plan);
 
@@ -605,6 +631,7 @@ int execute_fetch_plan( struct plan_data *plan)
         dump_checkpoint_chain( plan);
         display_output( &rc, plan, seq);
 
+        if( redirect_url) free( redirect_url);
         redirect_url = get_redirect_location( &rc, plan);
 
         if( rc == RC_NORMAL && redirect_url && red_level < runex->redirect_depth) red_level++;
@@ -616,11 +643,31 @@ int execute_fetch_plan( struct plan_data *plan)
 	}
     }
 
+    if( redirect_url)
+    {
+        free( redirect_url);
+        redirect_url = 0;
+    }
+
     display_average_stats( &rc, plan);
 
     /* --- */
 
+    if( rc == RC_NORMAL && disp->show_svg) (void) fclose( out->svg_out);
+
+    /* --- */
+
     return( rc);
+}
+
+/* --- */
+
+void clear_parsed_headers( int *rc, struct plan_data *plan)
+
+{
+    if( *rc == RC_NORMAL && plan->partlist) free_payload_references( plan->partlist);
+
+    return;
 }
 
 /* --- */
@@ -1407,6 +1454,12 @@ void pull_response( int *rc, struct plan_data *plan)
         if( *rc != RC_NORMAL) status->last_state |= LS_NO_PAYLOAD;
     }
 
+    if( buff)
+    {
+        free( buff);
+        buff = 0;
+    }
+
     return;
 }
 
@@ -1550,18 +1603,18 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
         if( npackets)
         {
-            readlag = (float *) malloc( npackets * (sizeof *readlag));
+            readlag = (float *) malloc( 2 * npackets * (sizeof *readlag));
             if( !readlag) *rc = ERR_MALLOC_FAILED;
 
             if( *rc == RC_NORMAL)
             {
-                packsize = (int *) malloc( npackets * (sizeof *packsize));
+                packsize = (int *) malloc( 2 * npackets * (sizeof *packsize));
                 if( !packsize) *rc = ERR_MALLOC_FAILED;
 	    }
 
             if( *rc == RC_NORMAL)
             {
-                xfrate = (float *) malloc( npackets * (sizeof *xfrate));
+                xfrate = (float *) malloc( 2 * npackets * (sizeof *xfrate));
                 if( !xfrate) *rc = ERR_MALLOC_FAILED;
 	    }
 
@@ -1578,6 +1631,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                     *(readlag + off) = 0.0;
                     *(xfrate + off) = 0.0;
 		}
+                xfrate = 0;
+                readlag = 0;
+                packsize = 0;
 	    }
 	}
 
@@ -1601,6 +1657,10 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
                     *(sslreadlag + off) = 0.0;
                     *(sslxfrate + off) = 0.0;
                 }
+
+                sslxfrate = 0;
+                sslreadlag = 0;
+                sslpacksize = 0;
 
                 if( out->debug_level >= DEBUG_MEDIUM3) fprintf( out->info_out, "%sSSL I/O counts, logical-reads=%d network-reads:%d network-writes:%d\n",
                   disp->line_pref, npackets, ssl_nreads, ssl_nwrites);
@@ -1676,6 +1736,26 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     if( sslpacksize) free( sslpacksize);
     if( sslreadlag) free( sslreadlag);
     if( sslxfrate) free( sslxfrate);
+    if( reg_stats)
+    {
+        if( reg_stats->packsize) free( reg_stats->packsize);
+        if( reg_stats->xfrate) free( reg_stats->xfrate);
+        if( reg_stats->readlag) free( reg_stats->readlag);
+        reg_stats->packsize = 0;
+        reg_stats->xfrate = 0;
+        reg_stats->readlag = 0;
+        free( reg_stats);
+    }
+    if( ssl_stats)
+    {
+        if( ssl_stats->packsize) free( ssl_stats->packsize);
+        if( ssl_stats->xfrate) free( ssl_stats->xfrate);
+        if( ssl_stats->readlag) free( ssl_stats->readlag);
+        ssl_stats->packsize = 0;
+        ssl_stats->xfrate = 0;
+        ssl_stats->readlag = 0;
+        free( ssl_stats);
+    }
 
     return;
 }
@@ -1882,6 +1962,15 @@ int parse_http_response( struct payload_breakout *breakout)
         else if( !*response) result = ERR_UNSUPPORTED;
         else
         {
+            if( breakout->response_status)
+            {
+                if( breakout->response_status->version) free( breakout->response_status->version);
+                if( breakout->response_status->reason) free( breakout->response_status->reason);
+                breakout->response_status->version = 0;
+                breakout->response_status->reason = 0;
+                free( breakout->response_status);
+                breakout->response_status = 0;
+	    }
             breakout->response_status = parse_http_status( response);
             if( !breakout->response_status) result = ERR_UNSUPPORTED;
 	}
@@ -2580,11 +2669,15 @@ int construct_request( struct plan_data *plan)
         walk->next = 0;
     }
 
+    if( rc == RC_NORMAL)
+    {
+        if( fetch->request) free( fetch->request);
 #ifdef NO_CR
-    if( rc == RC_NORMAL) fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
+        fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
 #else
-    if( rc == RC_NORMAL) fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
+        fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
 #endif
+    }
     if( is_redir) fetch->redirect_request = fetch->request;
     else fetch->primary_request = fetch->request;
 
@@ -3095,25 +3188,33 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_URI, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "URI")
-        target->conn_uri = (char *) co->parsed;
+        if( target->conn_uri) free( target->conn_uri);
+        target->conn_uri = strdup( (char *) co->parsed);
+        if( !target->conn_uri) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_CONNHOST, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "connhost")
-        target->conn_host = (char *) co->parsed;
+        if( target->conn_host) free( target->conn_host);
+        target->conn_host = strdup( (char *) co->parsed);
+        if( !target->conn_host) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_WEBSERVER, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "webhost")
-        target->http_host = (char *) co->parsed;
+        if( target->http_host) free( target->http_host);
+        target->http_host = strdup( (char *) co->parsed);
+        if( !target->http_host) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_URL, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "URL")
-        target->conn_url = (char *) co->parsed;
+        if( target->conn_url) free( target->conn_url);
+        target->conn_url = strdup( (char *) co->parsed);
+        if( !target->conn_url) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PORT, opset, nflags)))
@@ -3175,7 +3276,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_PROXY, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "proxy")
-        target->proxy_url = (char *) co->parsed;
+        if( target->proxy_url) free( target->proxy_url);
+        target->proxy_url = strdup( (char *) co->parsed);
+        if( !target->proxy_url) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PACKETIME, opset, nflags)))
@@ -3187,7 +3290,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_CLIENTIP, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "client-ip")
-        runex->client_ip = (char *) co->parsed;
+        if( runex->client_ip) free( runex->client_ip);
+        runex->client_ip = strdup( (char *) co->parsed);
+        if( !runex->client_ip) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_PTHRU, opset, nflags)))
@@ -3199,7 +3304,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_XHEADER, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "extra-header")
-        target->extra_headers = (struct value_chain *) co->parsed;
+        target->extra_headers = dup_value_chain( &rc, (struct value_chain *) co->parsed);
     }
 
     if(( co = cond_get_matching_option( &rc, OP_TCP4, opset, nflags)))
@@ -3249,6 +3354,8 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_AUTH, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "auth")
+        if( target->auth_user) free( target->auth_user);
+        if( target->auth_passwd) free( target->auth_passwd);
         target->auth_user = strdup( (char *) co->parsed);
         st = index( target->auth_user, COLON_CH);
         if( st)
@@ -3267,7 +3374,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_INTERFACE, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "interface")
-        runex->bind_interface = (char *) co->parsed;
+        if( runex->bind_interface) free( runex->bind_interface);
+        runex->bind_interface = strdup( (char *) co->parsed);
+        if( !runex->bind_interface) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_SSL_INSECURE, opset, nflags)))
@@ -3280,7 +3389,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
         display->show_svg = 1;
         SHOW_OPT_IF_DEBUG( display->line_pref, "grout")
-        out->svg_file = (char *) co->parsed;
+        if( out->svg_file) free( out->svg_file);
+        out->svg_file = strdup( (char *) co->parsed);
+        if( !out->svg_file) rc = ERR_MALLOC_FAILED;
     }
 
     if(( co = cond_get_matching_option( &rc, OP_SHOW_SVG, opset, nflags)))
@@ -3292,7 +3403,9 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     if(( co = cond_get_matching_option( &rc, OP_SVG_STYLE, opset, nflags)))
     {
         SHOW_OPT_IF_DEBUG( display->line_pref, "grstyle")
-        out->svg_style = (char *) co->parsed;
+        if( out->svg_style) free( out->svg_style);
+        out->svg_style = strdup( (char *) co->parsed);
+        if( !out->svg_style) rc = ERR_MALLOC_FAILED;
     }
 
     /* ---
@@ -3366,6 +3479,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
     /* --- */
 
+    for( nflags--; nflags >= 0; nflags--)
+    {
+/* printf( "dbg:: VGC: nf:%d name(%s) val:%x par:%x\n", nflags, opset[nflags].name, opset[nflags].val, opset[nflags].parsed); */
+        if( opset[ nflags].val) free( opset[ nflags].val);
+        if( opset[ nflags].opt_num == OP_XHEADER) free_value_chain( opset[ nflags].parsed);
+        else if( opset[ nflags].parsed) free( opset[ nflags].parsed);
+    }
+
+    /* --- */
+
     return( plan);
 }
 
@@ -3394,6 +3517,7 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
         curr = anchor->next;
         if( !curr)
         {
+            /* To clarify, this should never happen, "anchor->next" should always be NULL */
             curr = (struct ckpt_chain *) malloc( sizeof *curr);
             if( !curr) rc = ERR_MALLOC_FAILED;
             else
@@ -3410,7 +3534,6 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
         {
             status->lastcheck = curr;
             curr->event = event_type;
-            free_data_block( curr->detail);
             curr->detail = 0;
 #ifdef USE_CLOCK_GETTIME
             sysrc = clock_gettime( clid, &now);
@@ -3470,8 +3593,10 @@ int main( int narg, char **opts)
     struct value_chain *chain = 0;
 
 #ifdef DEBUG_MALLOC
-/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
-bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE );
+ bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE );
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
 #endif
 
     /* --- */
@@ -3580,6 +3705,309 @@ bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE 
     if( out->out_html) fprintf( out->info_out, "%s\n%s\n", HTML_PREFORMAT_END, HTML_RESP_END);
 
     /* --- */
+#ifdef VALGRIND_CLEAN
+    free_hf_plan_data( plan);
+#endif
+
+    /* --- */
 
     exit( rc);
+}
+
+/* --- */
+
+void free_target_data( struct target_info *targ)
+
+{
+    if( targ)
+    {
+        if( targ->http_host) free( targ->http_host);
+        if( targ->conn_host) free( targ->conn_host);
+        if( targ->conn_uri) free( targ->conn_uri);
+        if( targ->conn_url) free( targ->conn_url);
+        if( targ->ipv4) free( targ->ipv4);
+        if( targ->ipv6) free( targ->ipv6);
+        if( targ->auth_user) free( targ->auth_user);
+        if( targ->auth_passwd) free( targ->auth_passwd);
+        if( targ->proxy_url) free( targ->proxy_url);
+        if( targ->proxy_host) free( targ->proxy_host);
+        if( targ->proxy_ipv4) free( targ->ipv4);
+        if( targ->proxy_ipv6) free( targ->ipv6);
+
+        targ->http_host = 0;
+        targ->conn_host = 0;
+        targ->conn_uri = 0;
+        targ->conn_url = 0;
+        targ->ipv4 = 0;
+        targ->ipv6 = 0;
+        targ->auth_user = 0;
+        targ->auth_passwd = 0;
+        targ->proxy_url = 0;
+        targ->proxy_host = 0;
+        targ->proxy_ipv4 = 0;
+        targ->proxy_ipv6 = 0;
+
+        free_value_chain( targ->extra_headers);
+        targ->extra_headers = 0;
+
+        free( targ);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_display_data( struct display_settings *disp)
+
+{
+    if( disp)
+    {
+        if( disp->line_pref)
+        {
+            free( disp->line_pref);
+            disp->line_pref = 0;
+        }
+
+        free( disp);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_interface_data( struct interface_info *dinfo)
+
+{
+    if( dinfo)
+    {
+        if( dinfo->name)
+        {
+            free( dinfo->name);
+            dinfo->name = 0;
+	}
+
+        /* Not sure if we can free the "addr" struct, check the code... */
+
+        free( dinfo);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_exec_data( struct exec_controls *run)
+
+{
+    if( run)
+    {
+        if( run->client_ip) free( run->client_ip);
+        if( run->bind_interface) free( run->bind_interface);
+
+        run->client_ip = 0;
+        run->bind_interface = 0;
+
+        if( run->device_summ)
+        {
+            free_interface_data( run->device_summ);
+            run->device_summ = 0;
+	}
+
+        free( run);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_output_data( struct output_options *out)
+
+{
+    if( out)
+    {
+        if( out->svg_file) free( out->svg_file);
+        if( out->svg_style) free( out->svg_style);
+
+        out->svg_file = 0;
+        out->svg_style = 0;
+
+        free( out);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_checkpoint_chain( struct ckpt_chain *chain)
+
+{
+    struct ckpt_chain *walk, *curr;
+
+    for( walk = chain; walk; )
+    {
+        curr = walk;
+        walk = curr->next;
+        curr->next = 0;
+
+        if( curr->detail) free_data_block( curr->detail);
+        curr->detail = 0;
+
+        free( curr);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_fstat_data( struct fetch_status *fetch)
+
+{
+    if( fetch)
+    {
+        if( fetch->err_msg) free( fetch->err_msg);
+        if( fetch->request) free( fetch->request);
+
+        fetch->err_msg = 0;
+        fetch->request = 0;
+
+        /* These pointers just get cleared, not free'd */
+        fetch->primary_request = 0;
+        fetch->redirect_request = 0;
+
+        free_checkpoint_chain( fetch->checkpoint);
+        fetch->checkpoint = 0;
+        fetch->lastcheck = 0;
+
+        /* Don't know if we should free "ssl_context" or "ssl_box", check the code... */
+
+        free( fetch);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_chain_position( struct chain_position *cpos)
+
+{
+    if( cpos)
+    {
+        /* Both "position" and "chain" are pointers to data, but they just ref
+         * data some other object owns, so just clear the pointers and don't
+         * free the memory.
+         */
+        cpos->position = 0;
+        cpos->chain = 0;
+        free( cpos);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_http_status_response( struct http_status_response *resp)
+
+{
+    if( resp)
+    {
+        if( resp->version) free( resp->version);
+        if( resp->reason) free( resp->reason);
+
+        resp->version = 0;
+        resp->reason = 0;
+
+        free( resp);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_payload_data( struct payload_breakout *bout)
+
+{
+    if( bout)
+    {
+        free_payload_references( bout);
+        free( bout);
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_payload_references( struct payload_breakout *bout)
+
+{
+    int off;
+    struct data_block *dblock = 0;
+
+    if( bout)
+    {
+        /* Just clear these pointers, they don't own the data */
+        bout->content_type = 0;
+        bout->trans_encoding = 0;
+
+        free_chain_position( bout->head_spot);
+        bout->head_spot = 0;
+
+        free_http_status_response( bout->response_status);
+        bout->response_status = 0;
+
+        dblock = bout->header_line;
+        for( off = 0; off < bout->n_headers; off++, dblock++)
+        {
+            if( dblock->data)
+            {
+                free( dblock->data);
+                dblock->data = 0;
+	    }
+	}
+
+        if( bout->header_line) free( bout->header_line);
+        bout->header_line = 0;
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_hf_plan_data( struct plan_data *plan)
+
+{
+    if( plan)
+    {
+        free_target_data( plan->target);
+        free_target_data( plan->redirect);
+        free_display_data( plan->disp);
+        free_exec_data( plan->run);
+        free_output_data( plan->out);
+        free_fstat_data( plan->status);
+        free_payload_data( plan->partlist);
+        free( plan->profile);
+
+        plan->target = 0;
+        plan->redirect = 0;
+        plan->disp = 0;
+        plan->run = 0;
+        plan->out = 0;
+        plan->status = 0;
+        plan->partlist = 0;
+        plan->profile = 0;
+
+        free( plan);
+        plan = 0;
+    }
+
+    return;
 }

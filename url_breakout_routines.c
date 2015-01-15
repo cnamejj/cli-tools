@@ -54,6 +54,16 @@ void free_url_breakout( struct url_breakout *parts)
 	if( parts->ip6) free( parts->ip6);
 	if( parts->uri) free( parts->uri);
 	if( parts->query) free( parts->query);
+
+        parts->protocol = 0;
+        parts->user = 0;
+        parts->target = 0;
+        parts->host = 0;
+        parts->ip4 = 0;
+        parts->ip6 = 0;
+        parts->uri = 0;
+        parts->query = 0;
+
         free( parts);
     }
 

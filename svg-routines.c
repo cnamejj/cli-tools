@@ -327,9 +327,14 @@ void svg_free_model( struct svg_model *svg )
         {
             ckpt = walk;
             walk = walk->next;
+            if( ckpt->label ) free( ckpt->label );
             if( ckpt->line_color ) free( ckpt->line_color );
             if( ckpt->text_color ) free( ckpt->text_color );
             if( ckpt->text_size ) free( ckpt->text_size );
+            ckpt->label = 0;
+            ckpt->line_color = 0;
+            ckpt->text_color = 0;
+            ckpt->text_size = 0;
             free( ckpt );
 	}
 
@@ -337,9 +342,14 @@ void svg_free_model( struct svg_model *svg )
         {
             ckpt = walk;
             walk = walk->next;
+            if( ckpt->label ) free( ckpt->label );
             if( ckpt->line_color ) free( ckpt->line_color );
             if( ckpt->text_color ) free( ckpt->text_color );
             if( ckpt->text_size ) free( ckpt->text_size );
+            ckpt->label = 0;
+            ckpt->line_color = 0;
+            ckpt->text_color = 0;
+            ckpt->text_size = 0;
             free( ckpt );
 	}
 

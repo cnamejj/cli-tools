@@ -10,7 +10,8 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	print_option_settings.o dup_memory.o get_scaled_number.o sys_call_fail_msg.o \
 	errmsg_with_string.o get_matching_interface.o is_reserved_uri_char.o \
 	parse_http_status.o construct_entry_form.o connect_host.o ssl_init_routines.o \
-	wait_until_sock_ready.o string-routines.o explode_string.o remove_empty_strings.o
+	wait_until_sock_ready.o string-routines.o explode_string.o remove_empty_strings.o \
+	dup_value_chain.o free_value_chain.o free_chart_options.o
 
 HTSOBJS = handle_ssl_error.o setup_ssl_env.o ssl_handshake.o stash_ssl_err_info.o \
 	verify_ssl_callback.o bio_ssl_callback.o calc_xfrates.o calc_standard_moments.o \

@@ -205,8 +205,9 @@ struct word_chain *parse_command_options( int *rc, struct option_set *plist,
 
                 if( plist[ op].type != OP_TYPE_FLAG) if( ++ii < narg)
                 {
-                    plist[ op].val = opts[ ii];
-                    if( plist[ op].flags & OP_FL_REPEATS)
+                    plist[ op].val = strdup( opts[ ii]);
+                    if( !plist[ op].val) *rc = ERR_MALLOC_FAILED;
+                    else if( plist[ op].flags & OP_FL_REPEATS)
                     {
                         co = plist + op;
                         chain = add_option_to_chain( (struct value_chain *) co->parsed, ii, co->flags, co->val, 0);
@@ -248,10 +249,10 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
   int narg, char **opts)
 
 {
-    int op, *int_val, nconv, ii, nwords, off, rc = RC_NORMAL;
+    int op, *int_val = 0, nconv, ii, nwords, off, rc = RC_NORMAL;
     char *invalid = 0, *copy = 0;
     float *fl_val = 0;
-    struct word_list *dup_opts = 0;
+    struct word_list *dup_opts = 0, *wlist;
     struct option_set *curr = 0;
     struct value_chain *chain = 0;
 
@@ -265,6 +266,7 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
 
         else if( curr->type == OP_TYPE_FLAG)
         {
+            if( int_val) free( int_val);
             int_val = (int *) malloc( sizeof *int_val);
             if( !int_val) rc = ERR_MALLOC_FAILED;
             else
@@ -281,6 +283,7 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                     else if( *int_val) curr->flags |= OP_FL_SET;
                 }
                 curr->parsed = (void *) int_val;
+                int_val = 0;
              }
          }
 
@@ -290,11 +293,11 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
             for( ; chain && rc == RC_NORMAL; chain = chain->next)
             {
                 if( !curr->val) curr->val = strdup( curr->def);
-
                 if( !curr->val) rc = ERR_MALLOC_FAILED;
 
                 else if( curr->type == OP_TYPE_INT)
                 {
+                    if( int_val) free( int_val);
                     int_val = (int *) malloc( sizeof *int_val);
                     if( !int_val) rc = ERR_MALLOC_FAILED;
                     else
@@ -307,17 +310,24 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                             *int_val = 0;
                         }
                         chain->parsed = (void *) int_val;
+                        int_val = 0;
                         if( !curr->parsed)
                         {
+                            if( int_val) free( int_val);
                             int_val = (int *) malloc( sizeof *int_val);
                             if( !int_val) rc = ERR_MALLOC_FAILED;
-                            else curr->parsed = (void *) int_val;
+                            else
+                            {
+                                curr->parsed = (void *) int_val;
+                                int_val = 0;
+			    }
 			}
                     }
                 }
 
                 else if( curr->type == OP_TYPE_FLOAT)
                 {
+                    if( fl_val) free( fl_val);
                     fl_val = (float *) malloc( sizeof *fl_val);
                     if( !fl_val) rc = ERR_MALLOC_FAILED;
                     else
@@ -331,11 +341,17 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                         }
                         if( !curr->parsed) curr->parsed = (void *) fl_val;
                         chain->parsed = (void *) fl_val;
+                        fl_val = 0;
                         if( !curr->parsed)
                         {
+                            if( fl_val) free( fl_val);
                             fl_val = (float *) malloc( sizeof *fl_val);
                             if( !fl_val) rc = ERR_MALLOC_FAILED;
-                            else curr->parsed = (void *) fl_val;
+                            else
+                            {
+                                curr->parsed = (void *) fl_val;
+                                fl_val = 0;
+			    }
 			}
 		    }
 		}
@@ -355,6 +371,7 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
 
         else if( curr->type == OP_TYPE_INT)
         {
+            if( int_val) free( int_val);
             int_val = (int *) malloc( sizeof *int_val);
             if( !int_val) rc = ERR_MALLOC_FAILED;
             else
@@ -366,11 +383,13 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                     *int_val = 0;
                  }
                 curr->parsed = (void *) int_val;
+                int_val = 0;
             }
         }
 
         else if( curr->type == OP_TYPE_FLOAT)
         {
+            if( fl_val) free( fl_val);
             fl_val = (float *) malloc( sizeof *fl_val);
             if( !fl_val) rc = ERR_MALLOC_FAILED;
             else
@@ -382,11 +401,13 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                     *fl_val = 0.0;
                 }
                curr->parsed = (void *) fl_val;
+               fl_val = 0;
             }
         }
       
         else if( curr->type == OP_TYPE_CHAR || curr->type == OP_TYPE_VOID)
         {
+            if( curr->parsed) free( curr->parsed);
             curr->parsed = (void *) strdup( curr->val);
             if( !curr->parsed) rc = ERR_MALLOC_FAILED;
         }
@@ -396,6 +417,12 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
          */
         else if( curr->type == OP_TYPE_LAST && opts)
         {
+            if( dup_opts)
+            {
+                if( dup_opts->words) free( dup_opts->words);
+                dup_opts->words = 0;
+                free( dup_opts);
+	    }
             dup_opts = (struct word_list *) malloc( sizeof *dup_opts);
             if( !dup_opts) rc = ERR_MALLOC_FAILED;
             else
@@ -409,8 +436,8 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
 
                 dup_opts->count = nwords;
                 dup_opts->words = (char **) malloc( (nwords + 1) * (sizeof *dup_opts->words));
-
-                if( curr->flags & OP_FL_FOUND)
+                if( !dup_opts->words) rc = ERR_MALLOC_FAILED;
+                else if( curr->flags & OP_FL_FOUND)
                 {
                     for( off = 0; ii < narg && rc == RC_NORMAL; ii++, off++)
                     {
@@ -431,9 +458,29 @@ int process_parsed_command_options( struct option_set *plist, int nopt,
                     else rc = ERR_MALLOC_FAILED;
                 }
             }
-            if( rc == RC_NORMAL) curr->parsed = (void *) dup_opts;
+            if( rc == RC_NORMAL)
+            {
+                if( curr->parsed)
+                {
+                    wlist = (struct word_list *) curr->parsed;
+                    if( wlist->words)
+                    {
+                        free( wlist->words);
+                        wlist->words = 0;
+		    }
+                    free( wlist);
+                    wlist = 0;
+		}
+                curr->parsed = (void *) dup_opts;
+                dup_opts = 0;
+	    }
         }
     }
+
+    /* --- */
+
+    if( int_val) free( int_val);
+    if( fl_val) free( fl_val);
 
     return( rc);
 }

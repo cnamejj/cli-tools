@@ -796,6 +796,34 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
 
 struct chart_options *alloc_chart_options();
 
+void free_chart_options( struct chart_options *chopt);
+
+void free_target_data( struct target_info *targ);
+
+void free_display_data( struct display_settings *disp);
+
+void free_interface_data( struct interface_info *dinfo);
+
+void free_exec_data( struct exec_controls *run);
+
+void free_output_data( struct output_options *out);
+
+void free_fstat_data( struct fetch_status *fetch);
+
+void free_chain_position( struct chain_position *cpos);
+
+void free_http_status_response( struct http_status_response *resp);
+
+void free_payload_data( struct payload_breakout *bout);
+
+void free_hf_plan_data( struct plan_data *plan);
+
+void free_checkpoint_chain( struct ckpt_chain *chain);
+
+void clear_parsed_headers( int *rc, struct plan_data *plan);
+
+void free_payload_references( struct payload_breakout *bout);
+
 /* --- */
 
 #endif

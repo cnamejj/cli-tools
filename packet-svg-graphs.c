@@ -205,11 +205,7 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
     if( title) free( title);
     if( elap) free( elap);
     if( psize) free( psize);
-    if( chopt )
-    {
-        if( chopt->data_line_color ) free( chopt->data_line_color );
-        free( chopt );
-    }
+    if( chopt) free_chart_options( chopt);
 
     return( result);
 }
@@ -296,7 +292,7 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
                             if( !mstone) chopt->mstone = mstone = curr;
                             if( last) last->next = curr;
                             curr->offset = calc_time_difference( &stime->clock, &walk->clock, fetch->clock_res);
-                            curr->label = mst_type;
+                            curr->label = strdup( mst_type);
                             curr->next = 0;
                             last = curr;
 			}
@@ -308,16 +304,12 @@ char *make_accdata_graph( int *rc, char *url, char *style, int ssl, struct fetch
         result = hf_generate_graph( rc, cases, elap, recbytes, style, title, GR_ACCDAT_XAX_TITLE,
           GR_ACCDAT_YAX_TITLE, chopt);
 
-        for( curr = mstone; curr; curr = last)
-        {
-            last = curr->next;
-            free( curr);
-	}
     }
 
     if( title) free( title);
     if( elap) free( elap);
     if( recbytes) free( recbytes);
+    if( chopt) free_chart_options( chopt);
 
     return( result);
 }
@@ -424,6 +416,7 @@ for( off = 0; off < heaps; off++)
     if( title) free( title);
     if( psfreq) free( psfreq);
     if( bracket) free( bracket);
+    if( chopt) free_chart_options( chopt);
 
     return( result);
 }
@@ -540,6 +533,7 @@ for( off = 0; off < heaps; off++)
     if( title) free( title);
     if( waitfreq) free( waitfreq);
     if( bracket) free( bracket);
+    if( chopt) free_chart_options( chopt);
 
     return( result);
 }

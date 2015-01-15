@@ -312,6 +312,10 @@ struct string_parts *explode_string( int *rc, char *string, char *delim);
 
 void remove_empty_strings( struct string_parts *plist);
 
+struct value_chain *dup_value_chain( int *rc, struct value_chain *orig);
+
+void free_value_chain( struct value_chain *vchain);
+
 /* --- */
 
 #endif
