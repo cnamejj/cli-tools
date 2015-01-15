@@ -150,11 +150,23 @@ int *parse_col_list_req( int *rc, int *ncols, char *req )
             }
 	}
 
-        for( off = 0; off < range->np; off++ ) free( range->list[off] );
+        for( off = 0; off < range->np; off++ )
+        {
+            free( range->list[off] );
+            range->list[off] = 0;
+	}
+        free( range->list );
+        range->list = 0;
         free( range );
     }
 
-    for( off = 0; off < ents->np; off++ ) free( ents->list[off] );
+    for( off = 0; off < ents->np; off++ )
+    {
+        free( ents->list[off] );
+        ents->list[off] = 0;
+    }
+    free( ents->list );
+    ents->list = 0;
     free( ents );
 
     *ncols = 0;
@@ -186,6 +198,21 @@ int *parse_col_list_req( int *rc, int *ncols, char *req )
             off++;
 	}
     }
+
+    /* --- */
+
+    for( end = cpair; end; )
+    {
+        curr = end;
+        end = curr->next;
+
+        curr->next = 0;
+        free( curr );
+    }
+
+    curr = end = cpair = 0;
+
+    /* --- */
 
     return( clist );
 }
@@ -417,6 +444,14 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         }
 
         if( popt->only_all_good && all_good ) for( snum = 0; snum < nseries; snum++ ) data[snum].cases++;
+
+        if( words)
+        {
+            for( off = 0; off < words->np; off++) free( words->list[off] );
+            free( words->list );
+            free( words );
+            words = 0;
+	}
     }
 
     if( lines )
@@ -440,7 +475,8 @@ int main( int narg, char **opts )
       nseries_styles, fl_circ_alpha, is_cgi, show_form;
     float dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
-    char *dataformat, *svg_doc = 0, *st, *cgi_data;
+    char *dataformat, *svg_doc = 0, *st, *cgi_data, *cgi_raw_eol = 0, *cli_raw_eol = 0,
+      *def_data_delim = 0, *empty_string = { '\0' };
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
@@ -493,6 +529,12 @@ int main( int narg, char **opts )
 #endif
 
     nseries_styles = (sizeof def_series_visuals) / (sizeof def_series_visuals[0]);
+
+    /* --- */
+
+    cgi_raw_eol = strdup( CGI_RAW_EOL );
+    cli_raw_eol = strdup( CLI_RAW_EOL );
+    def_data_delim = strdup( DEF_DATA_DELIM );
 
     /* --- */
 
@@ -680,29 +722,29 @@ int main( int narg, char **opts )
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.raw_eol = (char *) co->parsed;
 
-    if( !popt.chart_title ) popt.chart_title = "";
-    if( !popt.xax_title ) popt.xax_title = "";
-    if( !popt.yax_title ) popt.yax_title = "";
-    if( !popt.out_file ) popt.out_file = "";
-    if( !popt.data_file ) popt.data_file = "";
-    if( !popt.x_col_req ) popt.x_col_req = "";
-    if( !popt.y_col_req ) popt.x_col_req = "";
-    if( !popt.display_width ) popt.display_width = "";
-    if( !popt.display_height ) popt.display_height = "";
-    if( !popt.raw_data ) popt.raw_data = "";
-    if( !popt.raw_eol ) popt.raw_eol = "";
+    if( !popt.chart_title ) popt.chart_title = empty_string;
+    if( !popt.xax_title ) popt.xax_title = empty_string;
+    if( !popt.yax_title ) popt.yax_title = empty_string;
+    if( !popt.out_file ) popt.out_file = empty_string;
+    if( !popt.data_file ) popt.data_file = empty_string;
+    if( !popt.x_col_req ) popt.x_col_req = empty_string;
+    if( !popt.y_col_req ) popt.x_col_req = empty_string;
+    if( !popt.display_width ) popt.display_width = empty_string;
+    if( !popt.display_height ) popt.display_height = empty_string;
+    if( !popt.raw_data ) popt.raw_data = empty_string;
+    if( !popt.raw_eol ) popt.raw_eol = empty_string;
 
-    if( !popt.delim ) popt.delim = "";
-    if( !*popt.delim ) popt.delim = strdup( DEF_DATA_DELIM );
+    if( !popt.delim ) popt.delim = empty_string;
+    if( !*popt.delim ) popt.delim = def_data_delim;
 
     /* --- */
 
     if( is_cgi )
     {
-        popt.data_file = "";
-        popt.out_file = "";
+        popt.data_file = empty_string;
+        popt.out_file = empty_string;
         popt.help = 0;
-        if( !*popt.raw_eol ) popt.raw_eol = strdup( CGI_RAW_EOL );
+        if( !*popt.raw_eol ) popt.raw_eol = cgi_raw_eol;
         if( popt.xax_grids < 1 ) popt.xax_grids = SVG_NO_VALUE;
         if( popt.yax_grids < 1 ) popt.yax_grids = SVG_NO_VALUE;
         if( !popt.chart_width ) popt.chart_width = SVG_NO_VALUE;
@@ -710,7 +752,7 @@ int main( int narg, char **opts )
     }
     else
     {
-        if( !*popt.raw_eol ) popt.raw_eol = strdup( CLI_RAW_EOL );
+        if( !*popt.raw_eol ) popt.raw_eol = cli_raw_eol;
         if( narg < 2 ) popt.help = 1;
     }
 
@@ -881,5 +923,109 @@ int main( int narg, char **opts )
 
     /* --- */
 
+    if( svg_doc )
+    {
+        free( svg_doc );
+        svg_doc = 0;
+    }
+
+    free_loaded_data( data, popt.nseries );
+    data = 0;
+
+    free_command_flags( opset, nflags );
+
+    clear_parsed_options( &popt );
+
+    free( cgi_raw_eol );
+    cgi_raw_eol = 0;
+
+    free( cli_raw_eol );
+    cli_raw_eol = 0;
+
+    free( def_data_delim );
+    def_data_delim = 0;
+
+    /* --- */
+
     return( rc );
+}
+
+/* --- */
+
+void free_loaded_data( struct data_pair_list *data, int nseries )
+
+{
+    int seq = 0;
+
+    if( data )
+    {
+        for( seq = 0; seq < nseries; seq++ )
+        {
+            if( data[seq].xval )
+            {
+                free( data[seq].xval );
+                data[seq].xval = 0;
+	    }
+
+            if( data[seq].yval )
+            {
+                free( data[seq].yval );
+                data[seq].yval = 0;
+	    }
+	}
+
+        free( data );
+    }
+
+    return;
+}
+
+/* --- */
+
+void free_command_flags( struct option_set *ops, int nflags )
+
+{
+    int seq = nflags;
+
+    for( seq--; seq >= 0; seq-- )
+    {
+        if( ops[seq].val ) free( ops[seq].val );
+
+        if( ops[seq].flags & OP_FL_REPEATS ) free_value_chain( ops[seq].parsed );
+        else if( ops[seq].parsed ) free( ops[seq].parsed );
+
+        ops[seq].val = 0;
+        ops[seq].parsed = 0;
+    }
+
+    return;
+}
+
+/* --- */
+
+void clear_parsed_options( struct parsed_options *popt )
+
+{
+    if( popt )
+    {
+        if( popt->x_col_list ) free( popt->x_col_list );
+        if( popt->y_col_list ) free( popt->y_col_list );
+
+        popt->x_col_list = 0;
+        popt->y_col_list = 0;
+        popt->data_file = 0;
+        popt->out_file = 0;
+        popt->chart_title = 0;
+        popt->xax_title = 0;
+        popt->yax_title = 0;
+        popt->x_col_req = 0;
+        popt->y_col_req = 0;
+        popt->delim = 0;
+        popt->display_width = 0;
+        popt->display_height = 0;
+        popt->raw_data = 0;
+        popt->raw_eol = 0;
+    }
+
+    return;
 }

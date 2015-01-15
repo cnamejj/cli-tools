@@ -422,6 +422,12 @@ char *comm_op( int html_out );
 
 char *comm_cl( int html_out );
 
+void free_loaded_data( struct data_pair_list *data, int nseries );
+
+void free_command_flags( struct option_set *ops, int nflags );
+
+void clear_parsed_options( struct parsed_options *popt );
+
 /* --- */
 
 #endif
