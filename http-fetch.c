@@ -3,8 +3,6 @@
  * #define SHOW_GORY_XFRATE_CALC_DETAILS
  */
 
-#define VALGRIND_CLEAN
-
 /*
  * Bugs:
  * ---
@@ -3705,9 +3703,8 @@ int main( int narg, char **opts)
     if( out->out_html) fprintf( out->info_out, "%s\n%s\n", HTML_PREFORMAT_END, HTML_RESP_END);
 
     /* --- */
-#ifdef VALGRIND_CLEAN
+
     free_hf_plan_data( plan);
-#endif
 
     /* --- */
 
