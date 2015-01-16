@@ -476,7 +476,7 @@ int main( int narg, char **opts )
     float dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
     char *dataformat, *svg_doc = 0, *st, *cgi_data, *cgi_raw_eol = 0, *cli_raw_eol = 0,
-      *def_data_delim = 0, *empty_string = { '\0' };
+      *def_data_delim = 0, empty_string[] = { '\0' };
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
