@@ -3481,7 +3481,8 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     {
 /* printf( "dbg:: VGC: nf:%d name(%s) val:%x par:%x\n", nflags, opset[nflags].name, opset[nflags].val, opset[nflags].parsed); */
         if( opset[ nflags].val) free( opset[ nflags].val);
-        if( opset[ nflags].opt_num == OP_XHEADER) free_value_chain( opset[ nflags].parsed);
+
+        if( opset[ nflags].flags & OP_FL_REPEATS) free_value_chain( opset[ nflags].parsed );
         else if( opset[ nflags].parsed) free( opset[ nflags].parsed);
     }
 
@@ -3591,8 +3592,8 @@ int main( int narg, char **opts)
     struct value_chain *chain = 0;
 
 #ifdef DEBUG_MALLOC
- bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE );
-/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
+ bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE );
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
 #endif
