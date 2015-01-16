@@ -368,6 +368,9 @@ YrMnDyHrMnSe HRC   DNS  Conn   SSL  Send 1stRD Close Total AllByt PayByt Tot#/S 
 </head>\n\
 <body bgcolor=\"#ffffff\">\n\
 \n\
+<br>Source for HTTP-FETCH is available in the <a href=\"https://github.com/cnamejj/cli-tools\">cli-tools</a>\
+ repository on GitHub\n\
+<br>&nbsp;<br>\n\
 <form action=\"http://<:SERVER:><:PORT:><:SCRIPT:>\" method=\"GET\">\n\
 \n\
 <!-- These options aren't useful in a CGI: stderr -->\n\

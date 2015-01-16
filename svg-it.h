@@ -223,6 +223,10 @@ Content-type: text/html\r\n\
 </head>\n\
 <body bgcolor=\"#ffffff\">\n\
 \n\
+<br>Source for SVG-It is available in the <a href=\"https://github.com/cnamejj/cli-tools\">cli-tools</a>\
+ repository on GitHub.\n\
+<br>&nbsp;<br>\n\
+\n\
 <form action=\"http://<:SERVER:><:PORT:><:SCRIPT:>\" method=\"POST\">\n\
 \n\
 <table>\n\
@@ -354,24 +358,35 @@ Options are:\n\
   <--only-all-good> | <--no-only-all-good>\n\
   <--width ##>\n\
   <--height ##>\n\
+  <--display-width ##>\n\
+  <--display-height ##>\n\
 \n\
-If no output file is specified, the SVG document is written to STDOUT.  To read\n\
-data from STDIN specify '--data -'.\n\
+If no output file is specified, the SVG document is written to STDOUT.  To\n\
+read data from STDIN specify '--data -'.\n\
 \n\
-The default input field delimiter is ' ' and duplicates between words are ignored,\n\
-similar to how AWK parses fields.  You can specific another strings to be used with\n\
-'--delim', in which case repeated delimiters will not be ignored.\n\
+The default input field delimiter is ' ' and duplicates between words are\n\
+ignored, similar to how AWK parses fields.  You can specific another strings\n\
+to be used with '--delim', in which case repeated delimiters will not be\n\
+ignored.\n\
 \n\
-The '--no-xdata' option directs the program to generate sequential numbers for the\n\
-'x' data rather than parsing the input record.  And '--no-ydata' does the same thing\n\
-for 'y'.  You can specific both but the resulting graph will be pretty pointless...\n\
+The '--no-xdata' option directs the program to generate sequential numbers for\n\
+the 'x' data rather than parsing the input record.  And '--no-ydata' does the\n\
+same thing for 'y'.  You can specific both but the resulting graph will be\n\
+pretty pointless...\n\
 \n\
-Use '--no-only-good-data' if you want the code to retain a data point in an input\n\
-record whether or not other fields in that records could be parsed.  Basically, treat\n\
-each series (defined by an X/Y column pair) independently.\n\
+Use '--no-only-good-data' if you want the code to retain a data point in an\n\
+input record whether or not other fields in that records could be parsed.\n\
+Basically, treat each series (defined by an X/Y column pair) independently.\n\
 \n\
-The default values for the boolean flags are, --xdata, --ydata, --no-ignore-bad-data\n\
-and --only-good-data.\n\
+The default values for the boolean flags are, --xdata, --ydata,\n\
+--no-ignore-bad-data and --only-good-data.\n\
+\n\
+Flags --width and --height specify the size of chart in pixels, used in the\n\
+'viewbox' parameter of the SVG document.  Flags --display-width and\n\
+--display-height indicate how browsers should render the chart relative to the\n\
+size of the page they are on and can be given as a percentage (the %% should\n\
+should be included). The defaults are 3000x900 for width/height and 49%%/25%%\n\
+for display-width/display-height.\n\
 "  
 
 /* --- */
