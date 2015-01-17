@@ -70,6 +70,9 @@ Content-Type: text/html\n\
 
 #define HTTP_FORM_TEMPLATE "\
 </pre>\n\
+<br>Source for QUick-IP-Info (quipi) is available in the <a href=\"https://github.com/cnamejj/cli-tools\">cli-tools</a>\
+ repository on GitHub\n\
+<br>&nbsp;<br>\n\
 <form action=\"http://%s%s%s%s\" method=\"GET\">\n\
 <br>List of hostnames and/or IP's\n\
 <br><textarea name=\"lookup\" rows=\"10\" cols=\"80\">\n\
