@@ -1088,8 +1088,8 @@ char *svg_make_data_points( int *rc, struct svg_model *svg, struct series_data *
 
 {
     int xpos, ypos, xbase, ybase, xscale, yscale, pt;
-    float xval, yval, xpc, ypc;
-    double *xdata, *ydata;
+    float xpc, ypc;
+    double *xdata, *ydata, xval, yval;
     char *spots = 0, *template = 0, *acc = 0, *one_line = 0;
     struct sub_list *xpos_sub, *ypos_sub, *subs = 0, *walk = 0;
 
@@ -1274,8 +1274,8 @@ char *svg_make_data_lines( int *rc, struct svg_model *svg, struct series_data *d
 
 {
     int xpos, ypos, xbase, ybase, xscale, yscale, pt;
-    float xval, yval, xpc, ypc;
-    double *xdata, *ydata;
+    float xpc, ypc;
+    double *xdata, *ydata, xval, yval;
     char *lines = 0, *template = 0, *acc = 0, *one_line = 0;
     struct sub_list *xpos_sub, *ypos_sub, *subs = 0, *walk = 0;
 

@@ -405,7 +405,7 @@ struct parsed_options {
 
 struct data_pair_list {
     int cases;
-    float *xval, *yval;
+    double *xval, *yval;
 };
 
 struct data_block_list {

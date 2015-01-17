@@ -280,7 +280,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
       minwords, keep, nseries, snum, cl, all_good, xword, yword;
-    float *cx, *cy;
+    double *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source, *delim;
     struct data_pair_list *data = 0;
     struct data_block_list *dlist = 0, *walk, *blink;
@@ -369,10 +369,10 @@ struct data_pair_list *load_data( struct parsed_options *popt )
 
     for( off = 0; off < nseries; off++ )
     {
-        cx = (float *) malloc( nlines * (sizeof *cx) );
+        cx = (double *) malloc( nlines * (sizeof *cx) );
         if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
-        cy = (float *) malloc( nlines * (sizeof *cy) );
+        cy = (double *) malloc( nlines * (sizeof *cy) );
         if( !cy ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
         data[off].cases = 0;
@@ -410,11 +410,11 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             if( popt->y_data ) yword = ycols[snum] - 1;
 
             cx = &data[snum].xval[data[snum].cases];
-            if( !popt->x_data ) *cx = (float) data[snum].cases;
+            if( !popt->x_data ) *cx = (double) data[snum].cases;
             else if( xword >= words->np ) keep = 0;
             else 
             {
-                nconv = sscanf( words->list[xword], "%f", cx);
+                nconv = sscanf( words->list[xword], "%lf", cx);
                 if( popt->debug ) fprintf( errout, "%sdbg:: Load-Data: X-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f%s\n",
                   comm_op(popt->html_out), cl, data[snum].cases, snum, words->list[xword], nconv, data[snum].xval[data[snum].cases], comm_cl(popt->html_out) );
                 if( nconv != 1 )
@@ -425,11 +425,11 @@ struct data_pair_list *load_data( struct parsed_options *popt )
             }
 
             cy = &data[snum].yval[data[snum].cases];
-            if( !popt->y_data ) *cy = (float) data[snum].cases;
+            if( !popt->y_data ) *cy = (double) data[snum].cases;
             else if( yword >= words->np ) keep = 0;
             else
             {
-                nconv = sscanf( words->list[yword], "%f", cy);
+                nconv = sscanf( words->list[yword], "%lf", cy);
                 if( popt->debug ) fprintf( errout, "%sdbg:: Load-Data: Y-data rec #%d case #%d series #%d raw(%s) nc: %d co: %f%s\n",
                   comm_op(popt->html_out), cl, data[snum].cases, snum, words->list[yword], nconv, data[snum].yval[data[snum].cases], comm_cl(popt->html_out) );
                 if( nconv != 1 )
@@ -473,7 +473,7 @@ int main( int narg, char **opts )
 {
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
       nseries_styles, fl_circ_alpha, is_cgi, show_form;
-    float dmin, dmax, span;
+    double dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
     char *dataformat, *svg_doc = 0, *st, *cgi_data, *cgi_raw_eol = 0, *cli_raw_eol = 0,
       *def_data_delim = 0, empty_string[] = { '\0' };
@@ -795,7 +795,7 @@ int main( int narg, char **opts )
     for( snum = 0; snum < popt.nseries; snum++ )
     {
         if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "empty data series cannot be charted" );
-        ds = svg_add_float_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
+        ds = svg_add_double_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
         if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "unable to add data to chart model" );
     }
 
