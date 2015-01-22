@@ -515,16 +515,19 @@ int main( int narg, char **opts )
       { OP_DISP_HEIGHT, OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_HEIGHT, 0, DEF_DISP_HEIGHT, 0, 0 },
       { OP_RAW_DATA,    OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_DATA,    0, DEF_RAW_DATA,    0, 0 },
       { OP_RAW_EOL,     OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_EOL,     0, DEF_RAW_EOL,     0, 0 },
+      { OP_LEGEND,      OP_TYPE_FLAG,  OP_FL_BLANK, FL_LEGEND,      0, DEF_LEGEND,      0, 0 },
+      { OP_LSCALE,      OP_TYPE_INT,   OP_FL_BLANK, FL_LSCALE,      0, DEF_LSCALE,      0, 0 },
     };
-    struct option_set *co;
+    struct option_set *co, *co_leg;
     struct parsed_options popt;
     struct word_chain *extra_opts, *walk;
     int nflags = (sizeof opset) / (sizeof opset[0]);
     FILE *errout;
 
 #ifdef DEBUG_MALLOC
+  bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE );
 /*  bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
-    bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE );
+/*    bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
 /*  bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBESSSIVE | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_STRICT_FREE ); */
 #endif
 
@@ -557,6 +560,8 @@ int main( int narg, char **opts )
     popt.html_out = 0;
     popt.raw_data = 0;
     popt.raw_eol = 0;
+    popt.has_legend = 0;
+    popt.legend_scale = 0;
 
     context = DO_PARSE_COMMAND;
 
@@ -722,6 +727,22 @@ int main( int narg, char **opts )
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.raw_eol = (char *) co->parsed;
 
+    co = get_matching_option( OP_LEGEND, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.has_legend = *((int *) co->parsed);
+    co_leg = co;
+
+    co = get_matching_option( OP_LSCALE, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.legend_scale = *((int *) co->parsed);
+    if( co->flags & OP_FL_FOUND )
+    {
+        if( !(co_leg->flags & OP_FL_FOUND) || co->opt_num > co_leg->opt_num )
+        {
+            popt.has_legend = !!popt.legend_scale;
+	}
+    }
+
     if( !popt.chart_title ) popt.chart_title = empty_string;
     if( !popt.xax_title ) popt.xax_title = empty_string;
     if( !popt.yax_title ) popt.yax_title = empty_string;
@@ -809,6 +830,7 @@ int main( int narg, char **opts )
     if( rc == RC_NORMAL ) rc = svg_set_graph_color( svg, SC_GRAPH_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_x_gridline_color( svg, SC_XGRID_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
+
     if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
     for( ds = svg->series; ds; ds = ds->next )
     {
@@ -840,6 +862,12 @@ int main( int narg, char **opts )
     st = popt.display_height;
     if( !*st ) st = DEF_DISP_HEIGHT;
     if( rc == RC_NORMAL ) rc = svg_set_screen_height( svg, st );
+
+    if( rc == RC_NORMAL )
+    {
+        svg_set_has_legend( svg, popt.has_legend );
+        svg_set_legend_scale( svg, popt.legend_scale );
+    }
 
     if( rc == RC_NORMAL ) rc = svg_set_chart_title( svg, popt.chart_title );
     if( rc == RC_NORMAL ) rc = svg_set_xax_title( svg, popt.xax_title );

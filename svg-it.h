@@ -89,6 +89,8 @@ static struct context_info context_list[] =
 #define OP_DISP_HEIGHT 30
 #define OP_RAW_DATA    31
 #define OP_RAW_EOL     32
+#define OP_LEGEND      33
+#define OP_LSCALE      34
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -123,6 +125,8 @@ static struct context_info context_list[] =
 #define FL_DISP_HEIGHT "display-height"
 #define FL_RAW_DATA    "raw-data"
 #define FL_RAW_EOL     "raw-eol"
+#define FL_LEGEND      "legend"
+#define FL_LSCALE      "lscale"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -157,6 +161,8 @@ static struct context_info context_list[] =
 #define DEF_DISP_HEIGHT "50%"
 #define DEF_RAW_DATA    ""
 #define DEF_RAW_EOL     ""
+#define DEF_LEGEND      "0"
+#define DEF_LSCALE      "20"
 
 #define DATABUFFSIZE 8192
 
@@ -275,6 +281,10 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
   <tr><td>Chart Display Width (window percentage)</td><td><input type=\"text\" name=\"display-width\" value=\"100%\"></td></tr>\n\
   <tr><td>Chart Display Height (window percentage)</td><td><input type=\"text\" name=\"display-height\" value=\"100%\"></td></tr>\n\
 \
+  <tr><td>Include legend?</td><td>Yes<input type=\"radio\" name=\"legend\" value=\"1\">\n\
+No<input type=\"radio\" name=\"legend\" value=\"0\" checked></td></tr>\n\
+  <tr><td>Legend Size (as % of chart width)</td><td><input type=\"text\" name=\"lscale\" value=\"20\"></td></tr>\n\
+\
   <tr><td>Debug? (view SVG source for info)</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
 No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
 \
@@ -360,6 +370,8 @@ Options are:\n\
   <--height ##>\n\
   <--display-width ##>\n\
   <--display-height ##>\n\
+  <--legend> | <--no-legend>\n\
+  <--lscale ##>\n\
 \n\
 If no output file is specified, the SVG document is written to STDOUT.  To\n\
 read data from STDIN specify '--data -'.\n\
@@ -387,6 +399,10 @@ Flags --width and --height specify the size of chart in pixels, used in the\n\
 size of the page they are on and can be given as a percentage (the %% should\n\
 should be included). The defaults are 3000x900 for width/height and 49%%/25%%\n\
 for display-width/display-height.\n\
+\n\
+By default no legend is included.  Use '--legend' to request one on the right\n\
+side of the chart.  The width of the legend, as a percentage of the chart\n\
+width, can be specified with '--lscale' and defaults to 20.\n\
 "  
 
 /* --- */
@@ -394,7 +410,8 @@ for display-width/display-height.\n\
 struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
       x_data, y_data, ign_bad_data, nseries, circ_radius, circ_line_size,
-      data_line_size, only_all_good, chart_width, chart_height, html_out;
+      data_line_size, only_all_good, chart_width, chart_height, html_out,
+      has_legend, legend_scale;
     float circ_line_alpha, circ_fill_alpha, data_line_alpha,
       data_fill_alpha;
     double fix_xmin, fix_xmax, fix_ymin, fix_ymax;

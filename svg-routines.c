@@ -82,6 +82,7 @@ struct series_data *add_data_series( struct svg_model *svg )
         if( st ) st = series->circ_line_color = strdup( DEF_CIR_LIN_RGB );
         if( st ) st = series->data_fill_color = strdup( DEF_DAT_FILL_RGB );
         if( st ) st = series->data_line_color = strdup( DEF_DAT_LIN_RGB );
+        if( st ) st = series->descr = strdup( EMPTY_STRING );
 
         if( !st )
         {
@@ -89,6 +90,7 @@ struct series_data *add_data_series( struct svg_model *svg )
             if( series->circ_line_color) free( series->circ_line_color );
             if( series->data_fill_color) free( series->data_fill_color );
             if( series->data_line_color) free( series->data_line_color );
+            if( series->descr) free( series->descr );
             free( series );
             series = 0;
 	}
@@ -144,6 +146,7 @@ struct svg_model *svg_make_chart()
         svg->yax_text_adj = SVG_NO_VALUE;
         svg->y_gridline_size = SVG_NO_VALUE;
         svg->graph_left_col = SVG_NO_VALUE;
+        svg->graph_area_width = SVG_NO_VALUE;
         svg->graph_width = SVG_NO_VALUE;
         svg->graph_height = SVG_NO_VALUE;
         svg->graph_top_row = SVG_NO_VALUE;
@@ -160,6 +163,28 @@ struct svg_model *svg_make_chart()
         svg->shift_width = SVG_NO_VALUE;
         svg->shift_height = SVG_NO_VALUE;
         svg->shift_bottom = SVG_NO_VALUE;
+        svg->has_legend = DEF_HAS_LEGEND;
+        svg->legend_scale = DEF_LEGEND_SCALE;
+        svg->reserve_leg_width = 0;
+
+        svg->leg_gap = DEF_LEG_GAP;
+        svg->leg_cont_gap = DEF_LEG_CONT_GAP;
+        svg->leg_col_pad = DEF_LEG_COL_PAD;
+        svg->leg_row_pad = DEF_LEG_ROW_PAD;
+        svg->leg_font_scale = DEF_LEG_FONT_SCALE;
+
+        /* These legend parameters are computed from other values, just set to '0' */
+        svg->leg_circ_col = 0;
+        svg->leg_cont_left_col = 0;
+        svg->leg_cont_top_row = 0;
+        svg->leg_cont_width = 0;
+        svg->leg_label_floor = 0;
+        svg->leg_left_col = 0;
+        svg->leg_line_len = 0;
+        svg->leg_series_desc_col = 0;
+        svg->leg_width = 0;
+        svg->leg_line_height = 0;
+        svg->leg_line_pad = SVG_NO_VALUE;
 
         svg->axis_alpha = DEF_AXIS_OP;
         svg->graph_alpha = DEF_GR_FILL_OP;
@@ -263,6 +288,7 @@ void svg_free_model( struct svg_model *svg )
             if( ds->circ_line_color ) free( ds->circ_line_color );
             if( ds->data_fill_color ) free( ds->data_fill_color );
             if( ds->data_line_color ) free( ds->data_line_color );
+            if( ds->descr ) free( ds->descr );
 
             ds->xdata = 0;
             ds->ydata = 0;
@@ -271,6 +297,7 @@ void svg_free_model( struct svg_model *svg )
             ds->circ_line_color = 0;
             ds->data_fill_color = 0;
             ds->data_line_color = 0;
+            ds->descr = 0;
 
             free( ds );
             ds = ds_next;
@@ -365,7 +392,9 @@ void svg_free_model( struct svg_model *svg )
 int svg_finalize_model( struct svg_model *svg )
 
 {
-    int rc = RC_NORMAL, ts;
+    int rc = RC_NORMAL, font_height, gap_size, cont_gap, col_pad, row_pad,
+      symbol_wid = 0, leg_circ_radius = 0, leg_circ_lsize = 0, leg_data_lsize = 0,
+      min_symbol_wid;
     struct svg_chart_milestone *ckpt = 0, *walk;
     struct series_data *ds = 0;
 
@@ -386,19 +415,54 @@ int svg_finalize_model( struct svg_model *svg )
 
         for( ds = svg->series; ds; ds = ds->next )
         {
+            if( !ds->descr ) ds->descr = strdup( EMPTY_STRING );
+
             if( ds->data_line_size == SVG_NO_VALUE ) ds->data_line_size = svg->chart_height * 0.00334;
             if( ds->circ_line_size == SVG_NO_VALUE ) ds->circ_line_size = svg->chart_height * 0.00334;
             if( ds->circ_radius == SVG_NO_VALUE ) ds->circ_radius = svg->chart_height * 0.02;
+
+            if( ds->data_line_size > leg_data_lsize ) leg_data_lsize = ds->data_line_size;
+            if( ds->circ_line_size > leg_circ_lsize ) leg_circ_lsize = ds->circ_line_size;
+            if( ds->circ_radius > leg_circ_radius ) leg_circ_radius = ds->circ_radius;
+            if( leg_circ_lsize + 2 * leg_circ_radius > symbol_wid ) symbol_wid = leg_circ_lsize + 2 * leg_circ_radius;
+
+            if( symbol_wid > svg->leg_line_height ) svg->leg_line_height = symbol_wid;
+            if( leg_data_lsize > svg->leg_line_height ) svg->leg_line_height = leg_data_lsize;
 	}
+
         if( svg->x_gridline_size == SVG_NO_VALUE ) svg->x_gridline_size = svg->chart_height * 0.00334;
         if( svg->y_gridline_size == SVG_NO_VALUE ) svg->y_gridline_size = svg->chart_height * 0.00334;
         if( svg->xax_text_adj == SVG_NO_VALUE ) svg->xax_text_adj = svg->chart_height * 0.02;
         if( svg->yax_text_adj == SVG_NO_VALUE ) svg->yax_text_adj = svg->reserve_width * 0.15;
         if( svg->axis_size == SVG_NO_VALUE ) svg->axis_size = svg->chart_height * 0.00334;
 
-        if( svg->graph_width == SVG_NO_VALUE ) svg->graph_width = svg->chart_width - (2 * svg->reserve_width) - svg->shift_width;
+        if( svg->graph_width == SVG_NO_VALUE ) svg->graph_width = svg->chart_width - (2 * svg->reserve_width) - svg->shift_width - svg->reserve_leg_width;
+        if( svg->graph_area_width == SVG_NO_VALUE ) svg->graph_area_width = svg->graph_width;
         if( svg->graph_height == SVG_NO_VALUE ) svg->graph_height = svg->chart_height - (2 * svg->reserve_height) - svg->shift_height - svg->shift_bottom;
-        if( svg->yax_text_col == SVG_NO_VALUE ) svg->yax_text_col = svg->shift_width + svg->reserve_width - svg->yax_text_adj;
+
+        if( svg->has_legend )
+        {
+            if( svg->legend_scale == SVG_NO_VALUE || svg->legend_scale < 1 ) svg->legend_scale = DEF_LEGEND_SCALE;
+            svg->reserve_leg_width = (svg->graph_area_width * svg->legend_scale) / 100;
+            svg->graph_width = svg->graph_area_width - svg->reserve_leg_width;
+	}
+        else
+        {
+            svg->reserve_leg_width = 0;
+            svg->leg_circ_col = 0;
+            svg->leg_cont_width = 0;
+            svg->leg_cont_left_col = 0;
+            svg->leg_cont_top_row = 0;
+            svg->leg_font_scale = 0;
+            svg->leg_label_floor = 0;
+            svg->leg_left_col = 0;
+            svg->leg_line_len = 0;
+            svg->leg_width = 0;
+            svg->leg_series_desc_col = 0;
+            svg->leg_gap = 0;
+	}
+
+	if( svg->yax_text_col == SVG_NO_VALUE ) svg->yax_text_col = svg->shift_width + svg->reserve_width - svg->yax_text_adj;
         if( svg->yax_text_floor == SVG_NO_VALUE ) svg->yax_text_floor = svg->graph_height + svg->shift_height + svg->reserve_height + svg->xax_text_adj;
         if( svg->yax_height == SVG_NO_VALUE ) svg->yax_height = svg->graph_height / svg->yax_num_grids;
         if( svg->xax_text_floor == SVG_NO_VALUE ) svg->xax_text_floor = svg->graph_height + svg->shift_height + svg->reserve_height + svg->xax_text_adj;
@@ -412,16 +476,62 @@ int svg_finalize_model( struct svg_model *svg )
         if( svg->xax_border == SVG_NO_VALUE ) svg->xax_border = svg->graph_width + svg->reserve_width + svg->shift_width;
         if( svg->yax_border == SVG_NO_VALUE ) svg->yax_border = svg->graph_height + svg->reserve_height + svg->shift_height;
 
+        if( svg->chart_height < svg->chart_width / 2 ) font_height = svg->chart_height / 20;
+        else font_height = svg->chart_width / 40;
+
         if( svg->text_size ) if( !*svg->text_size )
         {
             free( svg->text_size);
             svg->text_size = 0;
 	}
-        if( !svg->text_size )
+
+        if( !svg->text_size ) svg->text_size = string_from_int( &rc, font_height, 0);
+        else if( !index( svg->text_size, '%' ) ) font_height = strtoul( svg->text_size, 0, BASE10 );
+
+        /* --- */
+
+        if( svg->has_legend )
         {
-            if( svg->chart_height < svg->chart_width / 2 ) ts = svg->chart_height / 20;
-            else ts = svg->chart_width / 40;
-            svg->text_size = string_from_int( &rc, ts, 0);
+            if( svg->leg_font_scale == SVG_NO_VALUE || svg->leg_font_scale < 1 ) svg->leg_font_scale = DEF_LEG_FONT_SCALE;
+
+            font_height -= (font_height * svg->leg_font_scale) / 100;
+            if( font_height < SVG_MIN_FONT_HEIGHT ) font_height = SVG_MIN_FONT_HEIGHT;
+
+            if( font_height > svg->leg_line_height) svg->leg_line_height = font_height;
+
+            if( svg->leg_gap == SVG_NO_VALUE ) svg->leg_gap = DEF_LEG_GAP;
+            if( svg->leg_cont_gap == SVG_NO_VALUE ) svg->leg_cont_gap = DEF_LEG_CONT_GAP;
+            if( svg->leg_col_pad == SVG_NO_VALUE ) svg->leg_col_pad = DEF_LEG_COL_PAD;
+            if( svg->leg_row_pad == SVG_NO_VALUE ) svg->leg_row_pad = DEF_LEG_ROW_PAD;
+            if( svg->leg_line_pad == SVG_NO_VALUE ) svg->leg_line_pad = DEF_LEG_LINE_PAD;
+
+            svg->leg_width = svg->reserve_leg_width;
+
+            row_pad = (svg->graph_height * svg->leg_row_pad) / 100;
+            if( row_pad < 1 ) row_pad = 0;
+
+            gap_size = (svg->leg_width * svg->leg_gap) / 100;
+            if( gap_size < SVG_MIN_LEGEND_GAP ) gap_size = SVG_MIN_LEGEND_GAP;
+
+            svg->leg_cont_width = svg->leg_width - gap_size;
+
+            symbol_wid += 2 * leg_circ_radius;
+            min_symbol_wid = (svg->leg_cont_width * SVG_MIN_LEGEND_SYMBOL_WIDTH) / 100;
+            if( symbol_wid < min_symbol_wid ) symbol_wid = min_symbol_wid;
+
+            col_pad = (svg->leg_cont_width * svg->leg_col_pad) / 100;
+            if( col_pad < 1 ) col_pad = 0;
+
+            cont_gap = (svg->leg_cont_width * svg->leg_cont_gap) / 100;
+            if( cont_gap < 1 ) cont_gap = 0;
+
+            svg->leg_left_col = svg->graph_left_col + svg->graph_width + gap_size;
+            svg->leg_cont_left_col = svg->leg_left_col + col_pad;
+            svg->leg_circ_col = svg->leg_cont_left_col + symbol_wid / 2;
+            svg->leg_cont_top_row = svg->graph_top_row + row_pad + ( font_height / 2 );
+            svg->leg_label_floor = svg->leg_cont_top_row + font_height;
+            svg->leg_line_len = symbol_wid;
+            svg->leg_series_desc_col = svg->leg_cont_left_col + symbol_wid + cont_gap;
 	}
 
         for( ckpt = svg->xmiles; ckpt; ckpt = ckpt->next)
@@ -1356,13 +1466,260 @@ char *svg_make_data_lines( int *rc, struct svg_model *svg, struct series_data *d
 
 /* --- */
 
+int update_leg_series_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds )
+
+{
+    int *rc, stat = RC_NORMAL, pnum, n_parms;
+    char *sp, *val = 0, *id_string;
+    char *series_parms[] = { S_CIR_FILL_RGB, S_CIR_LIN_RGB, S_CIR_FILL_OP, S_CIR_LIN_OP,
+      S_CIR_LIN_SIZE, S_CIR_RAD, S_DAT_FILL_RGB, S_DAT_LIN_RGB, S_DAT_FILL_OP, S_DAT_LIN_OP,
+      S_DAT_LIN_SIZE, S_LEG_SER_DESC_TXT };
+    struct sub_list *rule = 0, *pending = 0, *walk = 0, *match = 0;
+
+    rc = &stat;
+
+    if( *rc == RC_NORMAL )
+    {
+        n_parms = (sizeof series_parms) / (sizeof series_parms[0]);
+
+	for( walk = *subs; walk; walk = walk->next ) rule = walk;
+
+        for( pnum = 0; pnum < n_parms; pnum++ )
+        {
+            sp = series_parms[pnum];
+
+	    if( !strcmp(sp, S_CIR_FILL_RGB ) ) val = strdup( ds->circ_fill_color );
+            else if( !strcmp(sp, S_CIR_LIN_RGB ) ) val = strdup( ds->circ_line_color );
+            else if( !strcmp(sp, S_CIR_FILL_OP ) ) val = string_from_float( rc, ds->circ_fill_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(sp, S_CIR_LIN_OP ) ) val = string_from_float( rc, ds->circ_line_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(sp, S_CIR_LIN_SIZE ) ) val = string_from_int( rc, ds->circ_line_size, 0 );
+            else if( !strcmp(sp, S_CIR_RAD ) ) val = string_from_int( rc, ds->circ_radius, 0 );
+            else if( !strcmp(sp, S_DAT_FILL_RGB ) ) val = strdup( ds->data_fill_color );
+            else if( !strcmp(sp, S_DAT_LIN_RGB ) ) val = strdup( ds->data_line_color );
+            else if( !strcmp(sp, S_DAT_FILL_OP ) ) val = string_from_float( rc, ds->data_fill_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(sp, S_DAT_LIN_OP ) ) val = string_from_float( rc, ds->data_line_alpha, ALPHA_DISP_FORMAT );
+            else if( !strcmp(sp, S_DAT_LIN_SIZE ) ) val = string_from_int( rc, ds->data_line_size, 0 );
+            else if( !strcmp(sp, S_LEG_SER_DESC_TXT ) )
+            {
+                if( ds->descr ) if( *ds->descr ) val = strdup( ds->descr );
+                if( !val )
+                {
+                    id_string = string_from_int( rc, ds->id, 0 );
+                    if( id_string )
+                    {
+                        val = combine_strings( rc, "Series #", id_string );
+                        free( id_string );
+		    }
+		}
+                if( !val ) val = strdup( NO_SERIES_DESC );
+	    }
+            else *rc = ERR_UNSUPPORTED;
+
+            if( *rc == RC_NORMAL && !val ) *rc = ERR_MALLOC_FAILED;
+
+            if( *rc == RC_NORMAL )
+            {
+                match = 0;
+                for( walk = *subs; !match && walk; walk = walk->next)
+                {
+                    if( !strcmp( sp, walk->from ) ) match = walk;
+                }
+
+                if( match )
+                {
+                    if( match->to ) free( match->to );
+                    match->to = val;
+                    val = 0;
+                }
+                else
+                {
+                    ADD_SUB_PAIR_RULE( sp, val )
+                    if( !*subs ) *subs = rule;
+                    val = 0;
+		}
+	    }
+
+            if( val )
+            {
+                free( val );
+                val = 0;
+	    }
+	}
+    }
+
+    return( *rc );
+}
+
+/* --- */
+
+char *svg_make_legend( int *rc, struct svg_model *svg )
+
+{
+    int ypos, line_space;
+    char *legend = 0, *base = 0, *seg, *agg, *all_points = 0, *all_lines = 0, *all_desc = 0,
+      *circ_template, *line_template, *desc_template;
+    struct series_data *ds = 0;
+    struct sub_list *subs = 0, *rule = 0, *pending = 0, *ypos_sub, *walk
+;
+
+    if( *rc == RC_NORMAL )
+    {
+        if( svg->has_legend )
+        {
+            ADD_SUB_PAIR_RULE( S_LEG_CIR_COL, string_from_int( rc, svg->leg_circ_col, 0 ) )
+            subs = rule;
+            ADD_SUB_PAIR_RULE( S_LEG_CONT_WID, string_from_int( rc, svg->leg_cont_width, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_CONT_LEFT_COL, string_from_int( rc, svg->leg_cont_left_col, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_CONT_TOP_ROW, string_from_int( rc, svg->leg_cont_top_row, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_FONT_SCALE, string_from_int( rc, svg->leg_font_scale, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_LABEL_FLOOR, string_from_int( rc, svg->leg_label_floor, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_LEFT_COL, string_from_int( rc, svg->leg_left_col, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_LINE_LEN, string_from_int( rc, svg->leg_line_len, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_WIDTH, string_from_int( rc, svg->leg_width, 0 ) )
+            ADD_SUB_PAIR_RULE( S_LEG_SER_DESC_COL, string_from_int( rc, svg->leg_series_desc_col, 0 ) )
+
+            ADD_SUB_PAIR_RULE( S_YPOS, string_from_int( rc, 0, 0) )
+            ypos_sub = rule;
+
+            if( *rc == RC_NORMAL )
+            {
+                base = gsub_string( rc, LEGEND_TEMPLATE, subs );
+
+                circ_template = LEGEND_CIRCLE_TEMPLATE;
+                line_template = LEGEND_LINE_TEMPLATE;
+                desc_template = LEGEND_SERIES_TEMPLATE;
+
+                /* --- */
+
+                line_space = svg->leg_line_height + (svg->leg_line_height * svg->leg_line_pad) / 100;
+/*                ypos = svg->leg_cont_top_row; */
+                ypos = svg->leg_label_floor - (svg->leg_line_height * svg->leg_line_pad) / 100;
+
+                for( ds = svg->series; *rc == RC_NORMAL && ds; ds = ds->next )
+                {
+                    *rc = update_leg_series_subs( &subs, svg, ds );
+
+                    ypos += line_space;
+                    if( ypos_sub->to ) free( ypos_sub->to );
+                    ypos_sub->to = string_from_int( rc, ypos, 0 );
+
+                    if( *rc == RC_NORMAL) seg = gsub_string( rc, circ_template, subs );
+                    agg = combine_strings( rc, all_points, seg );
+                    if( all_points ) free( all_points );
+                    all_points = agg;
+                    if( seg ) free( seg );
+		    seg = 0;
+
+                    if( *rc == RC_NORMAL) seg = gsub_string( rc, line_template, subs );
+                    agg = combine_strings( rc, all_lines, seg );
+                    if( all_lines ) free( all_lines );
+                    all_lines = agg;
+                    if( seg ) free( seg );
+		    seg = 0;
+
+                    if( *rc == RC_NORMAL) seg = gsub_string( rc, desc_template, subs );
+                    agg = combine_strings( rc, all_desc, seg );
+                    if( all_desc ) free( all_desc );
+                    all_desc = agg;
+                    if( seg ) free( seg );
+		    seg = 0;
+		}
+
+                /* --- */
+
+                if( !all_points )
+                {
+                    all_points = strdup( EMPTY_LEG_POINTS );
+                    if( !all_points ) *rc = ERR_MALLOC_FAILED;
+		}
+
+                if( !all_lines )
+                {
+                    all_lines = strdup( EMPTY_LEG_LINES );
+                    if( !all_lines ) *rc = ERR_MALLOC_FAILED;
+		}
+
+                if( !all_desc )
+                {
+                    all_desc = strdup( EMPTY_LEG_DESC );
+                    if( !all_desc ) *rc = ERR_MALLOC_FAILED;
+		}
+
+                /* --- */
+
+                if( *rc == RC_NORMAL )
+                {
+                    for( walk = subs; walk; walk = walk->next ) rule = walk;
+
+                    ADD_SUB_PAIR_RULE( S_ST_LEG_CIR_ENTRIES, all_points )
+                    ADD_SUB_PAIR_RULE( S_ST_LEG_LINE_ENTRIES, all_lines )
+                    ADD_SUB_PAIR_RULE( S_ST_LEG_SERIES_ENTRIES, all_desc )
+                    all_points = all_lines = all_desc = 0;
+		}
+
+                /* --- */
+
+                /* Fold the circles, lines and descriptions into the legend base template */
+
+                if( *rc == RC_NORMAL ) legend = gsub_string( rc, base, subs );
+
+                if( all_points )
+                {
+                    free( all_points );
+                    all_points = 0;
+		}
+
+                if( all_lines )
+                {
+                    free( all_lines );
+                    all_lines = 0;
+		}
+
+                if( all_desc )
+                {
+                    free( all_desc );
+                    all_desc = 0;
+		}
+	    }
+
+            if( base )
+            {
+                free( base );
+                base = 0;
+	    }
+	}
+
+	for( rule = subs; rule; )
+        {
+            if( rule->to ) free( rule->to );
+            subs = rule->next;
+            free( rule );
+            rule = subs;
+        }
+    
+        subs = 0;
+
+        /* --- */
+
+        if( !legend )
+        {
+            legend = strdup( DEF_LEGEND_TABLE );
+            if( !legend ) *rc = ERR_MALLOC_FAILED;
+	}
+    }
+
+    return( legend );
+}
+
+/* --- */
+
 char *svg_render( int *rc, struct svg_model *svg )
 
 {
     char *chart = 0, *template = 0, *xax_label = 0, *yax_label = 0,
       *xax_grid = 0, *yax_grid = 0, *data_points = 0, *path_start = 0,
       *data_lines = 0, *xax_milestones = 0, *yax_milestones = 0,
-      *series_points = 0, *series_lines = 0;
+      *series_points = 0, *series_lines = 0, *legend_table = 0;
     struct sub_list *subs = 0, *walk = 0, *rule = 0, *pending = 0;
 
     if( *rc == RC_NORMAL ) *rc = svg_finalize_model( svg );
@@ -1444,6 +1801,13 @@ char *svg_render( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
+        template = svg_make_legend( rc, svg );
+        if( *rc == RC_NORMAL) legend_table = gsub_string( rc, template, subs );
+        if( template ) free( template );
+    }
+
+    if( *rc == RC_NORMAL )
+    {
         for( rule = subs; rule->next; rule = rule->next) ;
         ADD_SUB_PAIR_RULE( S_ST_COL_LABEL, xax_label )
         ADD_SUB_PAIR_RULE( S_ST_ROW_LABEL, yax_label )
@@ -1456,6 +1820,7 @@ char *svg_render( int *rc, struct svg_model *svg )
         ADD_SUB_PAIR_RULE( S_ST_SERIES_LINES, series_lines )
         ADD_SUB_PAIR_RULE( S_ST_XAX_MSTONES, xax_milestones )
         ADD_SUB_PAIR_RULE( S_ST_YAX_MSTONES, yax_milestones )
+        ADD_SUB_PAIR_RULE( S_ST_LEGEND_TABLE, legend_table )
     }
 
     if( *rc == RC_NORMAL )
@@ -1539,6 +1904,17 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     ADD_SUB_PAIR_RULE( S_GR_BOTTOM, string_from_int( rc, svg->graph_bottom, 0 ) )
     ADD_SUB_PAIR_RULE( S_MATTE_WID, string_from_int( rc, svg->matte_width, 0 ) )
     ADD_SUB_PAIR_RULE( S_MATTE_HI, string_from_int( rc, svg->matte_height, 0 ) )
+
+    ADD_SUB_PAIR_RULE( S_LEG_CIR_COL, string_from_int( rc, svg->leg_circ_col, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_CONT_WID, string_from_int( rc, svg->leg_cont_width, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_CONT_LEFT_COL, string_from_int( rc, svg->leg_cont_left_col, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_CONT_TOP_ROW, string_from_int( rc, svg->leg_cont_top_row, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_FONT_SCALE, string_from_int( rc, svg->leg_font_scale, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_LABEL_FLOOR, string_from_int( rc, svg->leg_label_floor, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_LEFT_COL, string_from_int( rc, svg->leg_left_col, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_LINE_LEN, string_from_int( rc, svg->leg_line_len, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_WIDTH, string_from_int( rc, svg->leg_width, 0 ) )
+    ADD_SUB_PAIR_RULE( S_LEG_SER_DESC_COL, string_from_int( rc, svg->leg_series_desc_col, 0 ) )
 
     /* ---
      * We need the maximum radius used for a data point in any of the defined series
@@ -2930,6 +3306,37 @@ char *svg_get_checkpoint_line_color( struct svg_chart_milestone *ckpt )
 char *svg_get_checkpoint_text_size( struct svg_chart_milestone *ckpt )
 
 {   return( ckpt->text_size ); }
+
+/* --- */
+
+int svg_get_legend_scale( struct svg_model *svg )
+
+{   return( svg->legend_scale ); }
+
+/* --- */
+
+int svg_get_has_legend( struct svg_model *svg )
+
+{   return( svg->has_legend ); }
+
+/* --- */
+
+void svg_set_legend_scale( struct svg_model *svg, int val )
+
+{
+    svg->legend_scale = val;
+    return;
+}
+
+/* --- */
+
+void svg_set_has_legend( struct svg_model *svg, int val )
+
+{
+    svg->has_legend = !!val;
+    return;
+
+}
 
 /* --- */
 

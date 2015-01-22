@@ -53,6 +53,15 @@
 #define DEF_TEXT_SIZE ""
 #define DEF_XAXIS_DIS_FORMAT "%.3f"
 #define DEF_YAXIS_DIS_FORMAT "%.1f"
+#define DEF_HAS_LEGEND 0
+#define DEF_LEGEND_SCALE 20
+#define DEF_LEG_GAP 8
+#define DEF_LEG_CONT_GAP 2
+#define DEF_LEG_COL_PAD 6
+#define DEF_LEG_ROW_PAD 8
+#define DEF_LEG_LINE_PAD 25
+#define DEF_LEG_FONT_SCALE 60
+#define DEF_LEGEND_TABLE "<!-- no legend requested -->"
 
 #define DEF_MSTONE_EXTEND 0.05
 #define DEF_MSTONE_TEXT_OP 0.7
@@ -61,6 +70,10 @@
 #define DEF_MSTONE_TEXT_SIZE ""
 #define DEF_MSTONE_TEXT_RGB "#74E6D8"
 #define DEF_MSTONE_LINE_RGB "#4498B6"
+
+#define SVG_MIN_FONT_HEIGHT 16
+#define SVG_MIN_LEGEND_SYMBOL_WIDTH 20
+#define SVG_MIN_LEGEND_GAP 2
 
 #define YAX_LABEL_FIRST_YPOS "0"
 
@@ -118,6 +131,17 @@
 #define S_GR_BOTTOM "++graph-bottom++"
 #define S_MATTE_WID "++matte-width++"
 #define S_MATTE_HI "++matte-height++"
+#define S_LEG_CIR_COL "++legend-circle-col++"
+#define S_LEG_CONT_WID "++legend-content-width++"
+#define S_LEG_CONT_LEFT_COL "++legend-content-left-col++"
+#define S_LEG_CONT_TOP_ROW "++legend-content-top-row++"
+#define S_LEG_FONT_SCALE "++legend-font-scale++"
+#define S_LEG_LABEL_FLOOR "++legend-label-floor++"
+#define S_LEG_LEFT_COL "++legend-left-col++"
+#define S_LEG_LINE_LEN "++legend-line-length++"
+#define S_LEG_WIDTH "++legend-width++"
+#define S_LEG_SER_DESC_COL "++series-desc-col++"
+#define S_LEG_SER_DESC_TXT "++series-desc-text++"
 
 #define S_XPOS "++xpos++"
 #define S_YPOS "++ypos++"
@@ -134,6 +158,10 @@
 #define S_ST_YAX_MSTONES "++yax-milestones++"
 #define S_ST_SERIES_POINTS "++data-series-points++"
 #define S_ST_SERIES_LINES "++data-series-lines++"
+#define S_ST_LEGEND_TABLE "++legend-table++"
+#define S_ST_LEG_CIR_ENTRIES "++legend-circle-entries++"
+#define S_ST_LEG_LINE_ENTRIES "++legend-line-entries++"
+#define S_ST_LEG_SERIES_ENTRIES "++legend-series-entries++"
 
 #define S_MST_LINE_COLOR "++mst-line-color++"
 #define S_MST_LINE_SIZE "++mst-line-size++"
@@ -149,6 +177,12 @@
 #define S_MST_TEXT_YPOS "++ypos-text++"
 
 /* --- */
+
+#define EMPTY_STRING ""
+#define EMPTY_LEG_POINTS "<!-- no data points available -->"
+#define EMPTY_LEG_LINES "<!-- no series lines available -->"
+#define EMPTY_LEG_DESC "<!-- no data series descriptions available -->"
+#define NO_SERIES_DESC "No series info given"
 
 #define SVG_ROW_LABEL   "      <tspan x=\"++y-axis-text-col++\" dy=\"-++y-axis-height++\">++label++</tspan>\n"
 #define SVG_ROW_LINE    "        m -++graph-area-width++ -++y-axis-height++ h ++graph-area-width++\n"
@@ -244,6 +278,8 @@
 ++xax-milestones++\n\
 ++yax-milestones++\n\
 \n\
+++legend-table++\n\
+\n\
 </svg>"
 
 #define SVG_SERIES_POINTS "\
@@ -262,6 +298,50 @@
 
 /* --- */
 
+#define LEGEND_SERIES_TEMPLATE "\
+      <tspan y=\"++ypos++\" x=\"++series-desc-col++\">++series-desc-text++</tspan>\n\
+"
+
+#define LEGEND_CIRCLE_TEMPLATE "\
+  <g fill=\"++circle-fill-color++\" stroke=\"++circle-line-color++\" stroke-width=\"++circle-line-size++\" \
+stroke-opacity=\"++circle-line-opacity++\" fill-opacity=\"++circle-fill-opacity++\">\n\
+      <circle cy=\"++ypos++\" cx=\"++legend-circle-col++\" r=\"++circle-radius++\"/>\n\
+  </g>\n\
+"
+
+#define LEGEND_LINE_TEMPLATE "\
+  <path d=\"M ++legend-content-left-col++ ++ypos++ h ++legend-line-length++\" \
+stroke=\"++data-line-color++\" stroke-opacity=\"++data-line-opacity++\" stroke-width=\"++data-line-size++\"\n\
+    fill=\"++data-fill-color++\" fill-opacity=\"++data-fill-opacity++\"/>\n\
+"
+
+#define LEGEND_TEMPLATE "\
+\n\
+  <path d=\"M ++legend-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++legend-width++ \
+v -++graph-area-height++ h -++legend-width++\"\n\
+    stroke-opacity=\"++axis-opacity++\" fill=\"++chart-bg-color++\" fill-opacity=\"++chart-bg-opacity++\"\n\
+    stroke-width=\"++axis-size++\" stroke=\"++axis-color++\" />\n\
+\n\
+  <g fill=\"++text-color++\" font-size=\"++text-size++\" fill-opacity=\"++text-opacity++\" \
+style=\"font-family:Verdana, Arial, Helvetica, sans-serif; font-weight:100\">\n\
+    <text text-anchor=\"start\" style=\"dominant-baseline:middle; font-size:++legend-font-scale++%\">\n\
+      <tspan y=\"++legend-content-top-row++\" x=\"++legend-content-left-col++\">Legend</tspan>\n\
+++legend-series-entries++\n\
+    </text>\n\
+  </g>\n\
+\n\
+++legend-circle-entries++\n\
+\n\
+  <path d=\"M ++legend-content-left-col++ ++legend-label-floor++ h ++legend-content-width++\"\n\
+    stroke=\"++x-gridline-color++\" stroke-opacity=\"++x-gridline-opacity++\" stroke-width=\"++x-gridline-size++\"\n\
+    fill=\"transparent\" fill-opacity=\"0.0000\"/>\n\
+\n\
+++legend-line-entries++\n\
+\n\
+"
+
+/* --- */
+
 struct svg_chart_milestone
 {
     int width;
@@ -275,7 +355,8 @@ struct series_data
     int id, cases, circ_line_size, circ_radius, data_line_size;
     float circ_fill_alpha, circ_line_alpha, data_fill_alpha, data_line_alpha;
     double loc_xmin, loc_xmax, loc_ymin, loc_ymax, *xdata, *ydata;
-    char *circ_fill_color, *circ_line_color, *data_fill_color, *data_line_color;
+    char *circ_fill_color, *circ_line_color, *data_fill_color, *data_line_color,
+      *descr;
     struct series_data *next;
 };
 
@@ -284,14 +365,18 @@ struct svg_model
     int axis_size, xax_num_grids, yax_num_grids,
       xax_border, xax_text_floor, xax_width, xax_text_adj, x_gridline_size,
       yax_border, yax_text_col, yax_text_floor, yax_height, yax_text_adj, y_gridline_size,
-      graph_left_col, graph_width, graph_height, graph_top_row,
+      graph_left_col, graph_width, graph_area_width, graph_height, graph_top_row,
       graph_bottom, graph_height_midp, graph_width_midp,
       chart_height, chart_width_midp, chart_height_midp, chart_width,
       head_height_midp,
-      reserve_height, reserve_width,
+      reserve_height, reserve_width, reserve_leg_width,
       shift_width, shift_height, shift_bottom,
       total_cases,
-      matte_height, matte_width;
+      matte_height, matte_width,
+      has_legend, legend_scale,
+      leg_gap, leg_cont_gap, leg_col_pad, leg_row_pad,
+      leg_circ_col, leg_cont_width, leg_cont_left_col, leg_cont_top_row, leg_font_scale, leg_label_floor,
+      leg_left_col, leg_line_len, leg_width, leg_series_desc_col, leg_line_height, leg_line_pad;
 
     float axis_alpha, graph_alpha, chart_alpha, text_alpha,
       x_gridline_alpha, y_gridline_alpha;
@@ -345,6 +430,8 @@ char *svg_make_series_lines(int *rc, struct svg_model *svg);
 char *svg_make_xax_mstones(int *rc, struct svg_model *svg);
 
 char *svg_make_yax_mstones(int *rc, struct svg_model *svg);
+
+char *svg_make_legend(int *rc, struct svg_model *svg);
 
 struct sub_list *svg_make_sublist(int *rc, struct svg_model *svg);
 
@@ -478,5 +565,10 @@ int svg_replace_string( char **current, char *replacement);
 int update_series_line_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
 
 int update_series_point_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
+
+int svg_get_legend_scale( struct svg_model *svg);
+int svg_get_has_legend( struct svg_model *svg);
+void svg_set_legend_scale( struct svg_model *svg, int val);
+void svg_set_has_legend( struct svg_model *svg, int val);
 
 #endif
