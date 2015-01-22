@@ -54,7 +54,9 @@ static struct context_info context_list[] =
 #define IS_STDOUT "-"
 #define IS_BLANK " "
 
-#define DS_DESC_ID_PREF "Series #"
+#define DS_ID_MARK '#'
+#define DS_DESC_ID_PREF "S"
+#define DS_DESC_ID_SUFF ":"
 #define DS_DESC_XCOL_PREF " X/Col"
 #define DS_DESC_YCOL_PREF " Y/Col"
 #define NO_DESCRIPTION "No description"
@@ -97,6 +99,7 @@ static struct context_info context_list[] =
 #define OP_RAW_EOL     32
 #define OP_LEGEND      33
 #define OP_LSCALE      34
+#define OP_DSNAME      35
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -133,6 +136,7 @@ static struct context_info context_list[] =
 #define FL_RAW_EOL     "raw-eol"
 #define FL_LEGEND      "legend"
 #define FL_LSCALE      "lscale"
+#define FL_DSNAME      "series"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -169,6 +173,7 @@ static struct context_info context_list[] =
 #define DEF_RAW_EOL     ""
 #define DEF_LEGEND      "0"
 #define DEF_LSCALE      "20"
+#define DEF_DSNAME      ""
 
 #define DATABUFFSIZE 8192
 
@@ -291,6 +296,13 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
 No<input type=\"radio\" name=\"legend\" value=\"0\" checked></td></tr>\n\
   <tr><td>Legend Size (as % of chart width, default is 20)</td><td><input type=\"text\" name=\"lscale\"></td></tr>\n\
 \
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#1 -\"></td></tr>\n\
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#2 -\"></td></tr>\n\
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#3 -\"></td></tr>\n\
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#4 -\"></td></tr>\n\
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#5 -\"></td></tr>\n\
+  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#6 -\"></td></tr>\n\
+\
   <tr><td>Debug? (view SVG source for info)</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
 No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
 \
@@ -378,6 +390,7 @@ Options are:\n\
   <--display-height ##>\n\
   <--legend> | <--no-legend>\n\
   <--lscale ##>\n\
+  <--series 'data series name#1'> <--series 'data series name#2'> etc...\n\
 \n\
 If no output file is specified, the SVG document is written to STDOUT.  To\n\
 read data from STDIN specify '--data -'.\n\
@@ -409,7 +422,15 @@ for display-width/display-height.\n\
 By default no legend is included.  Use '--legend' to request one on the right\n\
 side of the chart.  The width of the legend, as a percentage of the chart\n\
 width, can be specified with '--lscale' and defaults to 20.\n\
-"  
+\n\
+By default, the descriptions used in the legend for each data series will be\n\
+the X/Y column numbers in the input dataset.  You can substitute alternate\n\
+descriptions with the '--series' flag.  If the description starts with a pound\n\
+sign '#' and number, it will be assigned to the corresponding data series\n\
+number.  Otherwise the '--series' flags will be assigned to the data series in\n\
+the order they are given on the command line.\n\
+"
+
 
 /* --- */
 
@@ -424,10 +445,11 @@ struct parsed_options {
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
       *x_col_req, *y_col_req, *delim, *display_width, *display_height,
       *raw_data, *raw_eol;
+    struct value_chain *dsname;
 };
 
 struct data_pair_list {
-    int cases;
+    int cases, named;
     double *xval, *yval;
     char *desc;
 };

@@ -282,13 +282,17 @@ char *gen_data_series_desc( int *rc, int dsid, int xin, int yin )
 
     if( *rc == RC_NORMAL )
     {
-        seg = string_from_int( rc, dsid + 1, 0 );
+        seg = string_from_int( rc, dsid, 0 );
         agg = combine_strings( rc, DS_DESC_ID_PREF, seg );
         if( seg )
         {
             free( seg );
             seg = 0;
 	}
+        combo = combine_strings( rc, agg, DS_DESC_ID_SUFF );
+        if( agg ) free( agg );
+        agg = combo;
+        combo = 0; 
 
         if( xin != NO_VALUE )
         {
@@ -447,7 +451,8 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         if( !popt->y_data ) yin_col = NO_VALUE;
         else yin_col = ycols[off];
 
-        data[off].desc = gen_data_series_desc( &rc, off, xin_col, yin_col );
+        data[off].desc = gen_data_series_desc( &rc, off + 1, xin_col, yin_col );
+        data[off].named = 0;
     }
 
     minwords = 1;
@@ -542,51 +547,53 @@ int main( int narg, char **opts )
 
 {
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
-      nseries_styles, fl_circ_alpha, is_cgi, show_form;
+      nseries_styles, fl_circ_alpha, is_cgi, show_form, use;
     double dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
     char *dataformat, *svg_doc = 0, *st, *cgi_data, *cgi_raw_eol = 0, *cli_raw_eol = 0,
-      *def_data_delim = 0, empty_string[] = { '\0' };
+      *def_data_delim = 0, empty_string[] = { '\0' }, *split, *desc;
     struct data_pair_list *data = 0;
     struct svg_model *svg = 0;
     struct series_data *ds = 0;
     struct data_series_visuals *viz = 0;
+    struct value_chain *nlist, *top;
     static struct option_set opset[] = {
-      { OP_DEBUG,       OP_TYPE_INT,   OP_FL_BLANK, FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
-      { OP_HELP,        OP_TYPE_FLAG,  OP_FL_BLANK, FL_HELP,        0, DEF_HELP,        0, 0 },
-      { OP_CHART_TITLE, OP_TYPE_CHAR,  OP_FL_BLANK, FL_CHART_TITLE, 0, DEF_CHART_TITLE, 0, 0 },
-      { OP_XAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK, FL_XAX_TITLE,   0, DEF_XAX_TITLE,   0, 0 },
-      { OP_YAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK, FL_YAX_TITLE,   0, DEF_YAX_TITLE,   0, 0 },
-      { OP_XAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK, FL_XAX_GRIDS,   0, DEF_XAX_GRIDS,   0, 0 },
-      { OP_YAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK, FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
-      { OP_OUTFILE,     OP_TYPE_CHAR,  OP_FL_BLANK, FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
-      { OP_DATAFILE,    OP_TYPE_CHAR,  OP_FL_BLANK, FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
-      { OP_XCOL,        OP_TYPE_CHAR,  OP_FL_BLANK, FL_XCOL,        0, DEF_XCOL,        0, 0 },
-      { OP_YCOL,        OP_TYPE_CHAR,  OP_FL_BLANK, FL_YCOL,        0, DEF_YCOL,        0, 0 },
-      { OP_XDATA,       OP_TYPE_FLAG,  OP_FL_BLANK, FL_XDATA,       0, DEF_XDATA,       0, 0 },
-      { OP_YDATA,       OP_TYPE_FLAG,  OP_FL_BLANK, FL_YDATA,       0, DEF_YDATA,       0, 0 },
-      { OP_IG_BAD_DATA, OP_TYPE_FLAG,  OP_FL_BLANK, FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
-      { OP_DATA_DELIM,  OP_TYPE_CHAR,  OP_FL_BLANK, FL_DATA_DELIM,  0, DEF_DATA_DELIM,  0, 0 },
-      { OP_CIRC_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK, FL_CIRC_ALPHA,  0, DEF_CIRC_ALPHA,  0, 0 },
-      { OP_DATA_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK, FL_DATA_ALPHA,  0, DEF_DATA_ALPHA,  0, 0 },
-      { OP_CFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK, FL_CFILL_ALPHA, 0, DEF_CFILL_ALPHA, 0, 0 },
-      { OP_DFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK, FL_DFILL_ALPHA, 0, DEF_DFILL_ALPHA, 0, 0 },
-      { OP_CIRC_RADIUS, OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_RADIUS, 0, DEF_CIRC_RADIUS, 0, 0 },
-      { OP_CIRC_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_CIRC_LSIZE,  0, DEF_CIRC_LSIZE,  0, 0 },
-      { OP_DATA_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK, FL_DATA_LSIZE,  0, DEF_DATA_LSIZE,  0, 0 },
-      { OP_KP_ALL_GOOD, OP_TYPE_FLAG,  OP_FL_BLANK, FL_KP_ALL_GOOD, 0, DEF_KP_ALL_GOOD, 0, 0 },
-      { OP_XMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_XMIN_VAL,    0, DEF_XMIN_VAL,    0, 0 },
-      { OP_XMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_XMAX_VAL,    0, DEF_XMAX_VAL,    0, 0 },
-      { OP_YMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_YMIN_VAL,    0, DEF_YMIN_VAL,    0, 0 },
-      { OP_YMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK, FL_YMAX_VAL,    0, DEF_YMAX_VAL,    0, 0 },
-      { OP_WIDTH,       OP_TYPE_INT,   OP_FL_BLANK, FL_WIDTH,       0, DEF_WIDTH,       0, 0 },
-      { OP_HEIGHT,      OP_TYPE_INT,   OP_FL_BLANK, FL_HEIGHT,      0, DEF_HEIGHT,      0, 0 },
-      { OP_DISP_WIDTH,  OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_WIDTH,  0, DEF_DISP_WIDTH,  0, 0 },
-      { OP_DISP_HEIGHT, OP_TYPE_CHAR,  OP_FL_BLANK, FL_DISP_HEIGHT, 0, DEF_DISP_HEIGHT, 0, 0 },
-      { OP_RAW_DATA,    OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_DATA,    0, DEF_RAW_DATA,    0, 0 },
-      { OP_RAW_EOL,     OP_TYPE_CHAR,  OP_FL_BLANK, FL_RAW_EOL,     0, DEF_RAW_EOL,     0, 0 },
-      { OP_LEGEND,      OP_TYPE_FLAG,  OP_FL_BLANK, FL_LEGEND,      0, DEF_LEGEND,      0, 0 },
-      { OP_LSCALE,      OP_TYPE_INT,   OP_FL_BLANK, FL_LSCALE,      0, DEF_LSCALE,      0, 0 },
+      { OP_DEBUG,       OP_TYPE_INT,   OP_FL_BLANK,   FL_DEBUG,       0, DEF_DEBUG,       0, 0 },
+      { OP_HELP,        OP_TYPE_FLAG,  OP_FL_BLANK,   FL_HELP,        0, DEF_HELP,        0, 0 },
+      { OP_CHART_TITLE, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_CHART_TITLE, 0, DEF_CHART_TITLE, 0, 0 },
+      { OP_XAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK,   FL_XAX_TITLE,   0, DEF_XAX_TITLE,   0, 0 },
+      { OP_YAX_TITLE,   OP_TYPE_CHAR,  OP_FL_BLANK,   FL_YAX_TITLE,   0, DEF_YAX_TITLE,   0, 0 },
+      { OP_XAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK,   FL_XAX_GRIDS,   0, DEF_XAX_GRIDS,   0, 0 },
+      { OP_YAX_GRIDS,   OP_TYPE_INT,   OP_FL_BLANK,   FL_YAX_GRIDS,   0, DEF_YAX_GRIDS,   0, 0 },
+      { OP_OUTFILE,     OP_TYPE_CHAR,  OP_FL_BLANK,   FL_OUTFILE,     0, DEF_OUTFILE,     0, 0 },
+      { OP_DATAFILE,    OP_TYPE_CHAR,  OP_FL_BLANK,   FL_DATAFILE,    0, DEF_DATAFILE,    0, 0 },
+      { OP_XCOL,        OP_TYPE_CHAR,  OP_FL_BLANK,   FL_XCOL,        0, DEF_XCOL,        0, 0 },
+      { OP_YCOL,        OP_TYPE_CHAR,  OP_FL_BLANK,   FL_YCOL,        0, DEF_YCOL,        0, 0 },
+      { OP_XDATA,       OP_TYPE_FLAG,  OP_FL_BLANK,   FL_XDATA,       0, DEF_XDATA,       0, 0 },
+      { OP_YDATA,       OP_TYPE_FLAG,  OP_FL_BLANK,   FL_YDATA,       0, DEF_YDATA,       0, 0 },
+      { OP_IG_BAD_DATA, OP_TYPE_FLAG,  OP_FL_BLANK,   FL_IG_BAD_DATA, 0, DEF_IG_BAD_DATA, 0, 0 },
+      { OP_DATA_DELIM,  OP_TYPE_CHAR,  OP_FL_BLANK,   FL_DATA_DELIM,  0, DEF_DATA_DELIM,  0, 0 },
+      { OP_CIRC_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK,   FL_CIRC_ALPHA,  0, DEF_CIRC_ALPHA,  0, 0 },
+      { OP_DATA_ALPHA,  OP_TYPE_FLOAT, OP_FL_BLANK,   FL_DATA_ALPHA,  0, DEF_DATA_ALPHA,  0, 0 },
+      { OP_CFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK,   FL_CFILL_ALPHA, 0, DEF_CFILL_ALPHA, 0, 0 },
+      { OP_DFILL_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK,   FL_DFILL_ALPHA, 0, DEF_DFILL_ALPHA, 0, 0 },
+      { OP_CIRC_RADIUS, OP_TYPE_INT,   OP_FL_BLANK,   FL_CIRC_RADIUS, 0, DEF_CIRC_RADIUS, 0, 0 },
+      { OP_CIRC_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK,   FL_CIRC_LSIZE,  0, DEF_CIRC_LSIZE,  0, 0 },
+      { OP_DATA_LSIZE,  OP_TYPE_INT,   OP_FL_BLANK,   FL_DATA_LSIZE,  0, DEF_DATA_LSIZE,  0, 0 },
+      { OP_KP_ALL_GOOD, OP_TYPE_FLAG,  OP_FL_BLANK,   FL_KP_ALL_GOOD, 0, DEF_KP_ALL_GOOD, 0, 0 },
+      { OP_XMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK,   FL_XMIN_VAL,    0, DEF_XMIN_VAL,    0, 0 },
+      { OP_XMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK,   FL_XMAX_VAL,    0, DEF_XMAX_VAL,    0, 0 },
+      { OP_YMIN_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK,   FL_YMIN_VAL,    0, DEF_YMIN_VAL,    0, 0 },
+      { OP_YMAX_VAL,    OP_TYPE_FLOAT, OP_FL_BLANK,   FL_YMAX_VAL,    0, DEF_YMAX_VAL,    0, 0 },
+      { OP_WIDTH,       OP_TYPE_INT,   OP_FL_BLANK,   FL_WIDTH,       0, DEF_WIDTH,       0, 0 },
+      { OP_HEIGHT,      OP_TYPE_INT,   OP_FL_BLANK,   FL_HEIGHT,      0, DEF_HEIGHT,      0, 0 },
+      { OP_DISP_WIDTH,  OP_TYPE_CHAR,  OP_FL_BLANK,   FL_DISP_WIDTH,  0, DEF_DISP_WIDTH,  0, 0 },
+      { OP_DISP_HEIGHT, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_DISP_HEIGHT, 0, DEF_DISP_HEIGHT, 0, 0 },
+      { OP_RAW_DATA,    OP_TYPE_CHAR,  OP_FL_BLANK,   FL_RAW_DATA,    0, DEF_RAW_DATA,    0, 0 },
+      { OP_RAW_EOL,     OP_TYPE_CHAR,  OP_FL_BLANK,   FL_RAW_EOL,     0, DEF_RAW_EOL,     0, 0 },
+      { OP_LEGEND,      OP_TYPE_FLAG,  OP_FL_BLANK,   FL_LEGEND,      0, DEF_LEGEND,      0, 0 },
+      { OP_LSCALE,      OP_TYPE_INT,   OP_FL_BLANK,   FL_LSCALE,      0, DEF_LSCALE,      0, 0 },
+      { OP_DSNAME,      OP_TYPE_CHAR,  OP_FL_REPEATS, FL_DSNAME,      0, DEF_DSNAME,      0, 0 },
     };
     struct option_set *co, *co_leg;
     struct parsed_options popt;
@@ -632,6 +639,7 @@ int main( int narg, char **opts )
     popt.raw_eol = 0;
     popt.has_legend = 0;
     popt.legend_scale = 0;
+    popt.dsname = 0;
 
     context = DO_PARSE_COMMAND;
 
@@ -814,6 +822,10 @@ int main( int narg, char **opts )
 	}
     }
 
+    co = get_matching_option( OP_DSNAME, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.dsname = (struct value_chain *) co->parsed;
+
     if( !popt.chart_title ) popt.chart_title = empty_string;
     if( !popt.xax_title ) popt.xax_title = empty_string;
     if( !popt.yax_title ) popt.yax_title = empty_string;
@@ -883,6 +895,61 @@ int main( int narg, char **opts )
             fprintf( errout, "%s\n", comm_cl(popt.html_out) );
 	}
     }
+
+    /* --- */
+
+    top = popt.dsname;
+    
+    for( nlist = popt.dsname; nlist && rc == RC_NORMAL; nlist = nlist->next )
+    {
+        /* Make sure this flag is set so we can use it to mark entries we've processed */
+        nlist->flags |= OP_FL_SET;
+
+        desc = (char *) nlist->parsed;
+        if( *desc == DS_ID_MARK )
+        {
+            snum = strtoul( desc + 1, &split, BASE10 );
+            if( 0 < snum && snum <= popt.nseries )
+            {
+                nlist->flags &= ~OP_FL_SET;
+                snum--;
+                for( ; *split == ' '; split++ ) ;
+                if( data[snum].desc ) free( data[snum].desc );
+                data[snum].named = 1;
+                data[snum].desc = strdup( split );
+                if( !data[snum].desc ) rc = ERR_MALLOC_FAILED;
+	    }
+	}
+        else if( !*desc ) nlist->flags &= ~OP_FL_SET;
+
+        if( nlist->flags & OP_FL_SET )
+          if( !(top->flags & OP_FL_SET) || nlist->opt_num < top->opt_num ) top = nlist;
+    }
+
+    /* This is ugly, since the list of options is reversed from what we want */
+
+    if( top) for( ; top->flags & OP_FL_SET; )
+    {
+        top->flags &= ~OP_FL_SET;
+
+        for( use = 1, snum = 0; use && snum < popt.nseries && rc == RC_NORMAL; snum++ )
+        {
+            if( !data[snum].named )
+            {
+                if( data[snum].desc ) free( data[snum].desc );
+                data[snum].named = 1;
+                data[snum].desc = strdup( (char *) top->parsed );
+                if( !data[snum].desc ) rc = ERR_MALLOC_FAILED;
+                use = 0;
+	    }
+	}
+
+        for( nlist = popt.dsname; nlist; nlist = nlist->next )
+          if( nlist->flags & OP_FL_SET )
+             if( !(top->flags & OP_FL_SET) || nlist->opt_num < top->opt_num ) top = nlist;
+    }
+
+    /* --- */
 
     for( snum = 0; snum < popt.nseries; snum++ )
     {
@@ -1041,6 +1108,8 @@ int main( int narg, char **opts )
 
     free( cli_raw_eol );
     cli_raw_eol = 0;
+
+    popt.raw_eol = 0;
 
     free( def_data_delim );
     def_data_delim = 0;
