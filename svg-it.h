@@ -283,7 +283,7 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
 \
   <tr><td>Include legend?</td><td>Yes<input type=\"radio\" name=\"legend\" value=\"1\">\n\
 No<input type=\"radio\" name=\"legend\" value=\"0\" checked></td></tr>\n\
-  <tr><td>Legend Size (as % of chart width)</td><td><input type=\"text\" name=\"lscale\" value=\"20\"></td></tr>\n\
+  <tr><td>Legend Size (as % of chart width, default is 20)</td><td><input type=\"text\" name=\"lscale\"></td></tr>\n\
 \
   <tr><td>Debug? (view SVG source for info)</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
 No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\

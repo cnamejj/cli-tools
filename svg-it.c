@@ -739,7 +739,8 @@ int main( int narg, char **opts )
     {
         if( !(co_leg->flags & OP_FL_FOUND) || co->opt_num > co_leg->opt_num )
         {
-            popt.has_legend = !!popt.legend_scale;
+            /* This test is to make CGI sub'd requests work in a sane way */
+            if( !is_cgi || *co->val ) popt.has_legend = !!popt.legend_scale;
 	}
     }
 
