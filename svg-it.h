@@ -54,6 +54,12 @@ static struct context_info context_list[] =
 #define IS_STDOUT "-"
 #define IS_BLANK " "
 
+#define DS_DESC_ID_PREF "Series #"
+#define DS_DESC_XCOL_PREF " X/Col"
+#define DS_DESC_YCOL_PREF " Y/Col"
+#define NO_DESCRIPTION "No description"
+
+#define NO_VALUE -999999
 #define ST_NO_VALUE "-999999"
 
 #define OP_CHART_TITLE 0
@@ -423,6 +429,7 @@ struct parsed_options {
 struct data_pair_list {
     int cases;
     double *xval, *yval;
+    char *desc;
 };
 
 struct data_block_list {
@@ -459,6 +466,8 @@ void free_loaded_data( struct data_pair_list *data, int nseries );
 void free_command_flags( struct option_set *ops, int nflags );
 
 void clear_parsed_options( struct parsed_options *popt );
+
+char *gen_data_series_desc( int *rc, int dsid, int xin, int yin );
 
 /* --- */
 

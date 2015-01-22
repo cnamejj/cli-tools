@@ -275,11 +275,73 @@ void expand_series_col_req( struct parsed_options *popt )
 
 /* --- */
 
+char *gen_data_series_desc( int *rc, int dsid, int xin, int yin )
+
+{
+    char *desc = 0, *seg = 0, *agg = 0, *combo = 0;
+
+    if( *rc == RC_NORMAL )
+    {
+        seg = string_from_int( rc, dsid + 1, 0 );
+        agg = combine_strings( rc, DS_DESC_ID_PREF, seg );
+        if( seg )
+        {
+            free( seg );
+            seg = 0;
+	}
+
+        if( xin != NO_VALUE )
+        {
+            combo = combine_strings( rc, agg, DS_DESC_XCOL_PREF );
+            if( agg ) free( agg );
+            agg = combo;
+
+            seg = string_from_int( rc, xin, 0 );
+            combo = combine_strings( rc, agg, seg );
+            if( agg ) free( agg );
+            if( seg ) free( seg );
+            agg = combo;
+
+            seg = combo = 0;
+	}
+
+        if( yin != NO_VALUE )
+        {
+            combo = combine_strings( rc, agg, DS_DESC_YCOL_PREF );
+            if( agg ) free( agg );
+            agg = combo;
+
+            seg = string_from_int( rc, yin, 0 );
+            combo = combine_strings( rc, agg, seg );
+            if( agg ) free( agg );
+            if( seg ) free( seg );
+            agg = combo;
+
+            seg = combo = 0;
+	}
+
+        if( *rc == RC_NORMAL ) desc = agg;
+        else if( agg ) free( agg );
+        agg = 0;
+    }
+
+    /* --- */
+
+    if( !desc ) desc = strdup( NO_DESCRIPTION );
+
+    if( !desc ) *rc = ERR_MALLOC_FAILED;
+
+    return( desc );
+}
+
+/* --- */
+
 struct data_pair_list *load_data( struct parsed_options *popt )
 
 {
     int indata, dsize, total = 0, off, nconv, nlines = 0, rc, *xcols, *ycols,
-      minwords, keep, nseries, snum, cl, all_good, xword, yword;
+      minwords, keep, nseries, snum, cl, all_good, xword, yword, xin_col,
+      yin_col;
     double *cx, *cy;
     char databuff[DATABUFFSIZE], *chunk, *alldata, *pos, *source, *delim;
     struct data_pair_list *data = 0;
@@ -367,7 +429,7 @@ struct data_pair_list *load_data( struct parsed_options *popt )
     data = (struct data_pair_list *) malloc( nseries * (sizeof *data) );
     if( !data ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
 
-    for( off = 0; off < nseries; off++ )
+    for( off = 0; off < nseries && rc == RC_NORMAL; off++ )
     {
         cx = (double *) malloc( nlines * (sizeof *cx) );
         if( !cx ) bail_out( ERR_MALLOC_FAILED, errno, popt->html_out, DO_LOAD_DATA, 0 );
@@ -378,6 +440,14 @@ struct data_pair_list *load_data( struct parsed_options *popt )
         data[off].cases = 0;
         data[off].xval = cx;
         data[off].yval = cy;
+
+        if( !popt->x_data ) xin_col = NO_VALUE;
+        else xin_col = xcols[off];
+
+        if( !popt->y_data ) yin_col = NO_VALUE;
+        else yin_col = ycols[off];
+
+        data[off].desc = gen_data_series_desc( &rc, off, xin_col, yin_col );
     }
 
     minwords = 1;
@@ -819,6 +889,7 @@ int main( int narg, char **opts )
         if( data[snum].cases < 1 ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "empty data series cannot be charted" );
         ds = svg_add_double_data( &rc, svg, data[snum].cases, data[snum].xval, data[snum].yval );
         if( rc != RC_NORMAL ) bail_out( rc, 0, popt.html_out, context, "unable to add data to chart model" );
+        rc = svg_set_data_desc( ds, data[snum].desc );
     }
 
     context = DO_CONFIGURE_CHART;
@@ -1000,6 +1071,12 @@ void free_loaded_data( struct data_pair_list *data, int nseries )
             {
                 free( data[seq].yval );
                 data[seq].yval = 0;
+	    }
+
+            if( data[seq].desc )
+            {
+                free( data[seq].desc );
+                data[seq].desc = 0;
 	    }
 	}
 

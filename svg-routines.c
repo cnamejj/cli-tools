@@ -3531,3 +3531,27 @@ int svg_xax_raw_to_gc( struct svg_model *svg, float offset )
     
     return( coord );
 }
+
+/* --- */
+
+int svg_set_data_desc( struct series_data *ds, char *val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !ds ) rc = ERR_UNSUPPORTED;
+    else if( !val ) rc = ERR_BAD_PARMS;
+    else rc = svg_replace_string( &ds->descr, val );
+
+    return( rc );
+}
+
+/* --- */
+
+char *svg_get_data_desc( struct series_data *ds )
+
+{
+    if( !ds ) return( 0 );
+    else return( ds->descr );
+}
+

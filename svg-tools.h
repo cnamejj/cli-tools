@@ -566,9 +566,14 @@ int update_series_line_subs( struct sub_list **subs, struct svg_model *svg, stru
 
 int update_series_point_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
 
+int update_leg_series_subs( struct sub_list **subs, struct svg_model *svg, struct series_data *ds);
+
 int svg_get_legend_scale( struct svg_model *svg);
 int svg_get_has_legend( struct svg_model *svg);
 void svg_set_legend_scale( struct svg_model *svg, int val);
 void svg_set_has_legend( struct svg_model *svg, int val);
+
+int svg_set_data_desc(struct series_data *ds, char *val);
+char *svg_get_data_desc(struct series_data *ds);
 
 #endif
