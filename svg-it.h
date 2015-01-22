@@ -296,12 +296,12 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
 No<input type=\"radio\" name=\"legend\" value=\"0\" checked></td></tr>\n\
   <tr><td>Legend Size (as % of chart width, default is 20)</td><td><input type=\"text\" name=\"lscale\"></td></tr>\n\
 \
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#1 -\"></td></tr>\n\
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#2 -\"></td></tr>\n\
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#3 -\"></td></tr>\n\
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#4 -\"></td></tr>\n\
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#5 -\"></td></tr>\n\
-  <tr><td>Data Series Name</td><td><input type=\"text\" name=\"series\" value=\"#6 -\"></td></tr>\n\
+  <tr><td>Data Series #1 Name (defaults to column number info)</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
+  <tr><td>Data Series #2 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
+  <tr><td>Data Series #3 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
+  <tr><td>Data Series #4 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
+  <tr><td>Data Series #5 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
+  <tr><td>Data Series #6 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
 \
   <tr><td>Debug? (view SVG source for info)</td><td>Yes<input type=\"radio\" name=\"debug\" value=\"1\">\n\
 No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
