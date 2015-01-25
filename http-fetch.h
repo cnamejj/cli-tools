@@ -453,7 +453,7 @@ IPv4<input type=\"radio\" value=\"no\" name=\"tcp6\" checked></td></tr>\n\
 /* --- */
 
 #define GR_PACK_TITLE_LEAD "Packet Receipt - URL: "
-#define GR_PACK_XAX_TITLE "Elapsed Time (secs since 1st read)"
+#define GR_PACK_XAX_TITLE "Elapsed Time (secs between reads)"
 #define GR_PACK_YAX_TITLE "Packetsize"
 #define GR_PACK_DATA_LINE_COLOR "#a47e28"
 #define GR_PACK_DATA_LINE_ALPHA 0.35
