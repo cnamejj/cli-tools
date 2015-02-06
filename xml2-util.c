@@ -1,5 +1,6 @@
 /* Note...  Need to make sure GNM_FIRST does the right thing */
 
+#ifndef SKIP_XML_PARTS
 #include <string.h>
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
@@ -145,3 +146,4 @@ char *get_attrib_value( int *rc, xmlNodePtr curr, char *attrib_name)
 
     return result;
 }
+#endif

@@ -19,8 +19,11 @@
  */
   
 #include <sys/stat.h>
+#include <stdio.h>
+#ifndef SKIP_XML_PARTS
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
+#endif
 #include <poll.h>
 
 #ifdef DEBUG_MALLOC
@@ -234,6 +237,7 @@ char *build_syscall_errmsg( char *syscall, int sysrc);
 
 char *hexdigits_to_string( int *rc, int *msglen, char *hex);
 
+#ifndef SKIP_XML_PARTS
 xmlNodePtr search_node_list( xmlNodePtr head, char *node_name, char *attrib_name, char *attrib_val);
 
 char *dup_attrib_value( int *rc, xmlNodePtr curr, char *attrib_name);
@@ -245,6 +249,7 @@ xmlAttr *search_attrib_list( xmlAttr *head, char *attrib_name, char *attrib_val)
 xmlNodePtr get_node_match( xmlNodePtr head, char *node_name, int match_type);
 
 xmlNodePtr source_config_file( int *rc, char *config);
+#endif
 
 int called_as_cgi();
 
