@@ -1,0 +1,49 @@
+#!/bin/bash
+
+typeset -i days col low high
+
+comm="chart-sar-net-dev-one"
+
+# ---
+
+if [ "$(which ${comm})" = "" ]
+then
+	this_dir="$(dirname $(which $0) )"
+	if [ "${this_dir}" != "" ]
+	then
+		echo "Info: Adding '${this_dir}' to PATH to make '${comm}' script available."
+		export PATH="${PATH}:${this_dir}"
+	fi
+fi
+
+# ---
+
+days="$1"
+
+if [ ${days} -lt 1 ]
+then
+	days=3
+fi
+
+dev="$2"
+
+# ---
+
+devlist="$(sar -n DEV 1 1 \
+    | gawk '
+	$1 == "Average:" && $2 != "IFACE" \
+	{
+	    printf "%s ", $2
+	}'
+)"
+
+for dev in ${devlist}
+do
+	echo ""
+	echo "Found device '${dev}'"
+	${comm} ${days} "${dev}"
+done
+
+# ---
+
+exit $?
