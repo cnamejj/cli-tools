@@ -1,0 +1,127 @@
+#!/bin/bash
+
+typeset -i pass
+
+fail=0
+
+# --
+
+statfile="$1"
+
+# -- Check for XML2 header files
+
+rez="$(gawk '
+    BEGIN \
+    {
+        printf "#include <libxml/parser.h>\n"
+        printf "#include <libxml/xmlmemory.h>\n"
+        printf "void sample_routine() { return; }\n"
+    }' \
+| gcc -I/usr/include/libxml2 -E -x c - -o /dev/null >/dev/null 2>&1 \
+&& echo "found" || echo "failed"
+)"
+
+if [ "${rez}" = "failed" ]
+then
+	echo "Error: Header files for XML2 library not found"
+	fail=1
+else
+	echo "XML2 ${rez}"
+fi
+
+
+# -- Check for OpenSSL header files
+
+rez="$(gawk '
+    BEGIN \
+    {
+	printf "#include <openssl/engine.h>\n"
+	printf "#include <openssl/ssl.h>\n"
+	printf "#include <openssl/x509v3.h>\n"
+
+        printf "void sample_routine() { return; }\n"
+    }' \
+| gcc -E -x c - -o /dev/null >/dev/null 2>&1 \
+&& echo "found" || echo "failed"
+)"
+
+if [ "${rez}" = "failed" ]
+then
+	echo "Error: Header files for OpenSSL not found"
+	fail=1
+else
+	echo "OpenSSL ${rez}"
+fi
+
+
+# -- Might as well check standard system header files too
+
+rez="$(gawk '
+    BEGIN \
+    {
+	printf "#include <arpa/inet.h>\n"
+	printf "#include <ctype.h>\n"
+	printf "#include <errno.h>\n"
+	printf "#include <fcntl.h>\n"
+	printf "#include <grp.h>\n"
+	printf "#include <ifaddrs.h>\n"
+	printf "#include <limits.h>\n"
+	printf "#include <malloc.h>\n"
+	printf "#include <math.h>\n"
+	printf "#include <netdb.h>\n"
+	printf "#include <net/if.h>\n"
+	printf "#include <netinet/in.h>\n"
+	printf "#include <poll.h>\n"
+	printf "#include <pwd.h>\n"
+	printf "#include <signal.h>\n"
+	printf "#include <stdio.h>\n"
+	printf "#include <stdlib.h>\n"
+	printf "#include <string.h>\n"
+	printf "#include <strings.h>\n"
+	printf "#include <syslog.h>\n"
+	printf "#include <sys/param.h>\n"
+	printf "#include <sys/socket.h>\n"
+	printf "#include <sys/stat.h>\n"
+	printf "#include <sys/time.h>\n"
+	printf "#include <sys/types.h>\n"
+	printf "#include <time.h>\n"
+	printf "#include <unistd.h>\n"
+
+        printf "void sample_routine() { return; }\n"
+    }' \
+| gcc -E -x c - -o /dev/null >/dev/null 2>&1 \
+&& echo "found" || echo "failed"
+)"
+
+if [ "${rez}" = "failed" ]
+then
+	echo "Error: Needed standard system header file(s) not found"
+	fail=1
+else
+	echo "basics ${rez}"
+fi
+
+# ---
+
+if [ "${statfile}" ]
+then
+	rm "${statfile}" 2>/dev/null
+
+	if [ ${fail} -eq 0 ]
+	then
+		gawk 'BEGIN { printf "XML2 found\nOpenSSL found\nbasics found\n" }' >"${statfile}"
+	fi
+fi
+
+# ---
+
+if [ ${fail} -eq 0 ]
+then
+	echo "All required header files seem to be available"
+else
+	echo "Error: Required header files not found, can't compile"
+fi
+
+# ---
+
+exit ${fail}

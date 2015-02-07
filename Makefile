@@ -59,19 +59,24 @@ libs : $(LIBS)
 
 # ---
 
-%.o : %.c Makefile %.c $(UBIQ_H) %.h
+header-check.log: Makefile check-for-required-things
+	./check-for-required-things $@
+
+# ---
+
+%.o : %.c Makefile header-check.log %.c $(UBIQ_H) %.h
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(SOBJS) : % : Makefile $(UBIQ_H)
+$(SOBJS) : % : Makefile header-check.log $(UBIQ_H)
 
-$(HTSOBJS) : % : Makefile $(UBIQ_H) $(HTS_H)
+$(HTSOBJS) : % : Makefile header-check.log $(UBIQ_H) $(HTS_H)
 
-$(SVGOBJS) : % : Makefile $(UBIQ_H) $(SVG_H)
+$(SVGOBJS) : % : Makefile header-check.log $(UBIQ_H) $(SVG_H)
 
-$(SOLOPROGS) : % : %.o Makefile $(UBIQ_H) $(LIBS)
+$(SOLOPROGS) : % : %.o Makefile header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile $(UBIQ_H) $(LIBS)
+$(PROGS) : % : %.o %.h Makefile header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libCLISUB.a : $(SOBJS) $(HTSOBJS) $(SVGOBJS)
@@ -80,4 +85,4 @@ libCLISUB.a : $(SOBJS) $(HTSOBJS) $(SVGOBJS)
 # ---
 
 clean:
-	rm $(PROGS) $(SOLOPROGS) $(LIBS) *.o
+	rm $(PROGS) $(SOLOPROGS) $(LIBS) *.o header-check.log

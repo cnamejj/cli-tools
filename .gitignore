@@ -27,6 +27,7 @@ http-fetch
 extended-letters-collapse
 actor
 svg-it
+header-check.log
 
 # temporary local backup directories
 BACKUP
