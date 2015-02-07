@@ -1,0 +1,221 @@
+#!/bin/bash
+
+typeset -i days off data_col
+
+host="$(hostname)"
+
+# ---
+
+if [ "$1" = "" -o "$1" = "help" ]
+then
+	echo "
+Syntax is: $0 #days sar-options data-column chart-title y-axis-title filter
+
+Everything after the number of days to include in the chart is optional.  Output
+is an SVG document which is written to STDOUT.  If you redirect it to a file using
+an extention of '.html' will probably help other applications interpret the
+chart correctly.
+
+sar-options: Defaults to '-u' and will typically be just one character with a
+dash, like '-b' for block I/O, '-r' for RAM info, etc...  But something like
+'-n DEV' can be specified as well as long as the flags are surrounded by quotes
+to make sure the shell treats it like one command line argument.
+
+data-column: Which column number to pull from the 'sar' output. This script will
+only chart one column.  Defaults to 4, which is the first column that contains
+data for most 'sar' reports.
+
+chart-title: Should be quoted to make sure the string you give is treated as one
+command line argument.  Will appear centered across the top of the chart after the
+hostname of the server.  Defaults to a blank.
+
+y-axis-title: Similar to the 'chart-title' but used to label the Y axis. Also
+defaults to a blank.
+
+filter: Directs the script to only pull data from 'sar' output lines that contain
+the given string.  Useful for graphing output from things like 'sar -d' or 
+'sar -n DEV' which include data for multiple devices per time sample.  By default
+no filtering is done.
+
+Examples:
+   $0 3 -u
+   $0 2 -r 5 'Memory Usage'
+   $0 4 '-n DEV' 6 'NetDev ETH0 (recv)' 'KB/Sec' 'eth0' 
+
+The first example graphs todays data plus the previous 2 days, showing the 4th
+column from a 'sar -u' report, which is the '%user' metrics.
+
+The second example graphs today and yesterday's data from a 'sar -r' report and
+graphs the 5th column (%memused).  The chart title will include 'Memory Usage'.
+
+The third example graphs data from 4 days, today plus the previous 3, from
+'sar -n DEV' reports.  The 6th data column, 'rxkB/s' is charted.  And only data
+for the device 'eth0' are included by filtering only records that include that
+string.  The chart title and Y-axis title are also specified."
+
+	exit 0
+fi
+
+# ---
+
+days=$(( $1 - 1 ))
+sar_opts="$(echo "$2" | gawk '{ gsub("[^a-zA-Z0-9 -]", ""); print }')"
+data_col=$3
+chart_title="$4"
+yax_title="$5"
+filter="$6"
+
+# ---
+
+if [ ${days} -lt 0 ]
+then
+	days=3
+fi
+
+if [ "${sar_opts}" = "" ]
+then
+	sar_opts="-u"
+	
+fi
+
+if [ ${data_col} -lt 1 ]
+then
+	data_col=4
+fi
+
+if [ "${yax_title}" = "" ]
+then
+	yax_title=" "
+fi
+
+# ---
+
+(
+    sar ${sar_opts}
+
+    off=1
+    while [ ${off} -le ${days} ]
+    do
+	sar -f $(date --date="${off} days ago" +'/var/log/sysstat/sa%d') ${sar_opts}
+	off=$(( ${off} + 1 ))
+    done
+) \
+| gawk -v data_col="${data_col}" -v filter="${filter}" '
+
+    BEGIN \
+    {
+        SEP = ","
+    }
+
+    $NF == "CPU)" \
+    {
+        source = $4
+        source_list[source] = 1
+    }
+
+    {
+	check = $(NF)
+	gsub( "[0-9.]", "", check)
+	keep = check == ""
+
+        if( keep && filter != "" ) keep = index($0, filter)
+    }
+
+    NF >= source && $1 != "Average:" && keep \
+    {
+        stamp = $1
+        dpart = $2
+        val = $data_col
+
+        nt = split( stamp, bits, ":" )
+        if( nt == 3 )
+        {
+    	    if( bits[1] == 12 ) bits[1] = 0
+
+    	    elap_mins = bits[1] * 60 + bits[2]
+
+            if( dpart == "PM" ) elap_mins += 12 * 60
+
+	    elap_hrs = elap_mins / 60.0
+    	    elap_list[elap_hrs] = 1
+            key = source SEP elap_hrs
+    	    data_val[key] = val
+        }
+    }
+
+    END \
+    {
+	printf "Minutes", SEP
+        for( source in source_list ) printf "%s%s", SEP, source
+        printf "\n"
+
+        for( elap_hrs in elap_list )
+        {
+	    printf "%f", elap_hrs
+
+    	    for( source in source_list )
+    	    {
+    	        key = source SEP elap_hrs
+    	        printf "%s%s", SEP, data_val[key]
+    	    }
+    
+    	    printf "\n"
+        }
+    }' \
+| (
+    read header
+    echo $header
+    sort -k1n
+) \
+| (
+    inp="-"
+    read header
+
+    # ---
+
+    ycols="$(gawk -v header="${header}" '
+
+        BEGIN \
+        {
+	    nc = split(header, cols, ",")
+	    sep = ""
+	    ycols = ""
+	    for( off=2; off<=nc; off++)
+	    {
+	        ycols = ycols sep off
+	        sep = ","
+	    }
+
+	    printf "%s", ycols
+        }' \
+    )"
+
+    series_titles="$(gawk -v SQT="'" -v header="${header}" '
+
+        BEGIN \
+        {
+	    nc = split(header, cols, ",")
+
+	    for( off=2; off<=nc; off++)
+	    {
+	        printf " -series %s#%d %s%s", SQT, off - 1, cols[off], SQT
+	    }
+        }' \
+    )"
+
+    # ---
+
+    opts="-data '${inp}' -xcol 1 -ycol '${ycols}' ${series_titles} -delim ',' --no-only-all-good \
+-circle-alpha 0 -data-line-size 12 -data-alpha .6 \
+-legend -lscale 12 \
+-title '${host} - ${chart_title}' -xtitle 'Hours After Midnight' -ytitle '${yax_title}' \
+-xgrids 8 -ygrids 5"
+
+    #echo svg-it ${opts}
+
+    bash -c "svg-it ${opts}"
+)
+
+# ---
+
+exit $?
