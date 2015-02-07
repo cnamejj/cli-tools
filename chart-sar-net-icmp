@@ -1,0 +1,66 @@
+#!/bin/bash
+
+typeset -i days col low high
+
+sar_opts="-n ICMP"
+chart_title="Network Stats (ICMP)"
+output="/tmp/sar/$(hostname)-sar-net-icmp.html"
+
+# ---
+
+days="$1"
+
+if [ ${days} -lt 1 ]
+then
+	days=3
+fi
+
+# ---
+
+crange=( $(sar ${sar_opts} 1 1 \
+    | gawk '
+
+	NF && $NF != "CPU)" \
+	{
+		headcheck = $NF
+		gsub("[0-9.-]", "", headcheck)
+		if( headcheck == "" )
+		{
+			low = high = NF
+
+			for( col = 3; col <= NF && low == NF; col++ )
+			{
+				gsub("[0-9.-]", "", $col)
+				if( $col == "" ) low = col
+			}
+
+			printf "%d %d\n", low, high
+			exit(0)
+		}
+	}' \
+    )
+)
+
+low=${crange[0]}
+high=${crange[1]}
+
+# ---
+
+col=${low}
+
+echo "Creating chart '${output}'"
+cat /dev/null >"${output}"
+
+while [ ${col} -le ${high} ]
+do
+	echo "Run column ${col} of ${high}"
+
+	./chart-sar-generic ${days} "${sar_opts}" ${col} "${chart_title}" >>"${output}"
+
+	col=$(( ${col} + 1 ))
+done
+
+# ---
+
+exit $?
+		
