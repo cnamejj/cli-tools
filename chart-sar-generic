@@ -29,8 +29,9 @@ chart-title: Should be quoted to make sure the string you give is treated as one
 command line argument.  Will appear centered across the top of the chart after the
 hostname of the server.  Defaults to a blank.
 
-y-axis-title: Similar to the 'chart-title' but used to label the Y axis. Also
-defaults to a blank.
+y-axis-title: Similar to the 'chart-title' but used to label the Y axis.  If no
+value is given, the script will attempt to pull the title from the column header
+of the specified 'sar' report.
 
 filter: Directs the script to only pull data from 'sar' output lines that contain
 the given string.  Useful for graphing output from things like 'sar -d' or 
@@ -85,7 +86,19 @@ fi
 
 if [ "${yax_title}" = "" ]
 then
-	yax_title=" "
+	yax_title="$(sar ${sar_opts} 1 1 \
+	    |	gawk -v data_col="${data_col}" '
+		    NF >= data_col && $(NF) != "CPU)" \
+		    {
+			printf "%s", $data_col
+			exit
+		    }' \
+	)"
+
+	if [ "${yax_title}" = "" ]
+	then
+		yax_title=" "
+	fi
 fi
 
 # ---
