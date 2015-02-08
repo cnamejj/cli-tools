@@ -20,56 +20,25 @@ fi
 
 # ---
 
-sar_opts="-n DEV"
-chart_title="Network Device Stats"
+sar_opts="$1"
+chart_title="$2"
+days="$3"
+output="$4"
 
-title_pref=" ("
-title_suff=")"
-
-out_pref="/tmp/sar/$(hostname)-sar-net-dev-"
-out_suff=".html"
+if [ "${sar_opts}" = "" ]
+then
+	echo "Error: Options to be passed to 'sar' command not provided on command line"
+	echo "Syntax is $0 'sar-command-options' [ 'chart-title' [ #days ] ]"
+	exit 1
+fi
 
 # ---
-
-days="$1"
 
 if [ ${days} -lt 1 ]
 then
 	days=3
 fi
 
-dev="$2"
-
-if [ "${dev}" = "" ]
-then
-	dev="$(sar ${sar_opts} 1 1 \
-	    | gawk '
-		$1 == "Average:" && $2 != "IFACE" \
-		{
-		    if( use == "" ) use = $2
-		    else if( $2 != "lo" )
-		    {
-			if( substr(use, 1, 3) == "tun" ) use = $2
-		    }
-		}
-
-		END \
-		{
-		    printf "%s", use
-		}'
-	)"
-
-	if [ "${dev}" = "" ]
-	then
-		echo "Error: Can't figure out what device to use."
-		exit 1
-	fi
-
-	echo "No device specified, will use '${dev}'"
-fi
-
-output="${out_pref}${dev}${out_suff}"
-chart_title="${chart_title}${title_pref}${dev}${title_suff}"
 
 # ---
 
@@ -104,14 +73,21 @@ high=${crange[1]}
 
 col=${low}
 
-echo "Creating chart '${output}'"
-cat /dev/null >"${output}"
+if [ "${output}" ]
+then
+	rm "${output}" 2>/dev/null
+fi
 
 while [ ${col} -le ${high} ]
 do
 	echo "Run column ${col} of ${high}"
 
-	"${comm}" ${days} "${sar_opts}" ${col} "${chart_title}" "" " ${dev} " >>"${output}"
+	if [ "${output}" != "" ]
+	then
+		"${comm}" ${days} "${sar_opts}" ${col} "${chart_title}" >>"${output}"
+	else
+		"${comm}" ${days} "${sar_opts}" ${col} "${chart_title}"
+	fi
 
 	col=$(( ${col} + 1 ))
 done
