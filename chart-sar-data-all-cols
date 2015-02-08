@@ -39,6 +39,14 @@ then
 	days=3
 fi
 
+if [ "${output}" != "" ]
+then
+	out_dir="$(dirname "${output}")"
+	if [ ! -d "${out_dir}" ]
+	then
+		mkdir "${out_dir}"
+	fi
+fi
 
 # ---
 

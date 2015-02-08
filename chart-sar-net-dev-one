@@ -26,8 +26,16 @@ chart_title="Network Device Stats"
 title_pref=" ("
 title_suff=")"
 
-out_pref="/tmp/sar/$(hostname)-sar-net-dev-"
+out_dir="/tmp/sar/"
+out_pref="${out_dir}$(hostname)-sar-net-dev-"
 out_suff=".html"
+
+# ---
+
+if [ ! -d "${out_dir}" ]
+then
+	mkdir "${out_dir}"
+fi
 
 # ---
 
