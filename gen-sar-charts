@@ -7,5 +7,5 @@ chart-sar-swap-stats chart-sar-swap-util chart-sar-task"
 for fn in $slist
 do
 	echo "- - - $fn"
-	./$fn
+	./$fn $1
 done
