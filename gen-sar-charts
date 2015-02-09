@@ -1,8 +1,9 @@
 #!/bin/bash
 
 slist="chart-sar-cpu chart-sar-inode chart-sar-io chart-sar-mem-stats \
-chart-sar-mem-util chart-sar-net-dev-all chart-sar-paging chart-sar-queue \
-chart-sar-swap-stats chart-sar-swap-util chart-sar-task"
+chart-sar-mem-util chart-sar-net-dev-all chart-sar-net-prot chart-sar-net-prot6 \
+chart-sar-paging chart-sar-queue chart-sar-swap-stats chart-sar-swap-util \
+chart-sar-task"
 
 # ---
 
