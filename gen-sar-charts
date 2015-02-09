@@ -4,8 +4,23 @@ slist="chart-sar-cpu chart-sar-inode chart-sar-io chart-sar-mem-stats \
 chart-sar-mem-util chart-sar-net-dev-all chart-sar-paging chart-sar-queue \
 chart-sar-swap-stats chart-sar-swap-util chart-sar-task"
 
-for fn in $slist
+# ---
+
+comm="chart-sar-cpu"
+if [ "$(which ${comm})" = "" ]
+then
+        this_dir="$(dirname $(which $0) )"
+        if [ "${this_dir}" != "" ]
+        then
+                echo "Info: Adding '${this_dir}' to PATH"
+                export PATH="${PATH}:${this_dir}"
+        fi
+fi
+
+# ---
+
+for comm in $slist
 do
 	echo "- - - $fn"
-	./$fn $1
+	$comm $1
 done
