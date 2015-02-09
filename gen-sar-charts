@@ -1,0 +1,11 @@
+#!/bin/bash
+
+slist="chart-sar-cpu chart-sar-inode chart-sar-io chart-sar-mem-stats \
+chart-sar-mem-util chart-sar-net-dev-all chart-sar-paging chart-sar-queue \
+chart-sar-swap-stats chart-sar-swap-util chart-sar-task"
+
+for fn in $slist
+do
+	echo "- - - $fn"
+	./$fn
+done
