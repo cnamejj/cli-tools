@@ -1,0 +1,53 @@
+#!/bin/bash
+
+typeset -i days
+
+propt="DEV EDEV NFS NFSD SOCK IP EIP ICMP EICMP\
+ TCP ETCP UDP SOCK6 IP6 EIP6 ICMP6 EICMP6 UDP6"
+
+# ---
+
+comm="chart-sar-data-all-cols"
+
+# ---
+
+if [ "$(which ${comm})" = "" ]
+then
+        this_dir="$(dirname $(which $0) )"
+        if [ "${this_dir}" != "" ]
+        then
+                echo "Info: Adding '${this_dir}' to PATH to make '${comm}' script available."
+                export PATH="${PATH}:${this_dir}"
+        fi
+fi
+
+# ---
+
+days=$1
+
+if [ ${days} -lt 1 ]
+then
+	days=3
+fi
+
+# ---
+
+sar_opts="-n"
+chart_title="Network Protocol Related"
+out_pref="/tmp/sar/$(hostname)-sar-net-prot-"
+out_suff=".html"
+
+# ---
+
+for subopt in $propt
+do
+	output="${out_pref}${subopt}${out_suff}"
+	echo ""
+	echo "- - - Writing charts to file '${output}'"
+
+	${comm} "${sar_opts} ${subopt}" "${chart_title} (${subopt})" ${days} "${output}"
+done
+
+# ---
+
+exit $?
