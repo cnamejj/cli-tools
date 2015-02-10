@@ -2,7 +2,7 @@
 
 typeset -i days
 
-propt="DEV EDEV NFS NFSD SOCK IP EIP ICMP EICMP TCP ETCP UDP"
+propt="NFS NFSD SOCK IP EIP ICMP EICMP TCP ETCP UDP"
 
 # ---
 
