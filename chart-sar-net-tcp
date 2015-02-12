@@ -31,7 +31,7 @@ fi
 
 sar_opts="-n TCP"
 chart_title="Network Stats (TCP)"
-output="/tmp/sar/$(hostname)-sar-net-tcp.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-net-tcp.html"
 
 # ---
 

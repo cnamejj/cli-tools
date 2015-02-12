@@ -31,7 +31,7 @@ fi
 
 sar_opts="-W"
 chart_title="Swap Stats"
-output="/tmp/sar/$(hostname)-sar-swap-stats.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-swap-stats.html"
 
 # ---
 

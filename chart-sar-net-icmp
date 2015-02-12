@@ -31,7 +31,7 @@ fi
 
 sar_opts="-n ICMP"
 chart_title="Network Stats (ICMP)"
-output="/tmp/sar/$(hostname)-sar-net-icmp.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-net-icmp.html"
 
 # ---
 

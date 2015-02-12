@@ -31,7 +31,7 @@ fi
 
 sar_opts="-b"
 chart_title="I/O and Xfer Rate Stats"
-output="/tmp/sar/$(hostname)-sar-io.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-io.html"
 
 # ---
 

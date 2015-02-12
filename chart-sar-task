@@ -31,7 +31,7 @@ fi
 
 sar_opts="-w"
 chart_title="Task Creation, System Switching"
-output="/tmp/sar/$(hostname)-sar-task.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-task.html"
 
 # ---
 

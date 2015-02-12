@@ -31,7 +31,7 @@ fi
 
 sar_opts="-v"
 chart_title="Kernel Tables, Inode, File, etc..."
-output="/tmp/sar/$(hostname)-sar-inode.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-inode.html"
 
 # ---
 

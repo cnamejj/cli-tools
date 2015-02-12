@@ -33,7 +33,7 @@ fi
 
 sar_opts="-n"
 chart_title="Network Protocol Related"
-out_pref="/tmp/sar/$(hostname)-sar-net-prot-"
+out_pref="/tmp/sar-$(whoami)/$(hostname)-sar-net-prot-"
 out_suff=".html"
 
 # ---

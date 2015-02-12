@@ -31,7 +31,7 @@ fi
 
 sar_opts="-S"
 chart_title="Swap Utilization"
-output="/tmp/sar/$(hostname)-sar-swap-util.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-swap-util.html"
 
 # ---
 

@@ -31,7 +31,7 @@ fi
 
 sar_opts="-n UDP"
 chart_title="Network Stats (UDP)"
-output="/tmp/sar/$(hostname)-sar-net-udp.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-net-udp.html"
 
 # ---
 

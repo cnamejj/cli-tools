@@ -31,7 +31,7 @@ fi
 
 sar_opts="-B"
 chart_title="Paging Stats"
-output="/tmp/sar/$(hostname)-sar-paging.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-paging.html"
 
 # ---
 

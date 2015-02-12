@@ -26,7 +26,7 @@ chart_title="Network Device Stats"
 title_pref=" ("
 title_suff=")"
 
-out_dir="/tmp/sar/"
+out_dir="/tmp/sar-$(whoami)/"
 out_pref="${out_dir}$(hostname)-sar-net-dev-"
 out_suff=".html"
 

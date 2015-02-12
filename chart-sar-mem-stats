@@ -31,7 +31,7 @@ fi
 
 sar_opts="-R"
 chart_title="Memory Stats"
-output="/tmp/sar/$(hostname)-sar-mem-stats.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-mem-stats.html"
 
 # ---
 

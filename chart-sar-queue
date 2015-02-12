@@ -31,7 +31,7 @@ fi
 
 sar_opts="-q"
 chart_title="Queue and Load Averages"
-output="/tmp/sar/$(hostname)-sar-queue.html"
+output="/tmp/sar-$(whoami)/$(hostname)-sar-queue.html"
 
 # ---
 
