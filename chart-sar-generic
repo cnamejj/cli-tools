@@ -88,7 +88,7 @@ if [ "${yax_title}" = "" ]
 then
 	yax_title="$(sar ${sar_opts} 1 1 \
 	    |	gawk -v data_col="${data_col}" '
-		    NF >= data_col && $(NF) != "CPU)" \
+		    NF >= data_col && $(NF) != "CPU)" && $1 != "Linux" \
 		    {
 			printf "%s", $data_col
 			exit
@@ -103,13 +103,22 @@ fi
 
 # ---
 
+if [ -d /var/log/sysstat ]
+then
+    sar_dir="/var/log/sysstat/"
+else
+    sar_dir="/var/log/sa/"
+fi
+
+# ---
+
 (
     sar ${sar_opts}
 
     off=1
     while [ ${off} -le ${days} ]
     do
-	sar -f $(date --date="${off} days ago" +'/var/log/sysstat/sa%d') ${sar_opts}
+	sar -f $(date --date="${off} days ago" +"${sar_dir}sa%d") ${sar_opts}
 	off=$(( ${off} + 1 ))
     done
 ) \
@@ -120,7 +129,7 @@ fi
         SEP = ","
     }
 
-    $NF == "CPU)" \
+    $1 == "Linux" || $NF == "CPU)" \
     {
         source = $4
         source_list[source] = 1
