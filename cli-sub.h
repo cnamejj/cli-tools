@@ -17,7 +17,8 @@
  * Todo
  * ----
  */
-  
+
+#include <stdlib.h>  
 #include <sys/stat.h>
 #include <stdio.h>
 #ifndef SKIP_XML_PARTS
