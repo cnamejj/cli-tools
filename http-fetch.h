@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
+#include <openssl/err.h>
 
 #ifdef DEBUG_MALLOC
 #include "bug_malloc.h"

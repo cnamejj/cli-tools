@@ -1,4 +1,7 @@
+/* #include <openssl/x509.h> */
 #include <openssl/x509v3.h>
+/* #include <ssl/ssl_locl.h> */
+#include <crypto/x509/x509_lcl.h>
 
 #include "http-fetch.h"
 
