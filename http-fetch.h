@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <string.h>
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
 #include <openssl/err.h>

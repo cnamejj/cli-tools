@@ -482,6 +482,7 @@ int find_connection( struct plan_data *plan)
                 free( req->conn_host);
                 empty = 1;
 	    }
+            else empty = 0;
             if( empty)
             {
                 req->conn_host = parts->host;
