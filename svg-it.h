@@ -1,6 +1,6 @@
 #ifndef ___CNAMEjj_SVG_IT_H_
 
-#define ___CNAMEjj_SVG_IT_H__
+#define ___CNAMEjj_SVG_IT_H_
 
 #ifdef DEBUG_MALLOC
 #include "bug_malloc.h"
