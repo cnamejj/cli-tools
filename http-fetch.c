@@ -2670,8 +2670,6 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
-        fetch->redirect_request = 0;
-        fetch->primary_request = 0;
         if( fetch->request) free( fetch->request);
 #ifdef NO_CR
         fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
