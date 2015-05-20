@@ -12,6 +12,7 @@
  * - Figure how to "do the right thing" when called as CLI from a CGI script
  * - Add support for options: auth, proxy, connthru
  * - Add "wait timeout" option and connect the wires to use it
+ * - If command options are repeated, only the last one is free'd, the rest are stranded
  *
  * Notes:
  */
@@ -237,7 +238,6 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
 
         if( fetch->redirect_request)
         {
-            free( fetch->redirect_request);
             fetch->redirect_request = 0;
             fetch->request = fetch->primary_request;
 	}
@@ -2670,15 +2670,17 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
+        fetch->redirect_request = 0;
+        fetch->primary_request = 0;
         if( fetch->request) free( fetch->request);
 #ifdef NO_CR
         fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
 #else
         fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
 #endif
+        if( is_redir) fetch->redirect_request = fetch->request;
+        else fetch->primary_request = fetch->request;
     }
-    if( is_redir) fetch->redirect_request = fetch->request;
-    else fetch->primary_request = fetch->request;
 
     if( rc == RC_NORMAL) fetch->request_len = strlen( fetch->request);
 
@@ -3594,9 +3596,10 @@ int main( int narg, char **opts)
 
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
- bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE );
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
-/* bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); */
+   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE );
 #endif
 
     /* --- */
@@ -3706,9 +3709,14 @@ int main( int narg, char **opts)
 
     /* --- */
 
-    free_hf_plan_data( plan);
+    if( rc == RC_NORMAL) free_hf_plan_data( plan);
 
     /* --- */
+
+#ifdef DEBUG_MALLOC
+    bug_print_unmarked_data( stdout);
+    printf( "\n");
+#endif
 
     exit( rc);
 }
