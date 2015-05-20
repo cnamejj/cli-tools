@@ -1468,8 +1468,8 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 {
     char *fence = 0, *pos = 0, *last = 0;
-    char *sng_pos = 0, sng_patt[ 3] = { LF_CH, LF_CH, EOS_CH };
-    char *dbl_pos = 0, dbl_patt[ 5] = { CR_CH, LF_CH, CR_CH, LF_CH, EOS_CH };
+    char *sng_pos = 0, sng_patt[ 4] = { LF_CH, LF_CH, EOS_CH, '\0' };
+    char *dbl_pos = 0, dbl_patt[ 6] = { CR_CH, LF_CH, CR_CH, LF_CH, EOS_CH, '\0' };
     struct ckpt_chain *walk = 0;
     struct data_block *detail = 0;
     struct chain_position *result = 0;
@@ -1491,7 +1491,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
                 pos = detail->data;
                 last = pos + detail->len;
 
-                for( ; pos <= last && !fence; pos++)
+                for( ; pos && pos <= last && !fence; pos++)
                 {
                     if( *pos == *sng_pos) sng_pos++;
                     else sng_pos = sng_patt;
@@ -3969,7 +3969,7 @@ void free_payload_references( struct payload_breakout *bout)
         bout->response_status = 0;
 
         dblock = bout->header_line;
-        for( off = 0; off < bout->n_headers; off++, dblock++)
+        if( dblock) for( off = 0; off < bout->n_headers; off++, dblock++)
         {
             if( dblock->data)
             {
