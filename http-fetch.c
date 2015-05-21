@@ -638,7 +638,7 @@ int execute_fetch_plan( struct plan_data *plan)
         {
             seq++;
             red_level = 0;
-            if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
+            if( runex->loop_pause > 0 && seq <= runex->loop_count) usleep( runex->loop_pause);
 	}
     }
 

@@ -27,7 +27,8 @@ SVG_H = svg-tools.h
 # ---
 
 #DEBUG_DEFS = -DDEBUG_MALLOC
-DEBUG_DEFS =
+#DEBUG_DEFS =
+DEBUG_DEFS = -DDEV_DEBUGGING
 
 OS=$(shell uname)
 
