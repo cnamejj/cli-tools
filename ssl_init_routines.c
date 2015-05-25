@@ -14,7 +14,6 @@ SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *))
     SSL_library_init();
     ENGINE_load_builtin_engines();
 
-/*    meth = SSLv23_client_method(); */
     meth = TLS_client_method();
     context = SSL_CTX_new(meth);
     if(!context) err = 1;
@@ -63,13 +62,8 @@ SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st 
 
             if(callback)
             {
-#ifdef USE_OLD_CODE
-                BIO_set_callback(ssl->rbio, callback);
-                BIO_set_callback(ssl->wbio, callback);
-#else
                 BIO_set_callback(SSL_get_rbio(ssl), callback);
                 BIO_set_callback(SSL_get_wbio(ssl), callback);
-#endif
             }
         }
     }
