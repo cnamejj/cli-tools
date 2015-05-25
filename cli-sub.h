@@ -21,6 +21,7 @@
 #include <stdlib.h>  
 #include <sys/stat.h>
 #include <stdio.h>
+#include <string.h>
 #ifndef SKIP_XML_PARTS
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>

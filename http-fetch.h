@@ -8,8 +8,23 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <string.h>
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
+#include <openssl/err.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+
+#ifdef HEADER_SSL23_H
+/* Yes, this is ugly, but we need a way to test in
+ * the precompiler for older versions of OpenSSL
+ * that don't have "TLS_client_methd()" and map the
+ * call back to the old code, which it will have.
+ */
+# define TLS_client_method SSLv23_client_method
+#endif
+
+/* --- */
 
 #ifdef DEBUG_MALLOC
 #include "bug_malloc.h"

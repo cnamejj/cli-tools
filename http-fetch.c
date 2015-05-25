@@ -12,6 +12,7 @@
  * - Figure how to "do the right thing" when called as CLI from a CGI script
  * - Add support for options: auth, proxy, connthru
  * - Add "wait timeout" option and connect the wires to use it
+ * - If command options are repeated, only the last one is free'd, the rest are stranded
  *
  * Notes:
  */
@@ -237,7 +238,6 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
 
         if( fetch->redirect_request)
         {
-            free( fetch->redirect_request);
             fetch->redirect_request = 0;
             fetch->request = fetch->primary_request;
 	}
@@ -482,6 +482,7 @@ int find_connection( struct plan_data *plan)
                 free( req->conn_host);
                 empty = 1;
 	    }
+            else empty = 0;
             if( empty)
             {
                 req->conn_host = parts->host;
@@ -637,7 +638,7 @@ int execute_fetch_plan( struct plan_data *plan)
         {
             seq++;
             red_level = 0;
-            if( runex->loop_pause > 0 && seq < runex->loop_count) usleep( runex->loop_pause);
+            if( runex->loop_pause > 0 && seq <= runex->loop_count) usleep( runex->loop_pause);
 	}
     }
 
@@ -1467,8 +1468,8 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
 
 {
     char *fence = 0, *pos = 0, *last = 0;
-    char *sng_pos = 0, sng_patt[ 3] = { LF_CH, LF_CH, EOS_CH };
-    char *dbl_pos = 0, dbl_patt[ 5] = { CR_CH, LF_CH, CR_CH, LF_CH, EOS_CH };
+    char *sng_pos = 0, sng_patt[ 4] = { LF_CH, LF_CH, EOS_CH, '\0' };
+    char *dbl_pos = 0, dbl_patt[ 6] = { CR_CH, LF_CH, CR_CH, LF_CH, EOS_CH, '\0' };
     struct ckpt_chain *walk = 0;
     struct data_block *detail = 0;
     struct chain_position *result = 0;
@@ -1490,7 +1491,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
                 pos = detail->data;
                 last = pos + detail->len;
 
-                for( ; pos <= last && !fence; pos++)
+                for( ; pos && pos <= last && !fence; pos++)
                 {
                     if( *pos == *sng_pos) sng_pos++;
                     else sng_pos = sng_patt;
@@ -2675,9 +2676,9 @@ int construct_request( struct plan_data *plan)
 #else
         fetch->request = gsub_string( &rc, FETCH_REQUEST_TEMPLATE, subs);
 #endif
+        if( is_redir) fetch->redirect_request = fetch->request;
+        else fetch->primary_request = fetch->request;
     }
-    if( is_redir) fetch->redirect_request = fetch->request;
-    else fetch->primary_request = fetch->request;
 
     if( rc == RC_NORMAL) fetch->request_len = strlen( fetch->request);
 
@@ -3593,9 +3594,10 @@ int main( int narg, char **opts)
 
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
- bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE );
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
-/* bug_control( BUG_FLAG_SET, BUG_OPT_TRCALLS | BUG_OPT_OBSESSIVE | BUG_OPT_TRFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); */
+   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE );
 #endif
 
     /* --- */
@@ -3705,9 +3707,14 @@ int main( int narg, char **opts)
 
     /* --- */
 
-    free_hf_plan_data( plan);
+    if( rc == RC_NORMAL) free_hf_plan_data( plan);
 
     /* --- */
+
+#ifdef DEBUG_MALLOC
+    bug_print_unmarked_data( stdout);
+    printf( "\n");
+#endif
 
     exit( rc);
 }
@@ -3962,7 +3969,7 @@ void free_payload_references( struct payload_breakout *bout)
         bout->response_status = 0;
 
         dblock = bout->header_line;
-        for( off = 0; off < bout->n_headers; off++, dblock++)
+        if( dblock) for( off = 0; off < bout->n_headers; off++, dblock++)
         {
             if( dblock->data)
             {

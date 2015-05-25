@@ -20,8 +20,8 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
  else if(err==SSL_ERROR_WANT_ACCEPT) printf("dbg:: HSE, err=want-accept");
  else if(err==SSL_ERROR_WANT_X509_LOOKUP) printf("dbg:: HSE, err=want-X509");
  else if(err==SSL_ERROR_SYSCALL) printf("dbg:: HSE, err=syscall");
- else if(err ==SSL_ERROR_ZERO_RETURN) printf("dbg:: HSE, err=zero");
- else if(err ==SSL_ERROR_SSL) printf("dbg:: HSE, err=ssl");
+ else if(err==SSL_ERROR_ZERO_RETURN) printf("dbg:: HSE, err=zero");
+ else if(err==SSL_ERROR_SSL) printf("dbg:: HSE, err=ssl");
  else printf("dbg:: HSE, err=other");
  printf(" s:%d e:%d\n", err, errno);
 #endif

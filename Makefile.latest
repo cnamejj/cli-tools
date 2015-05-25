@@ -27,6 +27,7 @@ SVG_H = svg-tools.h
 # ---
 
 #DEBUG_DEFS = -DDEBUG_MALLOC
+#DEBUG_DEFS = -DDEV_DEBUGGING
 DEBUG_DEFS =
 
 OS=$(shell uname)
@@ -36,11 +37,15 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
-CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
+#CFLAGS = -g -Wall -pedantic -I/usr/local/src/debug -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS)) -DDEBUG_MALLOC
+CFLAGS = -g -Wall -pedantic -I/usr/local/src/latest/openssl/include -I/usr/include/libxml2 $(CFLAGS_$(OS))
+#CFLAGS = -g -Wall -pedantic -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug -DDEBUG_MALLOC
 #LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG
-LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
+LDFLAGS = -L /usr/local/src/latest/openssl -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG
+#LDFLAGS = -L /usr/local/src/latest/openssl -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG  /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+#LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
 #LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
 ARCOMM = ar rlc
 
@@ -59,24 +64,24 @@ libs : $(LIBS)
 
 # ---
 
-header-check.log: Makefile check-for-required-things
+header-check.log: Makefile.latest check-for-required-things
 	./check-for-required-things $@
 
 # ---
 
-%.o : %.c Makefile header-check.log %.c $(UBIQ_H) %.h
+%.o : %.c Makefile.latest header-check.log %.c $(UBIQ_H) %.h
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(SOBJS) : % : Makefile header-check.log $(UBIQ_H)
+$(SOBJS) : % : Makefile.latest header-check.log $(UBIQ_H)
 
-$(HTSOBJS) : % : Makefile header-check.log $(UBIQ_H) $(HTS_H)
+$(HTSOBJS) : % : Makefile.latest header-check.log $(UBIQ_H) $(HTS_H)
 
-$(SVGOBJS) : % : Makefile header-check.log $(UBIQ_H) $(SVG_H)
+$(SVGOBJS) : % : Makefile.latest header-check.log $(UBIQ_H) $(SVG_H)
 
-$(SOLOPROGS) : % : %.o Makefile header-check.log $(UBIQ_H) $(LIBS)
+$(SOLOPROGS) : % : %.o Makefile.latest header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile header-check.log $(UBIQ_H) $(LIBS)
+$(PROGS) : % : %.o %.h Makefile.latest header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libCLISUB.a : $(SOBJS) $(HTSOBJS) $(SVGOBJS)

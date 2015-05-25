@@ -333,10 +333,6 @@ int main( int narg, char **opts)
 
     if( rc == RC_NORMAL)
     {
-        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d hex:%d msg(%s)\n",
-          sock, msglen, destlen, ((struct sockaddr_in *)dest)->sin_family, 
-          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->msg_in_hex, plan->message);
-
         if( plan->msg_in_hex)
         {
             out = hexdigits_to_string( &rc, &msglen, plan->message);
@@ -360,6 +356,10 @@ int main( int narg, char **opts)
             out = plan->message;
             msglen = strlen( plan->message);
 	}
+
+        if( plan->debug >= DEBUG_NOISY) fprintf( stderr, "sock:%d mlen:%d dlen:%d dtype:%d dport:%d hex:%d msg(%s)\n",
+          sock, msglen, destlen, ((struct sockaddr_in *)dest)->sin_family, 
+          ntohs(((struct sockaddr_in *)dest)->sin_port), plan->msg_in_hex, plan->message);
     }
 
     if( rc == RC_NORMAL)
