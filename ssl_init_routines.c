@@ -1,7 +1,4 @@
-#include <openssl/ssl.h>
-#include <openssl/engine.h>
-#include <ssl/ssl_locl.h>
-
+#include "http-fetch.h"
 #include "cli-sub.h"
 
 /* --- */
@@ -66,8 +63,13 @@ SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st 
 
             if(callback)
             {
+#ifdef USE_OLD_CODE
                 BIO_set_callback(ssl->rbio, callback);
                 BIO_set_callback(ssl->wbio, callback);
+#else
+                BIO_set_callback(SSL_get_rbio(ssl), callback);
+                BIO_set_callback(SSL_get_wbio(ssl), callback);
+#endif
             }
         }
     }

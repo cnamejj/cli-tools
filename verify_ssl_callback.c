@@ -1,7 +1,8 @@
+#include "http-fetch.h"
 /* #include <openssl/x509.h> */
-#include <openssl/x509v3.h>
+/* #include <openssl/x509v3.h> */
 /* #include <ssl/ssl_locl.h> */
-#include <crypto/x509/x509_lcl.h>
+/* #include <crypto/x509/x509_lcl.h> */
 
 #include "http-fetch.h"
 
@@ -102,8 +103,13 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
             for( exn = 0; exn < excount; exn++)
             {
                 cex = X509_get_ext( cert, exn);
+#ifdef USE_OLD_CODE
                 nid_num = OBJ_obj2nid( cex->object);
                 fprintf( out->info_out, "%sSSL ext, nid=%d name'%s'\n", disp->line_pref, nid_num, OBJ_nid2ln( nid_num));
+#else
+                nid_num = X509_EXTENSION_get_object(cex);
+                fprintf( out->info_out, "%sSSL ext, nid=%d name'%s'\n", disp->line_pref, nid_num, OBJ_nid2ln( nid_num));
+#endif
                 fprintf( out->info_out, "%sSSL ext, val'", disp->line_pref);
                 X509V3_EXT_print_fp( out->info_out, cex, 0, 1);
                 fprintf( out->info_out, "'\n");
