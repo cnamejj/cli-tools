@@ -1,4 +1,4 @@
-\PROGS = quipi send-udp-message capture-udp-port lock-n-run actor http-fetch svg-it
+PROGS = quipi send-udp-message capture-udp-port lock-n-run actor http-fetch svg-it
 SOLOPROGS = iso8859-collapse extended-letters-collapse
 
 SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destination_ip.o \
