@@ -42,6 +42,8 @@ char *get_cgi_data( int *rc)
                 {
                     if( curr_chunk) curr_chunk->next = 0;
                     free_chunk_chain( new_chunk);
+                    if( first_chunk == new_chunk) first_chunk = 0;
+                    new_chunk = 0;
 		}
             }
 	}
@@ -63,6 +65,7 @@ char *get_cgi_data( int *rc)
 		}
 
                 free_chunk_chain( first_chunk);
+                first_chunk = 0;
 	    }
 	}
     }

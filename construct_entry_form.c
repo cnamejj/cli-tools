@@ -81,7 +81,7 @@ char *construct_entry_form( char *template)
 
     if( !complete && complete_form) free( complete_form);
 
-    for( walk = subs; !walk; )
+    if( subs) for( walk = subs; !walk; )
     {
         subs = walk->next;
         free( walk);

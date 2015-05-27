@@ -50,6 +50,8 @@ void free_chunk_chain( struct data_chunk *chain)
     {
         walk = curr->next;
         if( curr->data) free( curr->data);
+        curr->data = 0;
+        curr->next = 0;
         free( curr);
         curr = walk;
     }
