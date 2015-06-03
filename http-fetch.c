@@ -535,6 +535,7 @@ int find_connection( struct plan_data *plan)
         else if( !*req->http_host)
         {
             free( req->http_host);
+            req->http_host = 0;
             empty = 1;
 	}
         else empty = 0;
@@ -542,6 +543,7 @@ int find_connection( struct plan_data *plan)
         if( empty)
         {
             if( req->conn_host) req->http_host = strdup( req->conn_host);
+            else req->http_host = strdup( "");
             if( !req->http_host) rc = ERR_MALLOC_FAILED;
 	}
     }
