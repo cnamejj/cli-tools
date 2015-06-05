@@ -243,7 +243,9 @@ Content-type: text/html\r\n\
 #define IP_V6      2
 
 /* #define READ_BUFF_SIZE 65536 */
-#define READ_BUFF_SIZE 262144
+/* #define READ_BUFF_SIZE 262144 */
+/* #define READ_BUFF_SIZE 524288 */
+#define READ_BUFF_SIZE 1048576
 
 #ifndef SCOPE_LINK
   /* -- Can't use these constants from "in6.h", so hardcode them
