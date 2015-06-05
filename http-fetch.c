@@ -2216,7 +2216,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         else http_rc = plan->partlist->response_status->code;
 
         if( display->show_number) fprintf( out->info_out, "%3d. ", iter);
-        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %5d %6ld %6ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
+        fprintf( out->info_out, "%s %3d %5d %5d %5d %5d %5d %5d %5d %8ld %8ld %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %s\n",
           disp_time, http_rc, dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
           status->response_len, status->response_len - breakout->header_size,
           totrate, totrate_mark, datarate, datarate_mark,
@@ -2508,7 +2508,7 @@ void display_average_stats( int *rc, struct plan_data *plan)
         nloop = (float) profile->fetch_count;
         fprintf( out->info_out, "Average values: ");
         if( display->show_number) fprintf( out->info_out, "  ---");
-        fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %5d %6d %6d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
+        fprintf( out->info_out, " %5d %5d %5d %5d %5d %5d %5d %8d %8d %5.1f%c %5.1f%c %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e %7.5f %9.2e %9.2e\n",
           dns_ms, conn_ms, shake_ms, send_ms, resp_ms, close_ms, complete_ms,
           xfer_mean, payload_mean, totrate, totrate_mark, datarate, datarate_mark,
           profile->packsize_stdev_sum / nloop, profile->packsize_skew_sum / nloop, profile->packsize_kurt_sum / nloop, 
