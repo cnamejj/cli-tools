@@ -1203,6 +1203,8 @@ char *svg_make_data_points( int *rc, struct svg_model *svg, struct series_data *
     char *spots = 0, *template = 0, *acc = 0, *one_line = 0;
     struct sub_list *xpos_sub, *ypos_sub, *subs = 0, *walk = 0;
 
+    ENTER( "svg_make_data_points" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg->svt_circ_elem;
@@ -1275,6 +1277,7 @@ char *svg_make_data_points( int *rc, struct svg_model *svg, struct series_data *
         spots = 0;
     }
 
+    LEAVE( "svg_make_data_points" )
     return( spots );
 }
 
@@ -1722,9 +1725,15 @@ char *svg_render( int *rc, struct svg_model *svg )
       *series_points = 0, *series_lines = 0, *legend_table = 0;
     struct sub_list *subs = 0, *walk = 0, *rule = 0, *pending = 0;
 
+    ENTER( "svg_render" )
+
     if( *rc == RC_NORMAL ) *rc = svg_finalize_model( svg );
 
+    INSUB( "svg_render", "before-make-sublist" )
+
     if( *rc == RC_NORMAL ) subs = svg_make_sublist( rc, svg );
+
+    INSUB( "svg_render", "before-make-xax-labels" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1733,12 +1742,16 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( template ) free( template );
     }
 
+    INSUB( "svg_render", "before-make-yax-labels" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg_make_yax_labels( rc, svg );
         if( *rc == RC_NORMAL) yax_label = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
+
+    INSUB( "svg_render", "before-make-xax-grid" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1747,12 +1760,16 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( template ) free( template );
     }
 
+    INSUB( "svg_render", "before-make-yax-grid" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg_make_yax_grid( rc, svg );
         if( *rc == RC_NORMAL) yax_grid = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
+
+    INSUB( "svg_render", "before-make-data-points" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1761,12 +1778,16 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( template ) free( template );
     }
 
+    INSUB( "svg_render", "before-make-path" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg_make_path_start( rc, svg, svg->series );
         if( *rc == RC_NORMAL) path_start = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
+
+    INSUB( "svg_render", "before-make-data-lines" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1775,12 +1796,16 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( template ) free( template );
     }
 
+    INSUB( "svg_render", "before-make-series-points" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg_make_series_points( rc, svg );
         if( *rc == RC_NORMAL) series_points = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
+
+    INSUB( "svg_render", "before-make-series-lines" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1789,15 +1814,21 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( template ) free( template );
     }
 
+    INSUB( "svg_render", "before-make-xax-mstones" )
+
     if( *rc == RC_NORMAL )
     {
         xax_milestones = svg_make_xax_mstones( rc, svg );
     }
 
+    INSUB( "svg_render", "before-make-yax-mstones" )
+
     if( *rc == RC_NORMAL )
     {
         yax_milestones = svg_make_yax_mstones( rc, svg );
     }
+
+    INSUB( "svg_render", "before-legend" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1805,6 +1836,8 @@ char *svg_render( int *rc, struct svg_model *svg )
         if( *rc == RC_NORMAL) legend_table = gsub_string( rc, template, subs );
         if( template ) free( template );
     }
+
+    INSUB( "svg_render", "before-add-subs" )
 
     if( *rc == RC_NORMAL )
     {
@@ -1823,12 +1856,16 @@ char *svg_render( int *rc, struct svg_model *svg )
         ADD_SUB_PAIR_RULE( S_ST_LEGEND_TABLE, legend_table )
     }
 
+    INSUB( "svg_render", "before-gsub-template" )
+
     if( *rc == RC_NORMAL )
     {
         template = svg->svt_chart;
 
         chart = gsub_string( rc, template, subs );
     }
+
+    INSUB( "svg_render", "before-free" )
 
     for( walk = subs; walk; )
     {

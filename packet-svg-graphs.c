@@ -18,12 +18,15 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
     struct svg_chart_milestone *ckpt;
     struct series_data *series = 0;
 
+    ENTER( "hf_generate_graph" )
+
     if( *rc == RC_NORMAL)
     {
         svg = svg_make_chart();
         if( !svg) *rc = ERR_MALLOC_FAILED;
     }
 
+    INSUB( "hf_generate_graph", "before-add-data" )
     if( *rc == RC_NORMAL) series = svg_add_float_data( rc, svg, cases, xdata, ydata);
 
     if( chopt )
@@ -54,6 +57,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         else if( chopt->ymax_soft != CH_OPT_NO_VALUE && chopt->ymax_soft > svg->ymax ) (void) svg_set_ymax( svg, chopt->ymax_soft );
     }
 
+    INSUB( "hf_generate_graph", "before-titles" )
 
     if( *rc == RC_NORMAL) *rc = svg_set_chart_title( svg, title);
     if( *rc == RC_NORMAL) *rc = svg_set_xax_title( svg, xax_title);
@@ -71,6 +75,7 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         *rc = svg_set_yax_num_grids( svg, num_grids);
     }
 
+    INSUB( "hf_generate_graph", "before-finalize" )
     if( *rc == RC_NORMAL) *rc = svg_finalize_model( svg);
 
     if( *rc == RC_NORMAL)
@@ -103,6 +108,8 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
         if( dataformat) free( dataformat);
     }
 
+    INSUB( "hf_generate_graph", "before-styles" )
+
     if( strcmp( style, SVG_STYLE_DARK))
     {
         if( *rc == RC_NORMAL) *rc = svg_set_circ_line_size( series, GR_ALL_CIRC_LINE_SIZE);
@@ -132,8 +139,10 @@ char *hf_generate_graph( int *rc, int cases, float *xdata, float *ydata, char *s
 	}
     }
 
+    INSUB( "hf_generate_graph", "before-render" )
     if( *rc == RC_NORMAL) svg_doc = svg_render( rc, svg);
 
+    INSUB( "hf_generate_graph", "before-free" )
     if( svg) svg_free_model( svg);
 
     return( svg_doc);
@@ -149,6 +158,8 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
     float *elap = 0, *psize = 0, delta;
     struct chart_options *chopt = 0;
     struct ckpt_chain *stime, *walk;
+
+    ENTER( "make_packet_graph" )
 
     title = combine_strings( rc, GR_PACK_TITLE_LEAD, url);
 
@@ -198,6 +209,7 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
             chopt->data_line_color = strdup( GR_PACK_DATA_LINE_COLOR );
 	}
 
+        INSUB( "make_packet_graph", "before-hf-generate" )
         result = hf_generate_graph( rc, cases, elap, psize, style, title, GR_PACK_XAX_TITLE,
           GR_PACK_YAX_TITLE, chopt );
     }
@@ -207,6 +219,7 @@ char *make_packet_graph( int *rc, char *url, char *style, int ssl, struct fetch_
     if( psize) free( psize);
     if( chopt) free_chart_options( chopt);
 
+    LEAVE( "make_packet_graph" )
     return( result);
 }
 

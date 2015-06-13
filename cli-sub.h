@@ -34,6 +34,28 @@
 
 /* --- */
 
+#ifdef DEBUG_TRACE_CALLS
+
+#include <time.h>
+
+#   define ENTER( NAME ) \
+	time_t dbg_ct_start = time(0); \
+	fprintf(stderr, "Enter: %s\n", NAME ); \
+	
+#   define LEAVE( NAME ) fprintf(stderr, "Leave: %s (%ld)\n", NAME, time(0) - dbg_ct_start );
+
+#   define INSUB( NAME, MSG ) fprintf(stderr, "InSub: %s (%s) (%ld)\n", NAME, MSG, time(0) - dbg_ct_start );
+
+#else
+
+#   define ENTER( NAME )
+#   define LEAVE( NAME )
+#   define INSUB( NAME, MSG )
+
+#endif
+
+/* --- */
+
 #define SUBSET_READ  0x4
 #define SUBSET_WRITE 0x2
 #define SUBSET_EXEC  0x1

@@ -47,6 +47,8 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
     long diff_sec, diff_sub, top = 1000000, now_sec, now_sub;
     static struct timeval now, prev = { 0, 0 };
 
+    ENTER( "debug_timelog" )
+
     seq++;
     (void) gettimeofday( &now, 0);
 
@@ -68,6 +70,7 @@ void debug_timelog( FILE *out, char *prefix, char *tag)
     prev.tv_sec = now.tv_sec;
     prev.tv_usec = now.tv_usec;
 
+    LEAVE( "debug_timelog" )
     return;
 }
 
@@ -85,6 +88,7 @@ void dump_checkpoint_chain( struct plan_data *plan)
     struct display_settings *disp;
     struct ckpt_chain *walk, *prev_app_read = 0, *prev_net_read = 0, *prev = 0;
 
+    ENTER( "dump_checkpoint_chain" )
     out = plan->out;
 
     if( out->debug_level >= DEBUG_HIGH2)
@@ -152,6 +156,7 @@ void dump_checkpoint_chain( struct plan_data *plan)
 	}
     }
 
+    LEAVE( "dump_checkpoint_chain" )
     return;
 }
 
@@ -161,6 +166,8 @@ struct stat_work *alloc_stat_work()
 
 {
     struct stat_work *swork = 0;
+
+    ENTER( "alloc_stat_work" )
 
     swork = (struct stat_work *) malloc( sizeof *swork);
     if( swork)
@@ -191,6 +198,7 @@ struct stat_work *alloc_stat_work()
         swork->readlag_norm_kurt = 0.0;
     }
 
+    LEAVE( "alloc_stat_work" )
     return( swork);
 }
 
@@ -201,6 +209,8 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
 {
     struct target_info *red = 0, *target = 0;
     struct fetch_status *fetch = 0;
+
+    ENTER( "map_target_to_redirect" )
 
     if( *rc == RC_NORMAL && plan->target && plan->redirect)
     {
@@ -249,6 +259,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
 	}
     }
 
+    LEAVE( "map_target_to_redirect" )
     return;
 }
 
@@ -260,6 +271,8 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
     int httprc = 0;
     char *location = 0, *loc_copy = 0;
     struct output_options *out;
+
+    ENTER( "get_redirect_location" )
 
     if( *rc == RC_NORMAL) if( plan) if( plan->partlist) if( plan->partlist->response_status)
     {
@@ -283,6 +296,7 @@ char *get_redirect_location( int *rc, struct plan_data *plan)
 	}
     }
 
+    LEAVE( "get_redirect_location" )
     return( loc_copy);
 }
 
@@ -293,6 +307,8 @@ void display_entry_form()
 {
     char *entry_form = 0;
 
+    ENTER( "display_entry_form" )
+
     entry_form = construct_entry_form( HTML_SCRIPT_FORM_TEMPLATE);
     if( entry_form)
     {
@@ -301,6 +317,7 @@ void display_entry_form()
     }
     else printf( "%s\n", HTML_FORM_GEN_ERROR);
 
+    LEAVE( "display_entry_form" )
     return;
 }
 
@@ -311,6 +328,8 @@ float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, fl
 {
     long diff_sec, diff_sub, top;
     float diff = 0.0;
+
+//    ENTER( "calc_time_difference" )
 
     top = (long) (1.0 / frac_res);
 
@@ -328,6 +347,7 @@ float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, fl
         diff = diff_sec + (frac_res * diff_sub);
     }
 
+//    LEAVE( "calc_time_difference" )
     return( diff);
 }
 
@@ -338,6 +358,8 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff)
 {
     int rc = RC_NORMAL;
     struct data_block *packet = 0;
+
+    ENTER( "add_data_block" )
 
     if( checkpoint)
     {
@@ -363,6 +385,7 @@ int add_data_block( struct ckpt_chain *checkpoint, int len, char *buff)
 	}
     }
 
+    LEAVE( "add_data_block" )
     return( rc);
 }
 
@@ -373,6 +396,8 @@ int add_datalen_block( struct ckpt_chain *checkpoint, int len)
 {
     int rc = RC_NORMAL;
     struct data_block *packet = 0;
+
+    ENTER( "add_datalen_block" )
 
     if( checkpoint)
     {
@@ -389,6 +414,7 @@ int add_datalen_block( struct ckpt_chain *checkpoint, int len)
         if( rc != RC_NORMAL) if( packet) free( packet);
     }
 
+    LEAVE( "add_datalen_block" )
     return( rc);
 }
 
@@ -397,6 +423,7 @@ int add_datalen_block( struct ckpt_chain *checkpoint, int len)
 void free_data_block( struct data_block *detail)
 
 {
+//    ENTER( "free_data_block" )
     if( detail)
     {
         if( detail->data) free( detail->data);
@@ -404,6 +431,7 @@ void free_data_block( struct data_block *detail)
         free( detail);
     }
 
+//    LEAVE( "free_data_block" )
     return;
 }
 
@@ -418,6 +446,7 @@ int find_connection( struct plan_data *plan)
     struct url_breakout *parts = 0;
     struct fetch_status *status = 0;
 
+    ENTER( "find_connection" )
     if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url)
     {
         req = plan->redirect;
@@ -558,6 +587,7 @@ int find_connection( struct plan_data *plan)
         status->last_state |= LS_FIND_CONNECTION;
     }
 
+    LEAVE( "find_connection" )
     return( rc);
 }
 
@@ -574,6 +604,7 @@ int execute_fetch_plan( struct plan_data *plan)
     struct display_settings *disp = 0;
     struct target_info *redirect = 0;
 
+    ENTER( "execute_fetch_plan" )
     /* --- */
 
     runex = plan->run;
@@ -658,6 +689,7 @@ int execute_fetch_plan( struct plan_data *plan)
 
     /* --- */
 
+    LEAVE( "execute_fetch_plan" )
     return( rc);
 }
 
@@ -666,8 +698,10 @@ int execute_fetch_plan( struct plan_data *plan)
 void clear_parsed_headers( int *rc, struct plan_data *plan)
 
 {
+    ENTER( "clear_parsed_headers" )
     if( *rc == RC_NORMAL && plan->partlist) free_payload_references( plan->partlist);
 
+    LEAVE( "clear_parsed_headers" )
     return;
 }
 
@@ -686,6 +720,7 @@ void clear_counters( int *rc, struct plan_data *plan)
     struct timeval now;
 #endif
 
+    ENTER( "clear_counters" )
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
@@ -742,6 +777,7 @@ void clear_counters( int *rc, struct plan_data *plan)
 
     if( *rc == RC_NORMAL) status->last_state |= LS_CKPT_SETUP;
 
+    LEAVE( "clear_counters" )
     return;
 }
 
@@ -761,6 +797,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
     struct sockaddr_in6 *sock6 = 0;
     struct display_settings *disp = 0;
 
+    ENTER( "lookup_connect_host" )
     if( *rc == RC_NORMAL)
     {
         memset( display_ip, EOS_CH, (sizeof display_ip));
@@ -935,6 +972,7 @@ void lookup_connect_host( int *rc, struct plan_data *plan)
         if( *rc == RC_NORMAL) status->last_state |= LS_CONNECT_LOOKUP;
     }
 
+    LEAVE( "lookup_connect_host" )
     return;
 }
 
@@ -958,6 +996,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
     struct sockaddr_in6 sock6;
     struct display_settings *disp = 0;
 
+    ENTER( "connect_to_server" )
     memset( &sock4, EOS_CH, sizeof sock4);
     memset( &sock6, EOS_CH, sizeof sock6);
 
@@ -1154,6 +1193,7 @@ void connect_to_server( int *rc, struct plan_data *plan)
         if( *rc == RC_NORMAL) *rc = capture_checkpoint( status, EVENT_CONNECT_SERVER);
     }
 
+    LEAVE( "connect_to_server" )
     return;
 }
 
@@ -1172,6 +1212,7 @@ void send_request( int *rc, struct plan_data *plan)
     struct exec_controls *runex = 0;
     SSL *ssl;
 
+    ENTER( "send_request" )
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
@@ -1245,6 +1286,7 @@ void send_request( int *rc, struct plan_data *plan)
         if( *rc == RC_NORMAL) *rc = capture_checkpoint( status, EVENT_REQUEST_SENT);
     }
 
+    LEAVE( "send_request" )
     return;
 }
 
@@ -1260,6 +1302,7 @@ void wait_for_reply( int *rc, struct plan_data *plan)
     struct exec_controls *runex = 0;
     struct display_settings *disp = 0;
 
+    ENTER( "wait_for_reply" )
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
@@ -1300,6 +1343,7 @@ void wait_for_reply( int *rc, struct plan_data *plan)
 	}
     }
 
+    LEAVE( "wait_for_reply" )
     return;
 }
 
@@ -1318,6 +1362,7 @@ void pull_response( int *rc, struct plan_data *plan)
     struct target_info *targ = 0;
     SSL *ssl;
 
+    ENTER( "pull_response" )
     buff = (char *) malloc( buffsize);
     if( !buff) *rc = ERR_MALLOC_FAILED;
 
@@ -1461,6 +1506,7 @@ void pull_response( int *rc, struct plan_data *plan)
         buff = 0;
     }
 
+    LEAVE( "pull_response" )
     return;
 }
 
@@ -1476,6 +1522,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
     struct data_block *detail = 0;
     struct chain_position *result = 0;
 
+    ENTER( "find_header_break" )
     result = (struct chain_position *) malloc( sizeof *result);
     if( result)
     {
@@ -1520,6 +1567,7 @@ struct chain_position *find_header_break( struct ckpt_chain *chain)
         result = 0;
     }
 
+    LEAVE( "find_header_break" )
     return( result);
 }
 
@@ -1547,6 +1595,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     struct target_info *targ = 0;
     struct stat_work *reg_stats = 0, *ssl_stats = 0, *act_stats = 0;
 
+    ENTER( "stats_from_packets" )
     if( *rc == RC_NORMAL)
     {
         display = plan->disp;
@@ -1758,6 +1807,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
         free( ssl_stats);
     }
 
+    LEAVE( "stats_from_packets" )
     return;
 }
 
@@ -1771,6 +1821,7 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
     char *line = 0, *st = 0;
     struct ckpt_chain *walk = 0;
 
+    ENTER( "string_from_data_blocks" )
     if( st_block == en_block)
     {
         size = (en_pos - st_pos);
@@ -1828,6 +1879,7 @@ char *string_from_data_blocks( struct ckpt_chain *st_block, char *st_pos, struct
 	}
     }
 
+    LEAVE( "string_from_data_blocks" )
     return( line);
 }
 
@@ -1847,6 +1899,7 @@ struct data_block *dbg_xx = 0;
     struct ckpt_chain *walk = 0, *st_block = 0;
     struct data_block *headset = 0;
 
+    ENTER( "split_out_header_lines" )
     if( !chain || !breakout) result = ERR_UNSUPPORTED;
     else
     {
@@ -1944,6 +1997,7 @@ printf( "%sdbg:: headers:%d data-block-size:%d total:%d\n", prefix, nhead, dbg_s
         breakout->header_line = headset;
     }
 
+    LEAVE( "split_out_header_lines" )
     return( result);
 }
 
@@ -1955,6 +2009,7 @@ int parse_http_response( struct payload_breakout *breakout)
     int result = RC_NORMAL;
     char *response = 0;
 
+    ENTER( "parse_http_response" )
     if( !breakout) result = ERR_UNSUPPORTED;
     else
     {
@@ -1984,6 +2039,7 @@ int parse_http_response( struct payload_breakout *breakout)
         if( !breakout->content_type) breakout->content_type = DEF_CONTENT_TYPE;
     }
 
+    LEAVE( "parse_http_response" )
     return( result);
 }
 
@@ -1996,6 +2052,7 @@ char *find_http_header( struct payload_breakout *breakout, char *which)
     char *result = 0, *st = 0;
     struct data_block *headset;
 
+    ENTER( "find_http_header" )
     if( which) if( *which)
     {
         hsize = strlen( which);
@@ -2015,6 +2072,7 @@ char *find_http_header( struct payload_breakout *breakout, char *which)
 	}
     }
 
+    LEAVE( "find_http_header" )
     return( result);
 }
 
@@ -2027,6 +2085,7 @@ int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *chai
     char *fence = 0;
     struct ckpt_chain *walk = 0, *last = 0;
 
+    ENTER( "find_header_size" )
     if( breakout && chain) if( breakout->head_spot)
     {
         last = breakout->head_spot->chain;
@@ -2038,6 +2097,7 @@ int find_header_size( struct payload_breakout *breakout, struct ckpt_chain *chai
         if( walk == last) size += fence - walk->detail->data;
     }
 
+    LEAVE( "find_header_size" )
     return( size);
 }
 
@@ -2052,6 +2112,7 @@ void parse_payload( int *rc, struct plan_data *plan)
     struct data_block *header;
     struct display_settings *disp = 0;
 
+    ENTER( "parse_payload" )
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
@@ -2090,6 +2151,7 @@ void parse_payload( int *rc, struct plan_data *plan)
           SPSP( breakout->content_type), SPSP( breakout->trans_encoding));
     }
 
+    LEAVE( "parse_payload" )
     return;
 }
 
@@ -2121,6 +2183,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     struct chain_position *head_spot = 0;
     struct tm local_wall_start;
 
+    ENTER( "display_output" )
     if( *rc == RC_NORMAL)
     {
         status = plan->status;
@@ -2226,6 +2289,8 @@ void display_output( int *rc, struct plan_data *plan, int iter)
           url);
     }
 
+    INSUB( "display_output", "before-show-packetime" )
+
     if( *rc == RC_NORMAL && display->show_packetime)
     {
 #ifdef ALWAYS_SHOW_APP_PACKETS
@@ -2311,19 +2376,26 @@ void display_output( int *rc, struct plan_data *plan, int iter)
 
     if( *rc == RC_NORMAL && display->show_svg)
     {
+        INSUB( "display_output", "before-graph-packets" )
         packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        INSUB( "display_output", "before-graph-accum" )
         accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        INSUB( "display_output", "before-graph-packsize" )
         psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        INSUB( "display_output", "before-graph-readwait" )
         rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
 
         if( *rc == RC_NORMAL) fprintf( out->svg_out, "</pre>%s\n%s\n%s\n%s\n<pre>", packet_graph,
           accdata_graph, psize_freq_graph, rwait_freq_graph);
 
+        INSUB( "display_output", "before-free-graphs" )
         if( packet_graph) free( packet_graph);
         if( accdata_graph) free( accdata_graph);
         if( psize_freq_graph) free( psize_freq_graph);
         if( rwait_freq_graph) free( rwait_freq_graph);
     }
+
+    INSUB( "display_output", "before-show-head/data" )
 
     if( *rc == RC_NORMAL && (display->show_head || display->show_data))
     {
@@ -2431,6 +2503,7 @@ printf( "::dbg Build up chunk len, pos'%c' build: %d = %d + %d\n", *pos, dbg_bui
 	}
     }
 
+    LEAVE( "display_output" )
     return;
 }
 
@@ -2447,6 +2520,7 @@ void display_average_stats( int *rc, struct plan_data *plan)
     struct summary_stats *profile = 0;
     struct output_options *out = 0;
 
+    ENTER( "display_average_stats" )
     if( *rc == RC_NORMAL)
     {
         display = plan->disp;
@@ -2515,6 +2589,9 @@ void display_average_stats( int *rc, struct plan_data *plan)
           profile->readlag_stdev_sum / nloop, profile->readlag_skew_sum / nloop, profile->readlag_kurt_sum / nloop, 
           profile->xfrate_stdev_sum / nloop, profile->xfrate_skew_sum / nloop, profile->xfrate_kurt_sum / nloop);
     }
+
+    LEAVE( "display_average_stats" )
+    return;
 }
 
 /* --- */
@@ -2531,6 +2608,7 @@ int construct_request( struct plan_data *plan)
     struct sub_list *subs = 0, *walk = 0;
     struct value_chain *chain = 0;
 
+    ENTER( "construct_request" )
     /* --- */
 
     if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url)
@@ -2702,6 +2780,7 @@ int construct_request( struct plan_data *plan)
 
     /* --- */
 
+    LEAVE( "construct_request" )
     return( rc);
 }
 
@@ -2722,6 +2801,7 @@ struct plan_data *allocate_hf_plan_data()
     struct summary_stats *profile = 0;
     struct http_status_response *resp_status = 0;
 
+    ENTER( "allocate_hf_plan_data" )
     /* --- */
 
     plan = (struct plan_data *) malloc( sizeof *plan);
@@ -2968,6 +3048,7 @@ struct plan_data *allocate_hf_plan_data()
         profile->xfrate_kurt_sum = 0.0;
     }
 
+    LEAVE( "allocate_hf_plan_data" )
     return( plan);
 }
 
@@ -3031,6 +3112,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
     struct fetch_status *status = 0;
     struct interface_info *dev_info = 0;
 
+    ENTER( "figure_out_plan" )
     /* --- */
 
     plan = allocate_hf_plan_data();
@@ -3491,6 +3573,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
 
     /* --- */
 
+    LEAVE( "figure_out_plan" )
     return( plan);
 }
 
@@ -3508,6 +3591,7 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
     struct timeval now;
 #endif
 
+    ENTER( "capture_checkpoint" )
     anchor = status->lastcheck;
     if( !anchor)
     {
@@ -3564,6 +3648,7 @@ int capture_checkpoint( struct fetch_status *status, int event_type)
 	}
     }
 
+    LEAVE( "capture_checkpoint" )
     return( rc);
 }
 
@@ -3574,8 +3659,10 @@ struct plan_data *register_current_plan( struct plan_data *update)
 {
     static struct plan_data *current_plan = 0;
 
+    ENTER( "register_current_plan" )
     if( update) current_plan = update;
 
+    LEAVE( "register_current_plan" )
     return( current_plan);
 }
 
@@ -3602,6 +3689,7 @@ int main( int narg, char **opts)
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE ); */
 #endif
 
+    ENTER( "http-fetch" )
     /* --- */
 
     plan = figure_out_plan( &rc, narg, opts);
@@ -3718,6 +3806,7 @@ int main( int narg, char **opts)
     printf( "\n");
 #endif
 
+    LEAVE( "http-fetch" )
     exit( rc);
 }
 
@@ -3726,6 +3815,7 @@ int main( int narg, char **opts)
 void free_target_data( struct target_info *targ)
 
 {
+    ENTER( "free_target_data" )
     if( targ)
     {
         if( targ->http_host) free( targ->http_host);
@@ -3760,6 +3850,7 @@ void free_target_data( struct target_info *targ)
         free( targ);
     }
 
+    LEAVE( "free_target_data" )
     return;
 }
 
@@ -3768,6 +3859,7 @@ void free_target_data( struct target_info *targ)
 void free_display_data( struct display_settings *disp)
 
 {
+    ENTER( "free_display_data" )
     if( disp)
     {
         if( disp->line_pref)
@@ -3779,6 +3871,7 @@ void free_display_data( struct display_settings *disp)
         free( disp);
     }
 
+    LEAVE( "free_display_data" )
     return;
 }
 
@@ -3787,6 +3880,7 @@ void free_display_data( struct display_settings *disp)
 void free_interface_data( struct interface_info *dinfo)
 
 {
+    ENTER( "free_interface_data" )
     if( dinfo)
     {
         if( dinfo->name)
@@ -3800,6 +3894,7 @@ void free_interface_data( struct interface_info *dinfo)
         free( dinfo);
     }
 
+    LEAVE( "free_interface_data" )
     return;
 }
 
@@ -3808,6 +3903,7 @@ void free_interface_data( struct interface_info *dinfo)
 void free_exec_data( struct exec_controls *run)
 
 {
+    ENTER( "free_exec_data" )
     if( run)
     {
         if( run->client_ip) free( run->client_ip);
@@ -3825,6 +3921,7 @@ void free_exec_data( struct exec_controls *run)
         free( run);
     }
 
+    LEAVE( "free_exec_data" )
     return;
 }
 
@@ -3833,6 +3930,7 @@ void free_exec_data( struct exec_controls *run)
 void free_output_data( struct output_options *out)
 
 {
+    ENTER( "free_output_data" )
     if( out)
     {
         if( out->svg_file) free( out->svg_file);
@@ -3844,6 +3942,7 @@ void free_output_data( struct output_options *out)
         free( out);
     }
 
+    LEAVE( "free_output_data" )
     return;
 }
 
@@ -3854,6 +3953,7 @@ void free_checkpoint_chain( struct ckpt_chain *chain)
 {
     struct ckpt_chain *walk, *curr;
 
+    ENTER( "free_checkpoint_chain" )
     for( walk = chain; walk; )
     {
         curr = walk;
@@ -3866,6 +3966,7 @@ void free_checkpoint_chain( struct ckpt_chain *chain)
         free( curr);
     }
 
+    LEAVE( "free_checkpoint_chain" )
     return;
 }
 
@@ -3874,6 +3975,7 @@ void free_checkpoint_chain( struct ckpt_chain *chain)
 void free_fstat_data( struct fetch_status *fetch)
 
 {
+    ENTER( "free_fstat_data" )
     if( fetch)
     {
         if( fetch->err_msg) free( fetch->err_msg);
@@ -3895,6 +3997,7 @@ void free_fstat_data( struct fetch_status *fetch)
         free( fetch);
     }
 
+    LEAVE( "free_fstat_data" )
     return;
 }
 
@@ -3903,6 +4006,7 @@ void free_fstat_data( struct fetch_status *fetch)
 void free_chain_position( struct chain_position *cpos)
 
 {
+    ENTER( "free_chain_position" )
     if( cpos)
     {
         /* Both "position" and "chain" are pointers to data, but they just ref
@@ -3914,6 +4018,7 @@ void free_chain_position( struct chain_position *cpos)
         free( cpos);
     }
 
+    LEAVE( "free_chain_position" )
     return;
 }
 
@@ -3922,6 +4027,7 @@ void free_chain_position( struct chain_position *cpos)
 void free_http_status_response( struct http_status_response *resp)
 
 {
+    ENTER( "free_http_status_response" )
     if( resp)
     {
         if( resp->version) free( resp->version);
@@ -3933,6 +4039,7 @@ void free_http_status_response( struct http_status_response *resp)
         free( resp);
     }
 
+    LEAVE( "free_http_status_response" )
     return;
 }
 
@@ -3941,12 +4048,14 @@ void free_http_status_response( struct http_status_response *resp)
 void free_payload_data( struct payload_breakout *bout)
 
 {
+    ENTER( "free_payload_data" )
     if( bout)
     {
         free_payload_references( bout);
         free( bout);
     }
 
+    LEAVE( "free_payload_data" )
     return;
 }
 
@@ -3958,6 +4067,7 @@ void free_payload_references( struct payload_breakout *bout)
     int off;
     struct data_block *dblock = 0;
 
+    ENTER( "free_payload_references" )
     if( bout)
     {
         /* Just clear these pointers, they don't own the data */
@@ -3984,6 +4094,7 @@ void free_payload_references( struct payload_breakout *bout)
         bout->header_line = 0;
     }
 
+    LEAVE( "free_payload_references" )
     return;
 }
 
@@ -3992,6 +4103,7 @@ void free_payload_references( struct payload_breakout *bout)
 void free_hf_plan_data( struct plan_data *plan)
 
 {
+    ENTER( "free_hf_plan_data" )
     if( plan)
     {
         free_target_data( plan->target);
@@ -4016,5 +4128,6 @@ void free_hf_plan_data( struct plan_data *plan)
         plan = 0;
     }
 
+    LEAVE( "free_hf_plan_data" )
     return;
 }
