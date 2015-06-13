@@ -177,6 +177,8 @@
 #define INT_DISPLAY_SIZE 20
 #define FLOAT_DISPLAY_SIZE 30
 
+#define NO_PATT_MATCH -1
+
 /* --- */
 
 struct value_chain {
@@ -234,6 +236,12 @@ struct string_parts {
    int np;
    char **list;
 };
+
+struct sub_list_reference {
+    struct sub_list *patt;
+    char *ref;
+};
+
 
 /* --- */
 

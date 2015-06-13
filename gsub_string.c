@@ -13,26 +13,16 @@
 #include "cli-sub.h"
 #include "err_ref.h"
 
-struct match_list {
-    struct sub_list *patt;
-    char *ref;
-};
-
-#define NO_PATT_MATCH -1
-
 /* --- */
 
 char *gsub_string( int *rc, char *template, struct sub_list *patts)
 
 {
-    int final_len = 0, backlen = 0, max_patt_len = 0, n_patt = 0, lrc = RC_NORMAL,
-      seq, next_seq, asis = 0;
-    char *next_sub = 0, *remaining = 0, *end_of_template = 0, *eos = 0, *result = 0,
-      *check_sub, *blockpoint = 0, blockhold = '\0', *last_possible = 0, *next_loc = 0;
-int dbg_seq;
-char dbg_buff[256], *dbg_last = 0;
-    struct sub_list *walk = 0, *curr_patt = 0, *next_patt = 0;
-    struct match_list *plist = 0;
+    int final_len = 0, max_patt_len = 0, n_patt = 0, lrc = RC_NORMAL, seq,
+       next_seq, asis = 0;
+    char *remaining = 0, *end_of_template = 0, *eos = 0, *result = 0, *next_loc = 0;
+    struct sub_list *walk = 0, *next_patt = 0;
+    struct sub_list_reference *plist = 0;
 
     ENTER( "gsub_string" )
 
@@ -44,7 +34,7 @@ char dbg_buff[256], *dbg_last = 0;
         if( strlen(walk->from) > max_patt_len ) max_patt_len = strlen(walk->from);
     }
 
-    plist = (struct match_list *) malloc( n_patt * (sizeof *plist) );
+    plist = (struct sub_list_reference *) malloc( n_patt * (sizeof *plist) );
     if( !plist ) lrc = ERR_MALLOC_FAILED;
     else
     {
@@ -58,37 +48,6 @@ char dbg_buff[256], *dbg_last = 0;
 
     if( lrc == RC_NORMAL )
     {
-        /* --- */
-#ifdef INCLUDE_UGLY_DEBUG
-        {
-            int dbg_pcount = 0, dbg_ll = 0;
-            char *dbg_st = 0;
-            for( walk = patts; walk; walk = walk->next) dbg_pcount++;
-            fprintf(stderr, "dbg:: gsub-string: template(%ld) #patts(%d)\n", strlen(template), dbg_pcount);
-
-            fprintf(stderr, "\n- - - - -\n");
-            for(dbg_st = template; *dbg_st; dbg_st++)
-            {
-                fputc(*dbg_st, stderr);
-                if(*dbg_st == '\n') dbg_ll = 0;
-                else if(dbg_ll < 80) dbg_ll++;
-                else
-                {
-                    fputc('\n', stderr);
-                    dbg_ll = 0;
-                }
-            }
-            fprintf(stderr, "\n- - - -\n");
-
-            dbg_pcount = 0;
-            for( walk = patts; walk; walk = walk->next)
-            {
-                dbg_pcount++;
-                fprintf(stderr, "dbg:: gsub-string: p#%d f(%s) t(%s)\n", dbg_pcount, walk->from, walk->to);
-            }
-        }
-#endif
-
         /* Caculate how large the template will be after all the substitutions */
 
         final_len = strlen(template);
@@ -141,7 +100,6 @@ char dbg_buff[256], *dbg_last = 0;
                 walk = walk->next;
             }
 
-dbg_last = result + final_len;
             for( remaining = template; remaining; )
             {
                 next_loc = end_of_template;
@@ -168,20 +126,14 @@ dbg_last = result + final_len;
                 {
                     strncpy( eos, remaining, asis );
                     eos += asis;
-*eos = '\0';
-// fprintf(stderr, "dbg:: gsub_string: build: asis %d r(%s)\n", asis, result);
-// if(remaining + asis > dbg_last) fprintf(stderr, "dbg:: gsub_string: asis over-run %x > %x\n", remaining + asis, dbg_last);
 		}
 
                 if( next_seq == NO_PATT_MATCH ) remaining = 0;
                 else
                 {
                     strcpy( eos, next_patt->to);
-// if(eos + strlen(next_patt->to) > dbg_last) fprintf(stderr, "dbg:: gsub_string: subs over-run %x > %x f(%s) t(%s) r(%s) p(%s)\n", eos + strlen(next_patt->to), dbg_last, 
-//  next_patt->from, next_patt->to, eos, template);
                     eos += strlen( next_patt->to);
                     remaining = next_loc + strlen(next_patt->from);
-// if(remaining > dbg_last) fprintf(stderr, "dbg:: gsub_string: incr over-run %x > %x\n", remaining, dbg_last);
                     plist[next_seq].ref = 0;
 		}
 	    }
