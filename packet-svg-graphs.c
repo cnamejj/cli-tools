@@ -441,7 +441,7 @@ char *make_rwait_freq_graph( int *rc, char *url, char *style, int ssl, struct fe
 {
     int event, off, cases, spot, heaps;
     char *result = 0, *title = 0;
-    float *waitfreq = 0, *bracket = 0, span, delta, dmin, dmax;
+    float *waitfreq = 0, *bracket = 0, span, delta, dmin= 0.0, dmax = 0.0;
     struct ckpt_chain *walk, *prev = 0;
     struct chart_options *chopt = 0;
 
