@@ -27,6 +27,7 @@
 #include <libxml/parser.h>
 #endif
 #include <poll.h>
+#include <time.h>
 
 #ifdef DEBUG_MALLOC
 #include "bug_malloc.h"
@@ -178,6 +179,17 @@
 #define FLOAT_DISPLAY_SIZE 30
 
 #define NO_PATT_MATCH -1
+
+#define DTYPE_AUTO -1
+#define DTYPE_FLOAT 0
+#define DTYPE_FIXED 1
+#define DTYPE_TIME 2
+
+#define IS_DTYPE_FLOAT "float:"
+#define IS_DTYPE_FIXED "int:"
+#define IS_DTYPE_TIME "time:"
+
+#define CLOCK_DISPLAY_SIZE 128
 
 /* --- */
 
@@ -344,6 +356,10 @@ char *combine_strings( int *rc, char *lead, char *trail);
 char *string_from_int( int *rc, int number, char *format);
 
 char *string_from_float( int *rc, float number, char *format);
+
+char *string_from_clock( int *rc, time_t number, char *format);
+
+char *string_from_typed_format( int *rc, void *number, int dtype, char *format);
 
 struct string_parts *explode_string( int *rc, char *string, char *delim);
 

@@ -100,6 +100,8 @@ static struct context_info context_list[] =
 #define OP_LEGEND      33
 #define OP_LSCALE      34
 #define OP_DSNAME      35
+#define OP_XLAB_FORMAT 36
+#define OP_YLAB_FORMAT 37
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -137,6 +139,8 @@ static struct context_info context_list[] =
 #define FL_LEGEND      "legend"
 #define FL_LSCALE      "lscale"
 #define FL_DSNAME      "series"
+#define FL_XLAB_FORMAT "xlab-format"
+#define FL_YLAB_FORMAT "ylab-format"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -174,6 +178,8 @@ static struct context_info context_list[] =
 #define DEF_LEGEND      "0"
 #define DEF_LSCALE      "20"
 #define DEF_DSNAME      ""
+#define DEF_XLAB_FORMAT ""
+#define DEF_YLAB_FORMAT ""
 
 #define DATABUFFSIZE 8192
 
@@ -384,6 +390,10 @@ Options are:\n\
   <--circle-line-size ##>\n\
   <--data-line-size ##>\n\
   <--only-all-good> | <--no-only-all-good>\n\
+  <--xmin ##>\n\
+  <--xmax ##>\n\
+  <--ymin ##>\n\
+  <--ymax ##>\n\
   <--width ##>\n\
   <--height ##>\n\
   <--display-width ##>\n\
@@ -412,6 +422,10 @@ Basically, treat each series (defined by an X/Y column pair) independently.\n\
 The default values for the boolean flags are, --xdata, --ydata,\n\
 --no-ignore-bad-data and --only-good-data.\n\
 \n\
+The software will scan the data to automatically come up with the min/max\n\
+values for the X and Y axis.  You can use --xmin, --xmax, --ymin, and --ymax\n\
+to override those settings if you want to truncate data or add space.\n\
+\n\
 Flags --width and --height specify the size of chart in pixels, used in the\n\
 'viewbox' parameter of the SVG document.  Flags --display-width and\n\
 --display-height indicate how browsers should render the chart relative to the\n\
@@ -438,13 +452,13 @@ struct parsed_options {
     int debug, help, xax_grids, yax_grids, *x_col_list, *y_col_list,
       x_data, y_data, ign_bad_data, nseries, circ_radius, circ_line_size,
       data_line_size, only_all_good, chart_width, chart_height, html_out,
-      has_legend, legend_scale;
+      has_legend, legend_scale, xtick_type, ytick_type;
     float circ_line_alpha, circ_fill_alpha, data_line_alpha,
       data_fill_alpha;
     double fix_xmin, fix_xmax, fix_ymin, fix_ymax;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
       *x_col_req, *y_col_req, *delim, *display_width, *display_height,
-      *raw_data, *raw_eol;
+      *raw_data, *raw_eol, *xtick_format, *ytick_format;
     struct value_chain *dsname;
 };
 
@@ -490,6 +504,8 @@ void free_command_flags( struct option_set *ops, int nflags );
 void clear_parsed_options( struct parsed_options *popt );
 
 char *gen_data_series_desc( int *rc, int dsid, int xin, int yin );
+
+void set_label_format_type( struct parsed_options *popt );
 
 /* --- */
 

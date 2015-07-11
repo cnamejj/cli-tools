@@ -17,6 +17,50 @@
 
 /* --- */
 
+void set_label_format_type( struct parsed_options *popt )
+
+{
+    int format_type[2], off;
+    char *tick_format[2], *sp;
+
+    tick_format[0] = popt->xtick_format;
+    tick_format[1] = popt->ytick_format;
+
+    format_type[0] = DTYPE_AUTO;
+    format_type[1] = DTYPE_AUTO;
+
+    for( off = 0; off <= 1; off++)
+    {
+        sp = tick_format[off];
+
+        if( !strncmp( sp, IS_DTYPE_TIME, strlen(IS_DTYPE_TIME) ) )
+        {
+            tick_format[off] += strlen(IS_DTYPE_TIME);
+            format_type[off] = DTYPE_TIME;
+	}
+        else if( !strncmp( sp, IS_DTYPE_FLOAT, strlen(IS_DTYPE_FLOAT) ) )
+        {
+            tick_format[off] += strlen(IS_DTYPE_FLOAT);
+            format_type[off] = DTYPE_FLOAT;
+	}
+        else if( !strncmp( sp, IS_DTYPE_FIXED, strlen(IS_DTYPE_FIXED) ) )
+        {
+            tick_format[off] += strlen(IS_DTYPE_FIXED);
+            format_type[off] = DTYPE_FIXED;
+	}
+    }
+
+    popt->xtick_format = tick_format[0];
+    popt->xtick_type = format_type[0];
+
+    popt->ytick_format = tick_format[1];
+    popt->ytick_type = format_type[1];
+
+    return;
+}
+
+/* --- */
+
 char *context_desc( int context )
 
 {
@@ -594,6 +638,8 @@ int main( int narg, char **opts )
       { OP_LEGEND,      OP_TYPE_FLAG,  OP_FL_BLANK,   FL_LEGEND,      0, DEF_LEGEND,      0, 0 },
       { OP_LSCALE,      OP_TYPE_INT,   OP_FL_BLANK,   FL_LSCALE,      0, DEF_LSCALE,      0, 0 },
       { OP_DSNAME,      OP_TYPE_CHAR,  OP_FL_REPEATS, FL_DSNAME,      0, DEF_DSNAME,      0, 0 },
+      { OP_XLAB_FORMAT, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_XLAB_FORMAT, 0, DEF_XLAB_FORMAT, 0, 0 },
+      { OP_YLAB_FORMAT, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_YLAB_FORMAT, 0, DEF_YLAB_FORMAT, 0, 0 },
     };
     struct option_set *co, *co_leg;
     struct parsed_options popt;
@@ -640,6 +686,8 @@ int main( int narg, char **opts )
     popt.has_legend = 0;
     popt.legend_scale = 0;
     popt.dsname = 0;
+    popt.xtick_type = popt.ytick_type = 0;
+    popt.xtick_format = popt.ytick_format = 0;
 
     context = DO_PARSE_COMMAND;
 
@@ -822,6 +870,14 @@ int main( int narg, char **opts )
 	}
     }
 
+    co = get_matching_option( OP_XLAB_FORMAT, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.xtick_format = (char *) co->parsed;
+
+    co = get_matching_option( OP_YLAB_FORMAT, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.ytick_format = (char *) co->parsed;
+
     co = get_matching_option( OP_DSNAME, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.dsname = (struct value_chain *) co->parsed;
@@ -837,9 +893,15 @@ int main( int narg, char **opts )
     if( !popt.display_height ) popt.display_height = empty_string;
     if( !popt.raw_data ) popt.raw_data = empty_string;
     if( !popt.raw_eol ) popt.raw_eol = empty_string;
+    if( !popt.xtick_format ) popt.xtick_format = empty_string;
+    if( !popt.ytick_format ) popt.xtick_format = empty_string;
 
     if( !popt.delim ) popt.delim = empty_string;
     if( !*popt.delim ) popt.delim = def_data_delim;
+
+    /* --- */
+
+    set_label_format_type( &popt );
 
     /* --- */
 
@@ -962,6 +1024,11 @@ int main( int narg, char **opts )
     context = DO_CONFIGURE_CHART;
 
     /* --- */
+
+    if( rc == RC_NORMAL ) rc = svg_set_xax_format_type( svg, popt.xtick_type );
+    if( rc == RC_NORMAL ) rc = svg_set_xax_disp( svg, popt.xtick_format );
+    if( rc == RC_NORMAL ) rc = svg_set_yax_format_type( svg, popt.ytick_type );
+    if( rc == RC_NORMAL ) rc = svg_set_yax_disp( svg, popt.ytick_format );
 
     if( rc == RC_NORMAL ) rc = svg_set_text_color( svg, SC_TEXT_COLOR );
     if( rc == RC_NORMAL ) rc = svg_set_axis_color( svg, SC_AXIS_COLOR );
@@ -1200,6 +1267,8 @@ void clear_parsed_options( struct parsed_options *popt )
         popt->display_height = 0;
         popt->raw_data = 0;
         popt->raw_eol = 0;
+        popt->xtick_format = 0;
+        popt->ytick_format = 0;
     }
 
     return;

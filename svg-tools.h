@@ -391,7 +391,8 @@ struct svg_model
       has_legend, legend_scale,
       leg_gap, leg_cont_gap, leg_col_pad, leg_row_pad,
       leg_circ_col, leg_cont_width, leg_cont_left_col, leg_cont_top_row, leg_font_scale, leg_label_floor,
-      leg_left_col, leg_line_len, leg_width, leg_series_desc_col, leg_line_height, leg_line_pad;
+      leg_left_col, leg_line_len, leg_width, leg_series_desc_col, leg_line_height, leg_line_pad,
+      xax_format_type, yax_format_type;
 
     float axis_alpha, graph_alpha, chart_alpha, text_alpha,
       x_gridline_alpha, y_gridline_alpha;
@@ -464,6 +465,8 @@ int svg_set_x_gridline_color(struct svg_model *svg, char *val);
 int svg_set_y_gridline_color(struct svg_model *svg, char *val);
 int svg_set_xax_disp(struct svg_model *svg, char *val);
 int svg_set_yax_disp(struct svg_model *svg, char *val);
+int svg_set_xax_format_type(struct svg_model *svg, int val);
+int svg_set_yax_format_type(struct svg_model *svg, int val);
 int svg_set_screen_width(struct svg_model *svg, char *val);
 int svg_set_screen_height(struct svg_model *svg, char *val);
 int svg_set_xax_num_grids(struct svg_model *svg, int size);
@@ -521,6 +524,8 @@ char *svg_get_x_gridline_color(struct svg_model *svg);
 char *svg_get_y_gridline_color(struct svg_model *svg);
 char *svg_get_xax_disp(struct svg_model *svg);
 char *svg_get_yax_disp(struct svg_model *svg);
+int svg_get_xax_format_type(struct svg_model *svg);
+int svg_get_yax_format_type(struct svg_model *svg);
 char *svg_get_screen_width(struct svg_model *svg);
 char *svg_get_screen_height(struct svg_model *svg);
 int svg_get_xax_num_grids(struct svg_model *svg);

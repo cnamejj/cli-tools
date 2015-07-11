@@ -166,6 +166,8 @@ struct svg_model *svg_make_chart()
         svg->has_legend = DEF_HAS_LEGEND;
         svg->legend_scale = DEF_LEGEND_SCALE;
         svg->reserve_leg_width = 0;
+        svg->xax_format_type = DTYPE_AUTO;
+        svg->yax_format_type = DTYPE_AUTO;
 
         svg->leg_gap = DEF_LEG_GAP;
         svg->leg_cont_gap = DEF_LEG_CONT_GAP;
@@ -840,7 +842,11 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
+#ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->yax_disp );
+#else
+        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->yax_format_type, svg->yax_disp );
+#endif
         if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
         else svg_part = gsub_string( rc, template, first_ypos );
     }
@@ -850,7 +856,11 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
         label += label_incr;
 
         if( label_sub->to ) free( label_sub->to );
+#ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->yax_disp );
+#else
+        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->yax_format_type, svg->yax_disp );
+#endif
         if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
         else
         {
@@ -937,7 +947,11 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
         if( label_sub->to ) free( label_sub->to );
         if( xpos_sub->to ) free( xpos_sub->to );
 
+#ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->xax_disp );
+#else
+        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->xax_format_type, svg->xax_disp );
+#endif
         xpos_sub->to = string_from_int( rc, xpos, 0 );
 
         if( !label_sub->to || !xpos_sub->to ) *rc = ERR_UNSUPPORTED;
@@ -2373,6 +2387,50 @@ char *svg_get_yax_disp( struct svg_model *svg )
 {
     if( !svg ) return( 0 );
     else return( svg->yax_disp );
+}
+
+/* --- */
+
+int svg_set_xax_format_type( struct svg_model *svg, int val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else svg->xax_format_type = val;
+
+    return( rc );
+}
+
+/* --- */
+
+int svg_get_xax_format_type( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0 );
+    else return( svg->xax_format_type );
+}
+
+/* --- */
+
+int svg_set_yax_format_type( struct svg_model *svg, int val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else svg->yax_format_type = val;
+
+    return( rc );
+}
+
+/* --- */
+
+int svg_get_yax_format_type( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0 );
+    else return( svg->yax_format_type );
 }
 
 /* --- */
