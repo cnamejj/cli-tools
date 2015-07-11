@@ -25,6 +25,37 @@ if( *rc == RC_NORMAL ) \
 
 /* --- */
 
+char *display_tick_with_format( int *rc, double label, int dtype, char *lab_format)
+
+{
+    int val_int;
+    float val_float;
+    char *result = 0;
+    time_t val_clock;
+
+    if( dtype == DTYPE_TIME )
+    {
+        val_clock = (time_t) label;
+        result = string_from_clock( rc, val_clock, lab_format );
+    }
+
+    else if( dtype == DTYPE_FIXED )
+    {
+        val_int = (int) label;
+        result = string_from_int( rc, val_int, lab_format );
+    }
+
+    else
+    {
+        val_float = label;
+        result = string_from_float( rc, val_float, lab_format );
+    }
+
+    return( result );
+}
+
+/* --- */
+
 struct series_data *get_empty_data_series( struct svg_model *svg )
 
 {
@@ -842,10 +873,11 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
 
     if( *rc == RC_NORMAL )
     {
+
 #ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->yax_disp );
 #else
-        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->yax_format_type, svg->yax_disp );
+        label_sub->to = display_tick_with_format( rc, label, svg->yax_format_type, svg->yax_disp);
 #endif
         if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
         else svg_part = gsub_string( rc, template, first_ypos );
@@ -859,7 +891,7 @@ char *svg_make_yax_labels( int *rc, struct svg_model *svg )
 #ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->yax_disp );
 #else
-        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->yax_format_type, svg->yax_disp );
+        label_sub->to = display_tick_with_format( rc, label, svg->yax_format_type, svg->yax_disp);
 #endif
         if( !label_sub->to ) *rc = ERR_UNSUPPORTED;
         else
@@ -950,7 +982,7 @@ printf( "<!-- dbg:: xlabel: xax-border:%d gr-left-col:%d grids:%d incr:%f adj:%f
 #ifdef FORMAT_ONLY_AS_FLOAT
         label_sub->to = string_from_float( rc, label, svg->xax_disp );
 #else
-        label_sub->to = string_from_typed_format( rc, (void *) &label, svg->xax_format_type, svg->xax_disp );
+        label_sub->to = display_tick_with_format( rc, label, svg->xax_format_type, svg->xax_disp );
 #endif
         xpos_sub->to = string_from_int( rc, xpos, 0 );
 

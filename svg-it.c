@@ -591,7 +591,7 @@ int main( int narg, char **opts )
 
 {
     int rc = RC_NORMAL, context, grids, digits, nbyte, svg_doc_len, out, snum,
-      nseries_styles, fl_circ_alpha, is_cgi, show_form, use;
+      nseries_styles, fl_circ_alpha, is_cgi, show_form, use, dtype;
     double dmin, dmax, span;
     double no_value = (double) SVG_NO_VALUE;
     char *dataformat, *svg_doc = 0, *st, *cgi_data, *cgi_raw_eol = 0, *cli_raw_eol = 0,
@@ -1120,7 +1120,8 @@ int main( int narg, char **opts )
     dmin = svg_get_xmin( svg );
     dmax = svg_get_xmax( svg );
     grids = svg_get_xax_num_grids( svg );
-    if( grids > 0 )
+    dtype = svg_get_xax_format_type( svg );
+    if( grids > 0 && dtype == DTYPE_AUTO )
     {
         span = (dmax - dmin) / grids;
         if( span >= 1.0 ) digits = 0;
