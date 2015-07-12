@@ -277,6 +277,9 @@ No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
   <tr><td># of X-Axis Grids</td><td><input type=\"text\" name=\"xgrids\" value=\"4\"></td></tr>\n\
   <tr><td># of Y-Axis Grids</td><td><input type=\"text\" name=\"ygrids\" value=\"4\"></td></tr>\n\
 \
+  <tr><td>X-Axis label format (dynamically assigned by default)</td><td><input type=\"text\" name=\"xlab-format\" value=\"\"></td></tr>\n\
+  <tr><td>Y-Axis label format (default is 'float:%.1f')</td><td><input type=\"text\" name=\"ylab-format\" value=\"\"></td></tr>\n\
+\
   <tr><td>Ignore Bad Data?</td><td>Yes<input type=\"radio\" name=\"ignore-bad-data\" value=\"yes\" checked>\n\
 No<input type=\"radio\" name=\"ydata\" value=\"no\"></td></tr>\n\
   <tr><td>Use Partially Good Input Records?</td><td>Yes<input type=\"radio\" name=\"only-all-good\" value=\"no\" checked>\n\
@@ -372,6 +375,8 @@ Options are:\n\
   <--ytitle 'Y-Axis Title'>\n\
   <--xgrids ##>\n\
   <--ygrids ##>\n\
+  <--xlab-format 'format spec'>\n\
+  <--ylab-format 'format spec'>\n\
   <--out name-of-output-file>\n\
   <--debug ##>\n\
   <--help>\n\
@@ -443,6 +448,15 @@ descriptions with the '--series' flag.  If the description starts with a pound\n
 sign '#' and number, it will be assigned to the corresponding data series\n\
 number.  Otherwise the '--series' flags will be assigned to the data series in\n\
 the order they are given on the command line.\n\
+\n\
+The formats used to display the X and Y label grid points can be explicitly\n\
+specified with the '--xlab-format' and '--ylab-format' options.  By default the\n\
+variation from label to label determines the format used for the X axis.  And the\n\
+default format for Y axis labels is a floating point number shown to one decimal\n\
+place.  Values should be prefaced with one of 'int:', 'float:' or 'time:' followed\n\
+by an appropriate format specifier as documented for the printf() system call for\n\
+'int' and 'float' types.  If the 'time' class format is given, the formatting commands\n\
+should be taken from the strftime() system call documentation.\n\
 "
 
 
