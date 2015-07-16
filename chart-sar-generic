@@ -1,6 +1,12 @@
 #!/bin/bash
 
-typeset -i days off data_col
+typeset -i days off data_col now hh mm ss
+
+SECS_PER_MIN=60
+SECS_PER_HOUR=3600
+FORMAT='%s %y/%m/%d %H:%M:%S'
+
+# ---
 
 host="$(hostname)"
 
@@ -68,6 +74,17 @@ filter="$6"
 
 # ---
 
+tinfo=( $(date +'%s %H %M %S' | gawk '{ printf "%d %d %d %d", $0, $2, $3, $4 }') )
+
+now=${tinfo[0]}
+hh=${tinfo[1]}
+mm=${tinfo[2]}
+ss=${tinfo[3]}
+
+midnight=$(( ${now} - ${ss} - (${mm} * ${SECS_PER_MIN}) - (${hh} * ${SECS_PER_HOUR}) ))
+
+# ---
+
 if [ ${days} -lt 0 ]
 then
 	days=3
@@ -122,7 +139,7 @@ fi
 	off=$(( ${off} + 1 ))
     done
 ) \
-| gawk -v data_col="${data_col}" -v filter="${filter}" '
+| gawk -v data_col="${data_col}" -v filter="${filter}" -v midnight="${midnight}" '
 
     BEGIN \
     {
@@ -154,30 +171,29 @@ fi
         {
     	    if( bits[1] == 12 ) bits[1] = 0
 
-    	    elap_mins = bits[1] * 60 + bits[2]
+    	    elap_secs = (bits[1] * 60 + bits[2]) * 60
 
-            if( dpart == "PM" ) elap_mins += 12 * 60
+            if( dpart == "PM" ) elap_secs += 12 * 60 * 60
 
-	    elap_hrs = elap_mins / 60.0
-    	    elap_list[elap_hrs] = 1
-            key = source SEP elap_hrs
+    	    elap_list[elap_secs] = 1
+            key = source SEP elap_secs
     	    data_val[key] = val
         }
     }
 
     END \
     {
-	printf "Minutes", SEP
+	printf "Time", SEP
         for( source in source_list ) printf "%s%s", SEP, source
         printf "\n"
 
-        for( elap_hrs in elap_list )
+        for( elap_secs in elap_list )
         {
-	    printf "%f", elap_hrs
+	    printf "%f", elap_secs + midnight
 
     	    for( source in source_list )
     	    {
-    	        key = source SEP elap_hrs
+    	        key = source SEP elap_secs
     	        printf "%s%s", SEP, data_val[key]
     	    }
     
@@ -230,7 +246,8 @@ fi
     opts="-data '${inp}' -xcol 1 -ycol '${ycols}' ${series_titles} -delim ',' --no-only-all-good \
 -circle-alpha 0 -data-line-size 12 -data-alpha .6 \
 -legend -lscale 12 \
--title '${host} - ${chart_title}' -xtitle 'Hours After Midnight' -ytitle '${yax_title}' \
+-title '${host} - ${chart_title}' -xtitle 'Time' -ytitle '${yax_title}' \
+-xlab-format 'time:%H:%M' \
 -xgrids 8 -ygrids 5"
 
     #echo svg-it ${opts}
