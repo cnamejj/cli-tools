@@ -87,6 +87,8 @@
 #define FL_SHOW_SVG       "graph"
 #define FL_SVG_FILE       "grout"
 #define FL_SVG_STYLE      "grstyle"
+#define FL_USER_AGENT     "user-agent"
+#define FL_USER_AGENT_2   "agent"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -121,6 +123,7 @@
 #define OP_SHOW_SVG       31
 #define OP_SVG_FILE       32
 #define OP_SVG_STYLE      33
+#define OP_USER_AGENT     34
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -161,6 +164,7 @@
 #define DEF_SHOW_SVG       "0"
 #define DEF_SVG_FILE       "-"
 #define DEF_SVG_STYLE      "light"
+#define DEF_USER_AGENT     "Mozilla/5.0 Gecko/20100101 Firefox/23.0"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -225,8 +229,6 @@ Content-type: text/html\r\n\
 #define DQUOTE_STRING "\""
 
 #define HTTP_HEADER_XPREF "X-"
-
-#define DEFAULT_FETCH_USER_AGENT "Mozilla/5.0 Gecko/20100101 Firefox/23.0"
 
 #define DEFAULT_FETCH_PORT 80
 #define DEFAULT_SSL_FETCH_PORT 443
@@ -402,6 +404,7 @@ YrMnDyHrMnSe HRC   DNS  Conn   SSL  Send 1stRD Close Total AllBytes PayBytes Tot
   <tr><td>URI to request:</td><td><input type=\"text\" name=\"uri\"></td></tr>\n\
   <tr><td>Accept insecure SSL certs:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"insecure\">\n\
 No<input type=\"radio\" value=\"no\" name=\"insecure\" checked></td></tr>\n\
+  <tr><td>User Agent: (optional)</td><td><input type=\"text\" name=\"user-agent\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
@@ -594,7 +597,7 @@ struct chain_position {
 struct target_info {
   char *http_host, *conn_host, *conn_uri, *conn_url;
   char *ipv4, *ipv6;
-  char *auth_user, *auth_passwd;
+  char *auth_user, *auth_passwd, *user_agent;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
   int conn_port, proxy_port, conn_pthru, pref_protocol,
     http_protocol, use_ssl, insecure_cert;
@@ -713,7 +716,8 @@ Options are:\n\
     <--insecure>\n\
     <--graph>\n\
     <--grout file-name.html>\n\
-    <--grstyle dark> | <--grstyle light>>\n\
+    <--grstyle dark> | <--grstyle light>\n\
+    <--user-agent 'Browser ID'> | <--agent 'Browser ID'>\n\
 "
 
 /* --- */

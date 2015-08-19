@@ -2600,7 +2600,7 @@ int construct_request( struct plan_data *plan)
 
 {
     int rc = RC_NORMAL, empty, ex_len, is_redir = 0;
-    char *blank = EMPTY_STRING, *webhost = 0, *prefhost = 0, *agent = DEFAULT_FETCH_USER_AGENT,
+    char *blank = EMPTY_STRING, *webhost = 0, *prefhost = 0,
       *uri = 0, *ex_headers = 0, *st = 0, *added_headers = 0;
     struct target_info *req = 0;
     struct fetch_status *fetch = 0;
@@ -2744,7 +2744,7 @@ int construct_request( struct plan_data *plan)
     if( rc == RC_NORMAL)
     {
         walk->from = PATT_USER_AGENT;
-        walk->to = agent;
+        walk->to = req->user_agent;
         walk->next = 0;
     }
 
@@ -2906,6 +2906,7 @@ struct plan_data *allocate_hf_plan_data()
         target->ipv6 = 0;
         target->auth_user = 0;
         target->auth_passwd = 0;
+        target->user_agent = 0;
         target->proxy_url = 0;
         target->proxy_host = 0;
         target->proxy_ipv4 = 0;
@@ -3100,6 +3101,8 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_SHOW_SVG,     OP_TYPE_FLAG, OP_FL_BLANK,   FL_SHOW_SVG,       0, DEF_SHOW_SVG,     0, 0 },
       { OP_SVG_FILE,     OP_TYPE_CHAR, OP_FL_BLANK,   FL_SVG_FILE,       0, DEF_SVG_FILE,     0, 0 },
       { OP_SVG_STYLE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_SVG_STYLE,      0, DEF_SVG_STYLE,    0, 0 },
+      { OP_USER_AGENT,   OP_TYPE_CHAR, OP_FL_BLANK,   FL_USER_AGENT,     0, DEF_USER_AGENT,   0, 0 },
+      { OP_USER_AGENT,   OP_TYPE_CHAR, OP_FL_BLANK,   FL_USER_AGENT_2,   0, DEF_USER_AGENT,   0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -3489,6 +3492,16 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         if( out->svg_style) free( out->svg_style);
         out->svg_style = strdup( (char *) co->parsed);
         if( !out->svg_style) rc = ERR_MALLOC_FAILED;
+    }
+
+    if(( co = cond_get_matching_option( &rc, OP_USER_AGENT, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "user-agent")
+        if( target->user_agent) free( target->user_agent);
+        st = (char *) co->parsed;
+        if( !*st) target->user_agent = strdup( DEF_USER_AGENT);
+        else target->user_agent = strdup( st);
+        if( !target->user_agent) rc = ERR_MALLOC_FAILED;
     }
 
     /* ---
