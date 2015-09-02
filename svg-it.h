@@ -337,9 +337,9 @@ No<input type=\"radio\" name=\"debug\" value=\"0\" checked></td></tr>\n\
  * 4. #75851f #a87323 #a42334
  * 5. #a98013 #84c061 #18744e
  * 6. #ee8e8e #1f0808 #573514
- * 7. matches #1
- * 8. matches #2
- * 9. matches #3
+ * 7. #d83610 #af5012 #748e08 
+ * 8. matches #1
+ * 9. matches #2
  * etc...
  *
  * S# - Data series number (the order they are added)
@@ -365,6 +365,7 @@ static struct data_series_visuals def_series_visuals[] =
     {"#75851f", "#a87323", "#a42334"},
     {"#a98013", "#84c061", "#18744e"}, 
     {"#ee8e8e", "#1f0808", "#573514"},
+    {"#d83610", "#af5012", "#748e08"},
 };
 
 #define SHOW_SYNTAX "\
