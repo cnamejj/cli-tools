@@ -224,12 +224,14 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         if( red->conn_uri) free( red->conn_uri);
         if( red->ipv4) free( red->ipv4);
         if( red->ipv6) free( red->ipv6);
+        if( red->user_agent) free( red->user_agent);
 
         red->http_host = 0;
         red->conn_host = 0;
         red->conn_uri = 0;
         red->conn_url = 0;
         red->use_ssl = 0;
+        red->user_agent = 0;
 
         if( target->ipv4) if( *target->ipv4)
         {
@@ -240,6 +242,11 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         {
             red->ipv6 = strdup( target->ipv6);
             if( !red->ipv6) *rc = ERR_MALLOC_FAILED;
+	}
+        if( target->user_agent) if( *target->user_agent)
+        {
+            red->user_agent = strdup( target->user_agent);
+            if( !red->user_agent) *rc = ERR_MALLOC_FAILED;
 	}
         red->conn_port = NO_PORT;
         red->pref_protocol = target->pref_protocol;
@@ -329,7 +336,7 @@ float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, fl
     long diff_sec, diff_sub, top;
     float diff = 0.0;
 
-//    ENTER( "calc_time_difference" )
+/*    ENTER( "calc_time_difference" ) */
 
     top = (long) (1.0 / frac_res);
 
@@ -347,7 +354,7 @@ float calc_time_difference( struct ckpt_entry *start, struct ckpt_entry *end, fl
         diff = diff_sec + (frac_res * diff_sub);
     }
 
-//    LEAVE( "calc_time_difference" )
+/*    LEAVE( "calc_time_difference" ) */
     return( diff);
 }
 
@@ -423,7 +430,7 @@ int add_datalen_block( struct ckpt_chain *checkpoint, int len)
 void free_data_block( struct data_block *detail)
 
 {
-//    ENTER( "free_data_block" )
+/*    ENTER( "free_data_block" ) */
     if( detail)
     {
         if( detail->data) free( detail->data);
@@ -431,7 +438,7 @@ void free_data_block( struct data_block *detail)
         free( detail);
     }
 
-//    LEAVE( "free_data_block" )
+/*    LEAVE( "free_data_block" ) */
     return;
 }
 
