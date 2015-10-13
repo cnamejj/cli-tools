@@ -1,7 +1,7 @@
-#include <openssl/ssl.h>
-
 #include "http-fetch.h"
 #include "err_ref.h"
+
+#include <openssl/ssl.h>
 
 /* stub routine for now... */
 

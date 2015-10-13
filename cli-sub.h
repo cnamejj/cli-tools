@@ -18,6 +18,8 @@
  * ----
  */
 
+#pragma GCC diagnostic ignored "-Wlong-long"
+
 #include <stdlib.h>  
 #include <sys/stat.h>
 #include <stdio.h>

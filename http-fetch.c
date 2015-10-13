@@ -252,6 +252,7 @@ void map_target_to_redirect( int *rc, struct plan_data *plan)
         red->pref_protocol = target->pref_protocol;
         red->http_protocol = target->http_protocol;
         red->insecure_cert = target->insecure_cert;
+        red->use_s2n = target->use_s2n;
 
         if( fetch->redirect_request)
         {
@@ -1239,7 +1240,10 @@ void send_request( int *rc, struct plan_data *plan)
 
         for( done = 0; !done; )
         {
-            if( targ->use_ssl) sysrc = SSL_write( ssl, req, reqlen);
+            if( targ->use_ssl && !targ->use_s2n) sysrc = SSL_write( ssl, req, reqlen);
+#ifdef S2N_SUPPORT
+            else if( targ->use_ssl && targ->use_s2n) sysrc = s2n_write( rc, status, runex->conn_timeout, req, reqlen);
+#endif
             else sysrc = write( sock, req, reqlen);
 
             if( sysrc == reqlen)
@@ -1256,6 +1260,15 @@ void send_request( int *rc, struct plan_data *plan)
                 req += sysrc;
                 reqlen -= sysrc;
 	    }
+#ifdef S2N_SUPPORT
+            else if( targ->use_ssl && targ->use_s2n)
+            {
+                status->end_errno = errno;
+                status->err_msg = sys_call_fail_msg( "s2n_send");
+                status->last_state |= LS_NO_REQUEST;
+                done = 1;
+	    }
+#endif
             else if( targ->use_ssl)
             {
                 hold_err = ERR_peek_error();
@@ -1411,7 +1424,10 @@ void pull_response( int *rc, struct plan_data *plan)
 	    }
             else
             {
-                if( targ->use_ssl) sysrc = packlen = SSL_read( ssl, buff, buffsize);
+                if( targ->use_ssl && !targ->use_s2n) sysrc = packlen = SSL_read( ssl, buff, buffsize);
+#ifdef S2N_SUPPORT
+                else if( targ->use_ssl) sysrc = packlen = s2n_read( rc, status, runex->conn_timeout, buff, buffsize);
+#endif
                 else sysrc = packlen = read( sock, buff, buffsize);
 
                 if( sysrc > 0)
@@ -1445,7 +1461,7 @@ void pull_response( int *rc, struct plan_data *plan)
                     done = 1;
                     *rc = capture_checkpoint( status, EVENT_READ_ALL_DATA);
 		}
-                else if( targ->use_ssl)
+                else if( targ->use_ssl && !targ->use_s2n)
                 {
                     hold_err = ERR_peek_error();
                     /* Note: there should be a separate timeout for this, overload "conn_timeout" for now */
@@ -1475,6 +1491,15 @@ void pull_response( int *rc, struct plan_data *plan)
                         done = 1;
                     }
                 }
+#ifdef S2N_SUPPORT
+                else if( targ->use_ssl)
+                {
+                    status->end_errno = errno;
+                    status->err_msg = sys_call_fail_msg( "s2n_read");
+                    status->last_state |= LS_NO_REQUEST;
+                    done = 1;
+		}
+#endif
                 else
                 {
                     if( errno == EINTR)
@@ -1494,12 +1519,15 @@ void pull_response( int *rc, struct plan_data *plan)
 
         if( status->conn_sock)
         {
-            if( targ->use_ssl)
+            if( targ->use_ssl && !targ->use_s2n)
             {
                 (void) SSL_shutdown( ssl);
-                SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
+                SSL_set_shutdown( ssl, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
                 SSL_free(ssl);
 	    }
+#ifdef S2N_SUPPORT
+            else if( targ->use_ssl) *rc = s2n_finish( status, runex->conn_timeout);
+#endif
             close( status->conn_sock);
             status->conn_sock = NO_SOCK;
 	}
@@ -1619,7 +1647,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     {
         reg_stats = alloc_stat_work();
         if( !reg_stats) *rc = ERR_MALLOC_FAILED;
-        else if( targ->use_ssl)
+        else if( targ->use_ssl && !targ->use_s2n)
         {
             ssl_stats = alloc_stat_work(); 
             if( !ssl_stats) *rc = ERR_MALLOC_FAILED;
@@ -1694,7 +1722,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
 
-        if( *rc == RC_NORMAL && targ->use_ssl)
+        if( *rc == RC_NORMAL && targ->use_ssl && !targ->use_s2n)
         {
             sslreadlag = (float *) malloc( ssl_nreads * (sizeof *sslreadlag));
             if( sslreadlag) sslpacksize = (int *) malloc( ssl_nreads * (sizeof *sslpacksize));
@@ -1726,7 +1754,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
         if( *rc == RC_NORMAL)
         {
-            if( targ->use_ssl)
+            if( targ->use_ssl && !targ->use_s2n)
             {
                 event = EVENT_SSL_NET_READ;
                 act_stats = ssl_stats;
@@ -2348,7 +2376,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         before = 0;
         walk = status->checkpoint;
 
-        if( targ->use_ssl) event = EVENT_SSL_NET_READ;
+        if( targ->use_ssl && !targ->use_s2n) event = EVENT_SSL_NET_READ;
         else event = EVENT_READ_PACKET;
 
         for( ; walk; walk = walk->next)
@@ -2926,6 +2954,7 @@ struct plan_data *allocate_hf_plan_data()
         target->http_protocol = USE_HTTP11;
         target->use_ssl = 0;
         target->insecure_cert = 1;
+        target->use_s2n = 0;
 
         redirect->http_host = 0;
         redirect->conn_host = 0;
@@ -2947,6 +2976,7 @@ struct plan_data *allocate_hf_plan_data()
         redirect->http_protocol = USE_HTTP11;
         redirect->use_ssl = 0;
         redirect->insecure_cert = 1;
+        redirect->use_s2n = 0;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -2990,6 +3020,7 @@ struct plan_data *allocate_hf_plan_data()
         status->redirect_request = 0;
         status->ssl_context = 0;
         status->ssl_box = 0;
+        status->s2n_conn = 0;
 
         status->sock4.sin_family = AF_INET;
         status->sock4.sin_port = htons( DEFAULT_FETCH_PORT);
@@ -3110,6 +3141,7 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
       { OP_SVG_STYLE,    OP_TYPE_CHAR, OP_FL_BLANK,   FL_SVG_STYLE,      0, DEF_SVG_STYLE,    0, 0 },
       { OP_USER_AGENT,   OP_TYPE_CHAR, OP_FL_BLANK,   FL_USER_AGENT,     0, DEF_USER_AGENT,   0, 0 },
       { OP_USER_AGENT,   OP_TYPE_CHAR, OP_FL_BLANK,   FL_USER_AGENT_2,   0, DEF_USER_AGENT,   0, 0 },
+      { OP_USE_S2N,      OP_TYPE_FLAG, OP_FL_BLANK,   FL_USE_S2N,        0, DEF_USE_S2N,      0, 0 },
     };
     struct option_set *co = 0;
     struct word_chain *extra_opts = 0, *walk = 0;
@@ -3478,6 +3510,12 @@ struct plan_data *figure_out_plan( int *returncode, int narg, char **opts)
         target->insecure_cert = *((int *) co->parsed);
     }
 
+    if(( co = cond_get_matching_option( &rc, OP_USE_S2N, opset, nflags)))
+    {
+        SHOW_OPT_IF_DEBUG( display->line_pref, "s2n")
+        target->use_s2n = *((int *) co->parsed);
+    }
+
     if(( co = cond_get_matching_option( &rc, OP_SVG_FILE, opset, nflags)))
     {
         display->show_svg = 1;
@@ -3703,7 +3741,8 @@ int main( int narg, char **opts)
 
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
-   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE );
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
+   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_KEEPONFREE );
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE ); */
@@ -3759,6 +3798,7 @@ int main( int narg, char **opts)
         fprintf( out->info_out, "- - - - pref-protocol: (%d)\n", target->pref_protocol);
         fprintf( out->info_out, "- - - - use-SSL: (%d)\n", target->use_ssl);
         fprintf( out->info_out, "- - - - insecure-SSL: (%d)\n", target->insecure_cert);
+        fprintf( out->info_out, "- - - - S2N-for-SSL: (%d)\n", target->use_s2n);
 
         fprintf( out->info_out, "\n- - Display:\n");
         fprintf( out->info_out, "- - - - show-header: %d\n", disp->show_head);

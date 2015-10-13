@@ -1,5 +1,8 @@
 #include "http-fetch.h"
 #include "err_ref.h"
+#ifdef S2N_SUPPORT
+    #include "cli-sub.h"
+#endif
 
 /* --- */
 
@@ -7,11 +10,18 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 
 {
     int sock, io_rc, err = 0, done = 0, ret, sslerr;
+#ifdef S2N_SUPPORT
+    int pending, sysrc;
+#endif
     unsigned long hold_err;
     struct target_info *targ = 0;
     struct fetch_status *fetch;
     struct exec_controls *runex = 0;
     SSL *ssl;
+#ifdef S2N_SUPPORT
+    s2n_blocked_status s2n_stat;
+    time_t now, deadline;
+#endif
 
     if( *rc == RC_NORMAL)
     {
@@ -20,7 +30,7 @@ void ssl_handshake( int *rc, struct plan_data *plan)
         if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
         if( !targ) targ = plan->target;
 
-        if( targ->use_ssl)
+        if( targ->use_ssl && !targ->use_s2n)
         {
             sock = fetch->conn_sock;
             ssl = map_sock_to_ssl( sock, fetch->ssl_context, bio_ssl_callback);
@@ -77,6 +87,50 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 		}
 	    }
 	}
+
+#ifdef S2N_SUPPORT
+        else if( targ->use_ssl && targ->use_s2n)
+        {
+            now = time( 0);
+            deadline = now + (runex->conn_timeout / 1000);
+            if( deadline <= now) deadline = now + 1;
+
+            sock = fetch->conn_sock;
+            s2n_connection_set_fd( fetch->s2n_conn, sock);
+
+            *rc = RC_NORMAL;
+            for( pending = 1; pending && now <= deadline && *rc == RC_NORMAL; )
+            {
+                sysrc = s2n_negotiate( fetch->s2n_conn, &s2n_stat);
+
+                if( s2n_stat == S2N_BLOCKED_ON_READ)
+                {
+                    sysrc = wait_until_sock_ready( sock, POLL_EVENTS_READ, runex->conn_timeout);
+                    if( !sysrc) *rc = ERR_POLL_TIMEOUT;
+                    else if( sysrc < 0) *rc = ERR_POLL_FAILED;
+		}
+
+                else if( s2n_stat == S2N_BLOCKED_ON_WRITE)
+                {
+                    sysrc = wait_until_sock_ready( sock, POLL_EVENTS_WRITE, runex->conn_timeout);
+                    if( !sysrc) *rc = ERR_POLL_TIMEOUT;
+                    else if( sysrc < 0) *rc = ERR_POLL_FAILED;
+		}
+
+                else
+                {
+                    pending = 0;
+                    if( sysrc) *rc = ERR_SSL_NEGOTIATE;
+		}
+
+                now = time( 0);
+	    }
+
+            *rc = capture_checkpoint( fetch, EVENT_SSL_HANDSHAKE);
+            if( *rc == RC_NORMAL) fetch->last_state |= LS_SSL_SHAKE_DONE;
+	}
+#endif
+
     }
 
     return;

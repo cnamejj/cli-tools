@@ -4,6 +4,9 @@
 
 /* --- */
 
+#pragma GCC diagnostic ignored "-Woverlength-strings"
+#pragma GCC diagnostic ignored "-Wlong-long"
+
 #include <stdio.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -14,6 +17,9 @@
 #include <openssl/err.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+#ifdef S2N_SUPPORT
+    #include <tls/s2n_connection.h>
+#endif
 
 #ifdef HEADER_SSL23_H
 /* Yes, this is ugly, but we need a way to test in
@@ -39,7 +45,13 @@
 #  define FRAC_RESOLUTION 0.000001
 #endif
 
-#pragma GCC diagnostic ignored "-Woverlength-strings"
+/* --- */
+
+#ifdef S2N_SUPPORT
+#define IS_ONE_STR "1"
+#define SN_ENABLE_CLIENT "S2N_ENABLE_CLIENT_MODE"
+#define SN_DISABLE_MLOCK "S2N_DONT_MLOCK"
+#endif
 
 /* --- */
 
@@ -89,6 +101,7 @@
 #define FL_SVG_STYLE      "grstyle"
 #define FL_USER_AGENT     "user-agent"
 #define FL_USER_AGENT_2   "agent"
+#define FL_USE_S2N        "s2n"
 
 #define OP_HEADER         1
 #define OP_OUTPUT         2
@@ -124,6 +137,7 @@
 #define OP_SVG_FILE       32
 #define OP_SVG_STYLE      33
 #define OP_USER_AGENT     34
+#define OP_USE_S2N        35
 
 #define DEF_HEADER         "1"
 #define DEF_HEADER_2       DEF_HEADER
@@ -165,6 +179,7 @@
 #define DEF_SVG_FILE       "-"
 #define DEF_SVG_STYLE      "light"
 #define DEF_USER_AGENT     "Mozilla/5.0 Gecko/20100101 Firefox/23.0"
+#define DEF_USE_S2N        "0"
 
 #define DEBUG_NONE 0
 #define DEBUG_LOW1 1
@@ -404,6 +419,8 @@ YrMnDyHrMnSe HRC   DNS  Conn   SSL  Send 1stRD Close Total AllBytes PayBytes Tot
   <tr><td>URI to request:</td><td><input type=\"text\" name=\"uri\"></td></tr>\n\
   <tr><td>Accept insecure SSL certs:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"insecure\">\n\
 No<input type=\"radio\" value=\"no\" name=\"insecure\" checked></td></tr>\n\
+  <tr><td>Use S2N package for SSL:</td><td> Yes<input type=\"radio\" value=\"yes\" name=\"s2n\">\n\
+No<input type=\"radio\" value=\"no\" name=\"s2n\" checked></td></tr>\n\
   <tr><td>User Agent: (optional)</td><td><input type=\"text\" name=\"user-agent\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
   <tr><td>Extra HTTP header(s):</td><td><input type=\"text\" name=\"hfield\"></td></tr>\n\
@@ -600,7 +617,7 @@ struct target_info {
   char *auth_user, *auth_passwd, *user_agent;
   char *proxy_url, *proxy_host, *proxy_ipv4, *proxy_ipv6;
   int conn_port, proxy_port, conn_pthru, pref_protocol,
-    http_protocol, use_ssl, insecure_cert;
+    http_protocol, use_ssl, insecure_cert, use_s2n;
   struct value_chain *extra_headers;
 };
 
@@ -635,6 +652,7 @@ struct fetch_status {
   time_t wall_start;
   SSL_CTX *ssl_context;
   SSL *ssl_box;
+  struct s2n_connection *s2n_conn;
 };
 
 struct payload_breakout {
@@ -847,6 +865,14 @@ void free_checkpoint_chain( struct ckpt_chain *chain);
 void clear_parsed_headers( int *rc, struct plan_data *plan);
 
 void free_payload_references( struct payload_breakout *bout);
+
+#ifdef S2N_SUPPORT
+int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int blen);
+
+int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int blen);
+
+int s2n_finish( struct fetch_status *fetch, int timeout);
+#endif
 
 /* --- */
 
