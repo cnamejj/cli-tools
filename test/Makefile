@@ -2,8 +2,8 @@ PROGS = test-pull-actor-rule
 SOLOPROGS = test-gsub_string test-hexdigits_to_string test-string_to_hexdigits parse-actor-config \
 	test-called-as-cgi test-get-cgi-data test-decode-url-string test-is-ip4-address \
 	test-is-ip6-address test-parse-url test-clock-calls test-pull-problems test-is-res-char \
-        test-is-res-char2 show-net-inf test-ssl-client test-connect test-sfi test-sff test-svg \
-        test-explode_string test-s2n-client
+        test-is-res-char2 show-net-inf test-ssl-client test-connect test-sfi test-sff \
+        test-s2n-client
 SOBJS = test-ssl-init-routines.o
 LIBS = libTESTCLI.a
 UBIQ_H = ../err_ref.h ../net-task-data.h ../cli-sub.h
@@ -19,9 +19,9 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
-CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 -I/usr/local/src/s2n -I/usr/local/src/s2n/api $(CFLAGS_$(OS))
+CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 -I/usr/local/src/s2n -I/usr/local/src/s2n/api -I/usr/local/ssl/include/openssl $(CFLAGS_$(OS))
 #LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L .. -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl
-LDFLAGS = -L/usr/local/ssl/lib -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm -lcrypto -ldl -lpthread $(LD_OPTS_$(OS))
+LDFLAGS = -L/usr/local/ssl/lib -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm -lcrypto -ldl -lpthread $(LD_OPTS_$(OS)) -lcrypto
 #LDFLAGS = -lssl -lcrypto -L .. -lCLISUB -L . -lTESTCLI -lxml2 -lm $(LD_OPTS_$(OS)) /usr/local/src/debug/bug_malloc.o  /usr/local/src/trace/trace_table.o /usr/local/src/debug/dbg_hack_info.o
 ARCOMM = ar rlc
 
