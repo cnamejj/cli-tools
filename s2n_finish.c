@@ -17,7 +17,13 @@ int s2n_finish( struct fetch_status *fetch, int timeout)
 
     /* Todo: Need to check the code to see how 'blocked' is set */
     s2n_shutdown( conn, &blocked);
-//    s2n_connection_free( conn);
+
+    /* -- Seems like making this call blows things up between client runs.
+     * -- Disabling for now, but wind up adding it back or moving it to
+     * -- the exit of the program (after all iterations) instead.  Need to
+     * -- review the code to figure it out.
+     * s2n_connection_free( conn);
+     */
 
     LEAVE( "s2n_finish")
     return( rc);

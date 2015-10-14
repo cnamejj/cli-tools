@@ -26,7 +26,6 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
         for( pend = 1; pend && now <= deadline; )
         {
             io_rc = s2n_send( conn, buff, blen, &blocked);
-// printf("dbg:: s2n_write: s2n_send() rc=%d, bl=%d, len=%d\n", io_rc, blocked, blen);
 
             if( blocked == S2N_BLOCKED_ON_WRITE)
             {
@@ -43,14 +42,12 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
 		}
 
                 now = time( 0);
-// sleep(1);
             }
 
             else pend = 0;
         }
     }
 
-// printf( "dbg:: s2n_write: rc=%d\n", io_rc);
     LEAVE( "s2n_write")
     return( io_rc);
 }

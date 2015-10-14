@@ -27,7 +27,6 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
         for( pend = 1; pend && now <= deadline; )
         {
             io_rc = s2n_recv( conn, buff, blen, &blocked);
-/* printf( "dbg:: s2n_read: inner: rc=%d, len=%d, blocked=%d\n", io_rc, blen, blocked); */
 
             if( blocked == S2N_BLOCKED_ON_READ)
             {
@@ -42,7 +41,6 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
                     pend = 0;
                     *rc = ERR_POLL_FAILED;
 		}
-// printf( "dbg:: s2n_read: read-block: rc=%d\n", sysrc);
             }
 
             else pend = 0;
@@ -50,11 +48,6 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
             now = time( 0);
         }
     }
-
-/*
-if( io_rc > 0) write(fileno(stdout), buff, io_rc);
-printf( "dbg:: s2n_read: rc=%d\n", io_rc);
- */
 
     LEAVE( "s2n_read")
     return( io_rc);
