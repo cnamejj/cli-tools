@@ -2977,6 +2977,7 @@ struct plan_data *allocate_hf_plan_data()
         redirect->use_ssl = 0;
         redirect->insecure_cert = 1;
         redirect->use_s2n = 0;
+        redirect->user_agent = 0;
 
         out->out_html = 0;
         out->debug_level = 0;
@@ -3742,10 +3743,11 @@ int main( int narg, char **opts)
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
-   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_KEEPONFREE );
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); */
-/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_KEEPONFREE ); */
+/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_KEEPONFREE ); */
+   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE );
 #endif
 
     ENTER( "http-fetch" )
@@ -3890,6 +3892,7 @@ void free_target_data( struct target_info *targ)
         if( targ->proxy_host) free( targ->proxy_host);
         if( targ->proxy_ipv4) free( targ->ipv4);
         if( targ->proxy_ipv6) free( targ->ipv6);
+        if( targ->user_agent) free( targ->user_agent);
 
         targ->http_host = 0;
         targ->conn_host = 0;
@@ -3903,6 +3906,7 @@ void free_target_data( struct target_info *targ)
         targ->proxy_host = 0;
         targ->proxy_ipv4 = 0;
         targ->proxy_ipv6 = 0;
+        targ->user_agent = 0;
 
         free_value_chain( targ->extra_headers);
         targ->extra_headers = 0;

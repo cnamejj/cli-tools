@@ -12,12 +12,14 @@ int s2n_finish( struct fetch_status *fetch, int timeout)
     struct s2n_connection *conn;
     s2n_blocked_status blocked;
 
+    ENTER( "s2n_finish")
     conn = fetch->s2n_conn;
 
     /* Todo: Need to check the code to see how 'blocked' is set */
     s2n_shutdown( conn, &blocked);
-    s2n_connection_free( conn);
+//    s2n_connection_free( conn);
 
+    LEAVE( "s2n_finish")
     return( rc);
 }
 

@@ -14,13 +14,14 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
     s2n_blocked_status blocked;
     time_t now, deadline;
 
+    ENTER( "s2n_read")
     if( *rc == RC_NORMAL)
     {
         conn = fetch->s2n_conn;
         sock = fetch->conn_sock;
 
         now = time( 0);
-        deadline = now + (deadline / 1000);
+        deadline = now + (timeout / 1000);
         if( deadline < now) deadline = now + 1;
 
         for( pend = 1; pend && now <= deadline; )
@@ -41,7 +42,7 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
                     pend = 0;
                     *rc = ERR_POLL_FAILED;
 		}
-printf( "dbg:: s2n_read: read-block: rc=%d\n", sysrc);
+// printf( "dbg:: s2n_read: read-block: rc=%d\n", sysrc);
             }
 
             else pend = 0;
@@ -55,6 +56,7 @@ if( io_rc > 0) write(fileno(stdout), buff, io_rc);
 printf( "dbg:: s2n_read: rc=%d\n", io_rc);
  */
 
+    LEAVE( "s2n_read")
     return( io_rc);
 }
 
