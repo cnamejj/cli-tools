@@ -2412,13 +2412,13 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     if( *rc == RC_NORMAL && display->show_svg)
     {
         INSUB( "display_output", "before-graph-packets" )
-        packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
         INSUB( "display_output", "before-graph-accum" )
-        accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
         INSUB( "display_output", "before-graph-packsize" )
-        psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
         INSUB( "display_output", "before-graph-readwait" )
-        rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
+        rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
 
         if( *rc == RC_NORMAL) fprintf( out->svg_out, "</pre>%s\n%s\n%s\n%s\n<pre>", packet_graph,
           accdata_graph, psize_freq_graph, rwait_freq_graph);
