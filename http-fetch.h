@@ -699,6 +699,13 @@ struct milestone {
     struct milestone *next;
 };
 
+struct fd_buffer_list 
+{
+    int fd, is_open;
+    char *buff, *eod, *fence;
+    struct fd_buffer_list *prev, *next;
+};
+
 /* --- */
 
 #define MSG_SHOW_SYNTAX "\
@@ -872,6 +879,8 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
 int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int blen);
 
 int s2n_finish( struct fetch_status *fetch, int timeout);
+
+ssize_t s2n_raw_net_read(int fd, void *buf, size_t count);
 #endif
 
 /* --- */

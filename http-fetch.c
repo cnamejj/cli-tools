@@ -1647,9 +1647,9 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
     {
         reg_stats = alloc_stat_work();
         if( !reg_stats) *rc = ERR_MALLOC_FAILED;
-        else if( targ->use_ssl && !targ->use_s2n)
+        else if( targ->use_ssl)
         {
-            ssl_stats = alloc_stat_work(); 
+            ssl_stats = alloc_stat_work();
             if( !ssl_stats) *rc = ERR_MALLOC_FAILED;
 	}
     }
@@ -1722,7 +1722,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 	    }
 	}
 
-        if( *rc == RC_NORMAL && targ->use_ssl && !targ->use_s2n)
+        if( *rc == RC_NORMAL && targ->use_ssl)
         {
             sslreadlag = (float *) malloc( ssl_nreads * (sizeof *sslreadlag));
             if( sslreadlag) sslpacksize = (int *) malloc( ssl_nreads * (sizeof *sslpacksize));
@@ -1754,7 +1754,7 @@ void stats_from_packets( int *rc, struct plan_data *plan, int iter)
 
         if( *rc == RC_NORMAL)
         {
-            if( targ->use_ssl && !targ->use_s2n)
+            if( targ->use_ssl)
             {
                 event = EVENT_SSL_NET_READ;
                 act_stats = ssl_stats;
@@ -2376,7 +2376,7 @@ void display_output( int *rc, struct plan_data *plan, int iter)
         before = 0;
         walk = status->checkpoint;
 
-        if( targ->use_ssl && !targ->use_s2n) event = EVENT_SSL_NET_READ;
+        if( targ->use_ssl) event = EVENT_SSL_NET_READ;
         else event = EVENT_READ_PACKET;
 
         for( ; walk; walk = walk->next)
@@ -2412,13 +2412,13 @@ void display_output( int *rc, struct plan_data *plan, int iter)
     if( *rc == RC_NORMAL && display->show_svg)
     {
         INSUB( "display_output", "before-graph-packets" )
-        packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
+        packet_graph = make_packet_graph( rc, url, out->svg_style, targ->use_ssl, status);
         INSUB( "display_output", "before-graph-accum" )
-        accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
+        accdata_graph = make_accdata_graph( rc, url, out->svg_style, targ->use_ssl, status);
         INSUB( "display_output", "before-graph-packsize" )
-        psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
+        psize_freq_graph = make_psize_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
         INSUB( "display_output", "before-graph-readwait" )
-        rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl && !targ->use_s2n, status);
+        rwait_freq_graph = make_rwait_freq_graph( rc, url, out->svg_style, targ->use_ssl, status);
 
         if( *rc == RC_NORMAL) fprintf( out->svg_out, "</pre>%s\n%s\n%s\n%s\n<pre>", packet_graph,
           accdata_graph, psize_freq_graph, rwait_freq_graph);

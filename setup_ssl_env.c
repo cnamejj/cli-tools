@@ -9,7 +9,9 @@
 void setup_ssl_env( int *rc, struct plan_data *plan)
 
 {
+#ifdef S2N_SUPPORT
     int sysrc;
+#endif
     unsigned long hold_err;
     struct target_info *req = 0;
     struct fetch_status *fetch;
