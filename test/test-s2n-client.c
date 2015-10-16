@@ -186,7 +186,9 @@ struct s2n_connection *exec_ssl_trans( int sock, char *hostname, char *uri)
     s2n_config_set_cipher_preferences(config, "default");
     tls_conn = s2n_connection_new(S2N_CLIENT);
 
-    s2n_connection_set_read_call(tls_conn, raw_network_read);
+/* --- This routine was added to my branched copy of S2N, disable in the repo
+ *  s2n_connection_set_read_call(tls_conn, raw_network_read);
+ */
 
     s2n_connection_set_fd(tls_conn, sock);
 
