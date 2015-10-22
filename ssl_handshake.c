@@ -158,7 +158,6 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
 {
     int io_rc, space, left, avail, refresh, ctype, sysrc;
-    static char *scratch = 0;
     static struct fd_buffer_list *fd_list = 0;
     struct fd_buffer_list *walk = 0, *slot = 0;
     struct plan_data *plan;
@@ -168,12 +167,6 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
     /* --- */
 
 /* fprintf(stderr, "dbg:: raw-net-read: enter, fd=%d, len=%d\n", fd, (int) blen); */
-
-    if( !scratch )
-    {
-        scratch = (char *) malloc(READ_BUFF_SIZE);
-        if( !scratch ) ERR_EXIT("malloc failed")
-    }
 
     for( walk = fd_list; walk && !slot; )
     {
@@ -192,6 +185,7 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
         if( !walk->buff ) ERR_EXIT("malloc failed")
         walk->eod = walk->buff;
         walk->fence = walk->buff + READ_BUFF_SIZE;
+        walk->pos = walk->buff;
         walk->prev = 0;
         walk->next = fd_list;
 
@@ -203,9 +197,12 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
     /* --- */
 
-    avail = slot->eod - slot->buff;
+    avail = slot->eod - slot->pos;
     if( avail < blen && slot->is_open )
     {
+        memmove(slot->buff, slot->pos, avail);
+        slot->pos = slot->buff;
+        slot->eod = slot->pos + avail;
         space = slot->fence - slot->eod;
 
         for( refresh = 0; !refresh; )
@@ -239,24 +236,16 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
     if( rc != -1 )
     {
-        avail = slot->eod - slot->buff;
+        avail = slot->eod - slot->pos;
         if( blen <= avail ) io_rc = blen;
         else io_rc = avail;
 
-        memcpy(buffer, slot->buff, io_rc);
-
-        left = avail - io_rc;
-        if( left )
-        {
-           memcpy(scratch, slot->buff + io_rc, left);
-           memcpy(slot->buff, scratch, left);
-           slot->eod = slot->buff + left;
-	}
-        else slot->eod = slot->buff;
+        memcpy(buffer, slot->pos, io_rc);
+        slot->pos += io_rc;
     }
 
     /* --- */
 
-/* fprintf(stderr, "dbg:: raw-net-read: leave, rc=%d, left=%ld, errno=%d\n", io_rc, slot->eod - slot->buff + 1, errno); */
+/* fprintf(stderr, "dbg:: raw-net-read: leave, rc=%d, left=%ld, errno=%d\n", io_rc, slot->eod - slot->pos + 1, errno); */
     return(io_rc);
 }

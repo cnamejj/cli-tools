@@ -702,7 +702,7 @@ struct milestone {
 struct fd_buffer_list 
 {
     int fd, is_open;
-    char *buff, *eod, *fence;
+    char *buff, *eod, *fence, *pos;
     struct fd_buffer_list *prev, *next;
 };
 
