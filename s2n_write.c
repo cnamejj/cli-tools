@@ -27,7 +27,9 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
         {
             io_rc = s2n_send( conn, buff, blen, &blocked);
 
-            if( blocked == S2N_BLOCKED_ON_WRITE)
+            if( io_rc == -1 && errno != EAGAIN && errno != EINTR) pend = 0;
+
+            if( pend && blocked == S2N_BLOCKED_ON_WRITE)
             {
                 sysrc = wait_until_sock_ready( sock, POLL_EVENTS_WRITE, timeout);
                 if( !sysrc)

@@ -28,7 +28,9 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
         {
             io_rc = s2n_recv( conn, buff, blen, &blocked);
 
-            if( blocked == S2N_BLOCKED_ON_READ)
+            if( io_rc == -1 && errno != EAGAIN && errno != EINTR) pend = 0;
+         
+            if( pend && blocked == S2N_BLOCKED_ON_READ)
             {
                 sysrc = wait_until_sock_ready( sock, POLL_EVENTS_READ, timeout);
                 if( !sysrc)

@@ -38,6 +38,8 @@ void ssl_handshake( int *rc, struct plan_data *plan)
     time_t now, deadline;
 #endif
 
+    ENTER( "ssl_handshake")
+
     if( *rc == RC_NORMAL)
     {
         fetch = plan->status;
@@ -119,14 +121,14 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             {
                 sysrc = s2n_negotiate( fetch->s2n_conn, &s2n_stat);
 
-                if( s2n_stat == S2N_BLOCKED_ON_READ)
+                if( !sysrc && s2n_stat == S2N_BLOCKED_ON_READ)
                 {
                     sysrc = wait_until_sock_ready( sock, POLL_EVENTS_READ, runex->conn_timeout);
                     if( !sysrc) *rc = ERR_POLL_TIMEOUT;
                     else if( sysrc < 0) *rc = ERR_POLL_FAILED;
 		}
 
-                else if( s2n_stat == S2N_BLOCKED_ON_WRITE)
+                else if( !sysrc && s2n_stat == S2N_BLOCKED_ON_WRITE)
                 {
                     sysrc = wait_until_sock_ready( sock, POLL_EVENTS_WRITE, runex->conn_timeout);
                     if( !sysrc) *rc = ERR_POLL_TIMEOUT;
@@ -149,6 +151,8 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 
     }
 
+    LEAVE( "ssl_handshake")
+
     return;
 }
 
@@ -157,14 +161,16 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
 {
-    int io_rc, space, left, avail, refresh, ctype, sysrc;
+    int io_rc, space, avail, refresh, ctype, sysrc;
     static struct fd_buffer_list *fd_list = 0;
-    struct fd_buffer_list *walk = 0, *slot = 0;
+    struct fd_buffer_list *walk = 0, *slot = 0, *before, *after;
     struct plan_data *plan;
     struct fetch_status *fetch;
     size_t rc = 0;
 
     /* --- */
+
+    ENTER( "s2n_raw_net_read")
 
 /* fprintf(stderr, "dbg:: raw-net-read: enter, fd=%d, len=%d\n", fd, (int) blen); */
 
@@ -218,13 +224,13 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
                 plan = register_current_plan(0);
                 fetch = plan->status;
-                if( fetch->last_state & LS_SSL_SHAKE_DONE) ctype = EVENT_SSL_NET_READ;
+                if( fetch->last_state & LS_SSL_SHAKE_DONE ) ctype = EVENT_SSL_NET_READ;
                 else ctype = EVENT_SSL_NEG_READ;
                 sysrc = capture_checkpoint(fetch, ctype);
                 if( sysrc == RC_NORMAL ) sysrc = add_datalen_block(fetch->lastcheck, io_rc);
 	    }
 
-            else if( errno != EINTR )
+            else if( errno != EINTR && errno != EAGAIN )
             {
                 rc = -1;
                 refresh = 1;
@@ -244,8 +250,28 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
         slot->pos += io_rc;
     }
 
+    if( !slot->is_open && slot->pos >= slot->eod )
+    {
+        /* I/O channel is closed, and there's no data left in the buffer,
+         * deallocate state tracking structure (and cache).
+         */
+        free(slot->buff);
+        before = slot->prev;
+        after = slot->next;
+        if( before ) before->next = after;
+        if( after ) after->prev = before;
+
+        slot->fd = -1;
+        slot->buff = 0;
+        slot->prev = slot->next = 0;
+        slot->eod = slot->fence = slot->pos = 0;
+        free(slot);
+    }
+
     /* --- */
 
 /* fprintf(stderr, "dbg:: raw-net-read: leave, rc=%d, left=%ld, errno=%d\n", io_rc, slot->eod - slot->pos + 1, errno); */
+    LEAVE( "s2n_raw_net_read")
+
     return(io_rc);
 }
