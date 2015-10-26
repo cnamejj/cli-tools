@@ -121,14 +121,14 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             {
                 sysrc = s2n_negotiate( fetch->s2n_conn, &s2n_stat);
 
-                if( !sysrc && s2n_stat == S2N_BLOCKED_ON_READ)
+                if( s2n_stat == S2N_BLOCKED_ON_READ)
                 {
                     sysrc = wait_until_sock_ready( sock, POLL_EVENTS_READ, runex->conn_timeout);
                     if( !sysrc) *rc = ERR_POLL_TIMEOUT;
                     else if( sysrc < 0) *rc = ERR_POLL_FAILED;
 		}
 
-                else if( !sysrc && s2n_stat == S2N_BLOCKED_ON_WRITE)
+                else if( s2n_stat == S2N_BLOCKED_ON_WRITE)
                 {
                     sysrc = wait_until_sock_ready( sock, POLL_EVENTS_WRITE, runex->conn_timeout);
                     if( !sysrc) *rc = ERR_POLL_TIMEOUT;
