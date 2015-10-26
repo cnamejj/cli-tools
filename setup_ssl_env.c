@@ -10,6 +10,7 @@ void setup_ssl_env( int *rc, struct plan_data *plan)
 
 {
 #ifdef S2N_SUPPORT
+    static int did_init = 0;
     int sysrc;
 #endif
     unsigned long hold_err;
@@ -56,11 +57,18 @@ void setup_ssl_env( int *rc, struct plan_data *plan)
 #ifdef S2N_SUPPORT
         else if( req->use_ssl && req->use_s2n && !fetch->s2n_conn)
         {
-            sysrc = setenv( SN_ENABLE_CLIENT, IS_ONE_STR, 1);
-            if( !sysrc) sysrc = setenv( SN_DISABLE_MLOCK, IS_ONE_STR, 1);
-            if( !sysrc) sysrc = s2n_init();
-            if( sysrc) *rc = ERR_SSL_INIT_FAILED;
+            sysrc = 0;
+            if( did_init) sysrc = 0;
             else
+            {
+                did_init = 1;
+                sysrc = setenv( SN_ENABLE_CLIENT, IS_ONE_STR, 1);
+                if( !sysrc) sysrc = setenv( SN_DISABLE_MLOCK, IS_ONE_STR, 1);
+                if( !sysrc) sysrc = s2n_init();
+                if( sysrc) *rc = ERR_SSL_INIT_FAILED;
+	    }
+            
+            if( !sysrc)
             {
                 config = s2n_config_new();
                 s2n_config_set_cipher_preferences( config, "default");

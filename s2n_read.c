@@ -27,8 +27,11 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
         for( pend = 1; pend && now <= deadline; )
         {
             io_rc = s2n_recv( conn, buff, blen, &blocked);
+/* printf("dbg:: s2n_read: s2n_recv: rc=%d, err=%d, bl=%d, tl=%d (read=%d write=%d)\n", io_rc, errno, blocked,
+ *  deadline - now, S2N_BLOCKED_ON_READ, S2N_BLOCKED_ON_WRITE);
+ */
 
-            if( io_rc == -1 && errno != EAGAIN && errno != EINTR) pend = 0;
+            if( io_rc == -1 && errno != RC_NORMAL && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) pend = 0;
          
             if( pend && blocked == S2N_BLOCKED_ON_READ)
             {

@@ -161,12 +161,11 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
 {
-    int io_rc, space, avail, refresh, ctype, sysrc;
+    int io_rc = 0, space, avail, ctype, sysrc, read_errno = 0;
     static struct fd_buffer_list *fd_list = 0;
     struct fd_buffer_list *walk = 0, *slot = 0, *before, *after;
     struct plan_data *plan;
     struct fetch_status *fetch;
-    size_t rc = 0;
 
     /* --- */
 
@@ -211,42 +210,39 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
         slot->eod = slot->pos + avail;
         space = slot->fence - slot->eod;
 
-        for( refresh = 0; !refresh; )
+        io_rc = read(fd, slot->eod, space);
+        read_errno = errno;
+/*  fprintf(stderr, "dbg:: raw-net-read: read, rc=%d, max=%d, errno=%d\n", io_rc, space, (int) errno); */
+
+        if( !io_rc ) slot->is_open = 0;
+
+        if( io_rc == -1 && avail )
         {
-            io_rc = read(fd, slot->eod, space);
-/* fprintf(stderr, "dbg:: raw-net-read: read, rc=%d, max=%d, errno=%d\n", io_rc, space, (int) errno); */
-
-            if( io_rc >= 0 )
-            {
-                if( !io_rc ) slot->is_open = 0;
-                slot->eod = slot->eod + io_rc;
-                refresh = 1;
-
-                plan = register_current_plan(0);
-                fetch = plan->status;
-                if( fetch->last_state & LS_SSL_SHAKE_DONE ) ctype = EVENT_SSL_NET_READ;
-                else ctype = EVENT_SSL_NEG_READ;
-                sysrc = capture_checkpoint(fetch, ctype);
-                if( sysrc == RC_NORMAL ) sysrc = add_datalen_block(fetch->lastcheck, io_rc);
-	    }
-
-            else if( errno != EINTR && errno != EAGAIN )
-            {
-                rc = -1;
-                refresh = 1;
-	    }
+            if( read_errno == EINTR || read_errno == EAGAIN ) io_rc = 0;
 	}
+
+        if( io_rc >= 0 )
+        {
+            slot->eod = slot->eod + io_rc;
+            avail = slot->eod - slot->pos;
+
+            plan = register_current_plan(0);
+            fetch = plan->status;
+            if( fetch->last_state & LS_SSL_SHAKE_DONE ) ctype = EVENT_SSL_NET_READ;
+            else ctype = EVENT_SSL_NEG_READ;
+            sysrc = capture_checkpoint(fetch, ctype);
+            if( sysrc == RC_NORMAL ) sysrc = add_datalen_block(fetch->lastcheck, io_rc);
+        }
     }
 
     /* --- */
 
-    if( rc != -1 )
+    if( io_rc >= 0 )
     {
-        avail = slot->eod - slot->pos;
         if( blen <= avail ) io_rc = blen;
         else io_rc = avail;
 
-        memcpy(buffer, slot->pos, io_rc);
+        if( io_rc ) memcpy(buffer, slot->pos, io_rc);
         slot->pos += io_rc;
     }
 
@@ -260,6 +256,7 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
         after = slot->next;
         if( before ) before->next = after;
         if( after ) after->prev = before;
+        if( slot == fd_list ) fd_list = after;
 
         slot->fd = -1;
         slot->buff = 0;
@@ -273,5 +270,6 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 /* fprintf(stderr, "dbg:: raw-net-read: leave, rc=%d, left=%ld, errno=%d\n", io_rc, slot->eod - slot->pos + 1, errno); */
     LEAVE( "s2n_raw_net_read")
 
+    errno = read_errno;
     return(io_rc);
 }

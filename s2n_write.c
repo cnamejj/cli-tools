@@ -27,7 +27,7 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
         {
             io_rc = s2n_send( conn, buff, blen, &blocked);
 
-            if( io_rc == -1 && errno != EAGAIN && errno != EINTR) pend = 0;
+            if( io_rc == -1 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) pend = 0;
 
             if( pend && blocked == S2N_BLOCKED_ON_WRITE)
             {
