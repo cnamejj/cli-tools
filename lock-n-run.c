@@ -525,7 +525,7 @@ int main( int narg, char **opts)
         if( sysrc == -1)
         {
             rc = ERR_CANT_LOCK;
-            if( errno == EACCES || errno == EAGAIN) errmsg = ERR_LOCK_UNAVAILABLE;
+            if( errno == EACCES || errno == EAGAIN || errno == EWOULDBLOCK) errmsg = ERR_LOCK_UNAVAILABLE;
             else if( errno == EINTR && max_wait > 0) errmsg = ERR_LOCK_TIMEOUT;
             else errmsg = ERR_LOCK_FAIL;
         }
