@@ -15,9 +15,7 @@
 
 #include "http-fetch.h"
 #include "err_ref.h"
-#ifdef S2N_SUPPORT
-    #include "cli-sub.h"
-#endif
+#include "cli-sub.h"
 
 /* --- */
 

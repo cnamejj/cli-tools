@@ -1,3 +1,4 @@
+MAKEFILE = Makefile.GGG
 
 PROGS = quipi send-udp-message capture-udp-port lock-n-run actor http-fetch svg-it
 SOLOPROGS = iso8859-collapse extended-letters-collapse
@@ -10,13 +11,14 @@ SOBJS = parse_command_options.o cli_strerror.o allocate_plan_data.o get_destinat
 	is_option_set.o is_ipv4_address.o is_ipv6_address.o url_breakout_routines.o \
 	print_option_settings.o dup_memory.o get_scaled_number.o sys_call_fail_msg.o \
 	errmsg_with_string.o get_matching_interface.o is_reserved_uri_char.o \
-	parse_http_status.o construct_entry_form.o connect_host.o ssl_init_routines.o \
+	parse_http_status.o construct_entry_form.o connect_host.o \
 	wait_until_sock_ready.o string-routines.o explode_string.o remove_empty_strings.o \
 	dup_value_chain.o free_value_chain.o free_chart_options.o
 
 HTSOBJS = handle_ssl_error.o setup_ssl_env.o ssl_handshake.o stash_ssl_err_info.o \
 	verify_ssl_callback.o bio_ssl_callback.o calc_xfrates.o calc_standard_moments.o \
-	packet-svg-graphs.o alloc_chart_options.o
+	packet-svg-graphs.o alloc_chart_options.o ssl_init_routines.o s2n_write.o \
+	s2n_read.o s2n_finish.o
 
 SVGOBJS = svg-routines.o packet-svg-graphs.o
 
@@ -37,6 +39,8 @@ CFLAGS_Linux = -DUSE_CLOCK_GETTIME
 
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
+SSL_INC_CFLAGS = 
+SSL_LIB_LDFLAGS = 
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS))
 CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug -DDEBUG_MALLOC
@@ -62,24 +66,24 @@ libs : $(LIBS)
 
 # ---
 
-header-check.log: Makefile check-for-required-things
-	./check-for-required-things $@
+header-check.log: $(MAKEFILE) check-for-required-things
+	./check-for-required-things $@ "$(SSL_INC_CFLAGS)"
 
 # ---
 
-%.o : %.c Makefile.GGG header-check.log %.c $(UBIQ_H) %.h
+%.o : %.c $(MAKEFILE) header-check.log %.c $(UBIQ_H) %.h
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(SOBJS) : % : Makefile.GGG header-check.log $(UBIQ_H)
+$(SOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H)
 
-$(HTSOBJS) : % : Makefile.GGG header-check.log $(UBIQ_H) $(HTS_H)
+$(HTSOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H) $(HTS_H)
 
-$(SVGOBJS) : % : Makefile.GGG header-check.log $(UBIQ_H) $(SVG_H)
+$(SVGOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H) $(SVG_H)
 
-$(SOLOPROGS) : % : %.o Makefile.GGG header-check.log $(UBIQ_H) $(LIBS)
+$(SOLOPROGS) : % : %.o $(MAKEFILE) header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile.GGG header-check.log $(UBIQ_H) $(LIBS)
+$(PROGS) : % : %.o %.h $(MAKEFILE) header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libCLISUB.a : $(SOBJS) $(HTSOBJS) $(SVGOBJS)

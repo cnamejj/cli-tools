@@ -1,3 +1,5 @@
+MAKEFILE = Makefile.s2n
+
 PROGS = quipi send-udp-message capture-udp-port lock-n-run actor http-fetch svg-it
 SOLOPROGS = iso8859-collapse extended-letters-collapse
 
@@ -71,24 +73,24 @@ libs : $(LIBS)
 
 # ---
 
-header-check.log: Makefile.s2n check-for-required-things
+header-check.log: $(MAKEFILE) check-for-required-things
 	./check-for-required-things $@ "$(SSL_INC_CFLAGS)"
 
 # ---
 
-%.o : %.c Makefile.s2n header-check.log %.c $(UBIQ_H) %.h
+%.o : %.c $(MAKEFILE) header-check.log %.c $(UBIQ_H) %.h
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-$(SOBJS) : % : Makefile.s2n header-check.log $(UBIQ_H)
+$(SOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H)
 
-$(HTSOBJS) : % : Makefile.s2n header-check.log $(UBIQ_H) $(HTS_H)
+$(HTSOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H) $(HTS_H)
 
-$(SVGOBJS) : % : Makefile.s2n header-check.log $(UBIQ_H) $(SVG_H)
+$(SVGOBJS) : % : $(MAKEFILE) header-check.log $(UBIQ_H) $(SVG_H)
 
-$(SOLOPROGS) : % : %.o Makefile.s2n header-check.log $(UBIQ_H) $(LIBS)
+$(SOLOPROGS) : % : %.o $(MAKEFILE) header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
-$(PROGS) : % : %.o %.h Makefile.s2n header-check.log $(UBIQ_H) $(LIBS)
+$(PROGS) : % : %.o %.h $(MAKEFILE) header-check.log $(UBIQ_H) $(LIBS)
 	$(CC) -o $@ $(@).o $(LDFLAGS)
 
 libCLISUB.a : $(SOBJS) $(HTSOBJS) $(SVGOBJS)
