@@ -743,6 +743,7 @@ Options are:\n\
     <--grout file-name.html>\n\
     <--grstyle dark> | <--grstyle light>\n\
     <--user-agent 'Browser ID'> | <--agent 'Browser ID'>\n\
+    <--s2n>\n\
 "
 
 /* --- */

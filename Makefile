@@ -41,12 +41,14 @@ CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 SSL_INC_CFLAGS =
 SSL_LIB_LDFLAGS =
+
 CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug -DDEBUG_MALLOC
-#LDFLAGS = -L /extra/tmp/src/openssl-1.0.1g -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG
+
 LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl
 #LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+
 ARCOMM = ar rlc
 
 # ---

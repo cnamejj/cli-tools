@@ -44,16 +44,19 @@ LD = gcc
 SSL_INC_CFLAGS = -I/usr/local/ssl/include
 SSL_LIB_LDFLAGS = -L/usr/local/ssl/lib
 DEBUG_MALLOC_LIBS = /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+
 #CFLAGS = -g -Wall -pedantic -I/usr/local/src/debug -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS)) -DDEBUG_MALLOC
-#CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/local/src/debug -I/usr/include/libxml2 $(CFLAGS_$(OS))
-CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 $(CFLAGS_$(OS))
+CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/local/src/debug -I/usr/include/libxml2 $(CFLAGS_$(OS))
+#CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
+
 #LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl $(DEBUG_MALLOC_LIBS)
-LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl
-#LDFLAGS = -L /usr/local/src/latest/openssl -lsslGGG -lcryptoGGG -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lsslGGG -lcryptoGGG  /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+#LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl
+#LDFLAGS = -L /usr/local/src/latest/openssl -lssl -lcrypto -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lssl -lcrypto  /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+LDFLAGS = -L /usr/local/src/latest/openssl -lssl -lcrypto -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -ldl -lssl -lcrypto
 #LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
-#LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
+
 ARCOMM = ar rlc
 
 # ---
