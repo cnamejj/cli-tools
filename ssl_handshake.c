@@ -1,3 +1,4 @@
+#define GLOBAL_SNI_HOST_SETUP
 
 #define ERR_EXIT(MSG) \
 { \
@@ -22,7 +23,7 @@
 void ssl_handshake( int *rc, struct plan_data *plan)
 
 {
-    int sock, io_rc, err = 0, done = 0, ret, sslerr;
+    int sock, io_rc, err = 0, done = 0, ret, sslerr, set_sni_err = 0;
 #ifdef S2N_SUPPORT
     int pending, sysrc;
 #endif
@@ -44,14 +45,32 @@ void ssl_handshake( int *rc, struct plan_data *plan)
         runex = plan->run;
         if( plan->redirect) if( plan->redirect->conn_url) if( *plan->redirect->conn_url) targ = plan->redirect;
         if( !targ) targ = plan->target;
+    }
 
+    if( *rc == RC_NORMAL)
+    {
         if( targ->use_ssl && !targ->use_s2n)
         {
             sock = fetch->conn_sock;
             ssl = map_sock_to_ssl( sock, fetch->ssl_context, bio_ssl_callback);
-            if( ssl) fetch->ssl_box = ssl;
-            else
+            if( ssl)
             {
+               fetch->ssl_box = ssl;
+
+#ifdef GLOBAL_SNI_HOST_SETUP
+               /* Set SNI hostname */
+               if( *plan->target->http_host)
+               {
+                   set_sni_err = !SSL_set_tlsext_host_name( ssl, plan->target->http_host);
+                   if( plan->out->debug_level >= DEBUG_NOISY1) fprintf( plan->out->info_out, "%sSet SNI hostname '%s', rc=%d\n",
+                      plan->disp->line_pref, plan->target->http_host, set_sni_err);
+	       }
+#endif
+	    }
+
+            if( !ssl || set_sni_err)
+            {
+                INSUB( "ssl_handshake", "record-ssl-error")
                 err = 1;
                 *rc = ERR_SSL_ERROR;
                 hold_err = ERR_peek_error();

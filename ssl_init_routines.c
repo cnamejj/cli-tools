@@ -3,7 +3,8 @@
 
 /* --- */
 
-SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *))
+SSL_CTX *init_ssl_context(int (*ssl_callback)(int, X509_STORE_CTX *),
+  int (*sni_callback)(SSL *, int *, void *))
 
 {
     int err = 0, rc;
@@ -28,7 +29,9 @@ SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *))
             (void) SSL_CTX_set_options(context, SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER);
             rc = SSL_CTX_load_verify_locations(context, 0, SSL_TRUSTED_CERT_PATH);
             if(!rc) err = 1;
-            else if(callback) SSL_CTX_set_verify(context, SSL_VERIFY_PEER, callback);
+            else if(ssl_callback) SSL_CTX_set_verify(context, SSL_VERIFY_PEER, ssl_callback);
+
+            if(sni_callback) SSL_CTX_set_tlsext_servername_callback(context, sni_callback);
 	}
         
     }

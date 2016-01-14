@@ -30,7 +30,7 @@ void setup_ssl_env( int *rc, struct plan_data *plan)
 
         else if( req->use_ssl && !req->use_s2n && !fetch->ssl_context)
         {
-            fetch->ssl_context = init_ssl_context( verify_ssl_callback);
+            fetch->ssl_context = init_ssl_context( verify_ssl_callback, verify_sni_callback);
             if( !fetch->ssl_context)
             {
                 *rc = ERR_SSL_INIT_FAILED;

@@ -41,7 +41,7 @@
 #define DEBUG_MEDIUM3 6
 #define DEBUG_HIGH1 7
 #define DEBUG_HIGH2 8
-#define DEBUG_HGIH3 9
+#define DEBUG_HIGH3 9
 #define DEBUG_NOISY1 10
 #define DEBUG_NOISY2 11
 #define DEBUG_NOISY3 12

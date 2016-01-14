@@ -11,6 +11,8 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
 {
     int rc = RC_NORMAL, sysrc, event, err;
 
+    ENTER( "handle_ssl_error")
+
     err = SSL_get_error( ssl, io_rc);
 
 #ifdef DEV_DEBUGGING
@@ -71,6 +73,8 @@ int handle_ssl_error( int *sslact, SSL *ssl, int io_rc, int sock, int max_wait)
         rc = ERR_SSL_ERROR;
         *sslact = SSLACT_ERR_FATAL;
     }
+
+    LEAVE( "handle_ssl_error")
 
     return( rc);    
 }

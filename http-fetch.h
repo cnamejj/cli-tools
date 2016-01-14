@@ -813,11 +813,14 @@ void setup_ssl_env( int *rc, struct plan_data *plan);
 
 void ssl_handshake( int *rc, struct plan_data *plan);
 
-SSL_CTX *init_ssl_context(int (*callback)(int, X509_STORE_CTX *));
+int verify_ssl_callback(int ok, X509_STORE_CTX *context);
+
+int verify_sni_callback(SSL *ssl, int *alert, void *args);
+
+SSL_CTX *init_ssl_context(int (*verify_ssl_callback)(int, X509_STORE_CTX *),
+  int (*verify_sni_callback)(SSL *ssl, int *alert, void *args));
 
 SSL *map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct bio_st *, int, const char *, int, long, long));
-
-int verify_ssl_callback(int ok, X509_STORE_CTX *context);
 
 long bio_ssl_callback(BIO *bn, int flags, const char *buff, int blen, long ignore, long ret);
 
