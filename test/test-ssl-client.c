@@ -226,7 +226,13 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
 int verify_sni_callback( SSL *ssl, int *alert, void *args)
 
 {
-/*... stubbed out for now, should pull the hostname and compare to what we wanted ...*/
+    char *servername = 0;
+
+    servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    if(!servername) servername = "Unknown";
+    else if(!*servername) servername = "Empty";
+
+    printf("dbg:: SNI cert name check, server is '%s'\n", servername);
 
     return SSL_TLSEXT_ERR_OK;
 }
