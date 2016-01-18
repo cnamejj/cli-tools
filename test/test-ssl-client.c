@@ -128,7 +128,7 @@ long handle_bio_callback(BIO *bn, int flags, const char *buff, int blen, long ig
 
 /* --- */
 
-int verify_callback(int ok, X509_STORE_CTX *context)
+int verify_ssl_callback(int ok, X509_STORE_CTX *context)
 
 {
     int rc = ok, namelen, done, pos, x509_err, x509_depth, exn, nid_num, excount, altcount, alt;
@@ -219,6 +219,16 @@ int verify_callback(int ok, X509_STORE_CTX *context)
 
     rc = 1;
     return(rc);
+}
+
+/* --- */
+
+int verify_sni_callback( SSL *ssl, int *alert, void *args)
+
+{
+/*... stubbed out for now, should pull the hostname and compare to what we wanted ...*/
+
+    return SSL_TLSEXT_ERR_OK;
 }
 
 /* --- */
@@ -349,13 +359,16 @@ int main(int narg, char **opts)
 
     sock = connect_host(&rc, host, port, timeout, AF_INET);
 
-    context = init_ssl_context(verify_callback);
+    context = init_ssl_context(verify_ssl_callback, verify_sni_callback);
     if(!context) err_exit("No ciphers could be loaded");
 
     fprintf(ERR_OUT, "dbg:: post-conn host'%s' port=%d timeout=%d sock=%d rc=%d\n",
       host, port, timeout, sock, rc);
 
     ssl = map_sock_to_ssl(sock, context, handle_bio_callback);
+
+    rc = !SSL_set_tlsext_host_name(ssl, host);
+    if(rc) err_exit("Failed setting SNI hostname");
 
     rc = do_ssl_handshake(ssl, sock);
     

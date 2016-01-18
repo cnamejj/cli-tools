@@ -1,5 +1,3 @@
-#define GLOBAL_SNI_HOST_SETUP
-
 #define ERR_EXIT(MSG) \
 { \
     fprintf(stderr, "Error: rc=%d %s\n", errno, MSG); \
@@ -57,7 +55,6 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             {
                fetch->ssl_box = ssl;
 
-#ifdef GLOBAL_SNI_HOST_SETUP
                /* Set SNI hostname */
                if( *plan->target->http_host)
                {
@@ -65,7 +62,6 @@ void ssl_handshake( int *rc, struct plan_data *plan)
                    if( plan->out->debug_level >= DEBUG_NOISY1) fprintf( plan->out->info_out, "%sSet SNI hostname '%s', rc=%d\n",
                       plan->disp->line_pref, plan->target->http_host, set_sni_err);
 	       }
-#endif
 	    }
 
             if( !ssl || set_sni_err)
