@@ -192,6 +192,8 @@ struct s2n_connection *exec_ssl_trans( int sock, char *hostname, char *uri)
 
     s2n_connection_set_fd(tls_conn, sock);
 
+    s2n_set_server_name(tls_conn, hostname);
+
     for( neg_try = 1; neg_try; )
     {
         sysrc = s2n_negotiate(tls_conn, &blocked);

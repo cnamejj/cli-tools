@@ -53,15 +53,15 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             ssl = map_sock_to_ssl( sock, fetch->ssl_context, bio_ssl_callback);
             if( ssl)
             {
-               fetch->ssl_box = ssl;
+                fetch->ssl_box = ssl;
 
-               /* Set SNI hostname */
-               if( *plan->target->http_host)
-               {
-                   set_sni_err = !SSL_set_tlsext_host_name( ssl, plan->target->http_host);
-                   if( plan->out->debug_level >= DEBUG_NOISY1) fprintf( plan->out->info_out, "%sSet SNI hostname '%s', rc=%d\n",
+                /* Set SNI hostname */
+                if( *plan->target->http_host)
+                {
+                    set_sni_err = !SSL_set_tlsext_host_name( ssl, plan->target->http_host);
+                    if( plan->out->debug_level >= DEBUG_NOISY1) fprintf( plan->out->info_out, "%sSet SNI hostname '%s', rc=%d\n",
                       plan->disp->line_pref, plan->target->http_host, set_sni_err);
-	       }
+	        }
 	    }
 
             if( !ssl || set_sni_err)
@@ -128,6 +128,14 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             sock = fetch->conn_sock;
             s2n_connection_set_fd( fetch->s2n_conn, sock);
             s2n_connection_set_read_call( fetch->s2n_conn, s2n_raw_net_read);
+
+            /* Set SNI hostname */
+            if( *plan->target->http_host)
+            {
+                set_sni_err = s2n_set_server_name( fetch->s2n_conn, plan->target->http_host);
+                if( plan->out->debug_level >= DEBUG_NOISY1) fprintf( plan->out->info_out, "%sSet SNI hostname '%s', rc=%d\n",
+                      plan->disp->line_pref, plan->target->http_host, set_sni_err);
+	    }
 
             *rc = RC_NORMAL;
             for( pending = 1; pending && now <= deadline && *rc == RC_NORMAL; )
