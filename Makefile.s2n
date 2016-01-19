@@ -32,6 +32,7 @@ SVG_H = svg-tools.h
 #DEBUG_DEFS = -DDEBUG_MALLOC
 #DEBUG_DEFS = -DDEV_DEBUGGING
 #DEBUG_DEFS = -DDEBUG_TRACE_CALLS
+#DEBUG_DEFS = -DDEBUG_MALLOC -DDEBUG_TRACE_CALLS
 DEBUG_DEFS =
 
 OS=$(shell uname)
@@ -45,13 +46,13 @@ SSL_INC_CFLAGS = -I/usr/local/ssl/include
 SSL_LIB_LDFLAGS = -L/usr/local/ssl/lib
 DEBUG_MALLOC_LIBS = /usr/local/src/debug/bug_malloc.o /usr/local/src/debug/dbg_hack_info.o /usr/local/src/trace/trace_table.o
 
-#CFLAGS = -g -Wall -pedantic -I/usr/local/src/debug -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS)) -DDEBUG_MALLOC
+#CFLAGS = -g -Wall -pedantic -I/usr/local/src/debug -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2  -I/usr/local/src/s2n -I/usr/local/src/s2n/api $(CFLAGS_$(OS)) -DDEBUG_MALLOC
 CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 -I/usr/local/src/s2n -I/usr/local/src/s2n/api $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 -I/usr/local/src/s2n -I/usr/local/src/s2n/api $(CFLAGS_$(OS)) -I/usr/local/src/debug
 #CFLAGS = -g -Wall -pedantic -I/usr/local/src/latest/openssl/include -I/usr/local/src/latest/openssl -I/usr/include/libxml2 $(CFLAGS_$(OS))
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
 
-#LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl $(DEBUG_MALLOC_LIBS)
+#LDFLAGS = $(SSL_LIB_LDFLAGS) -L . LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread
 LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread
 #LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread $(DEBUG_MALLOC_LIBS)
 #LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto

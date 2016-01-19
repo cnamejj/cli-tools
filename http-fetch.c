@@ -2785,7 +2785,11 @@ int construct_request( struct plan_data *plan)
 
     if( rc == RC_NORMAL)
     {
-        if( fetch->request) free( fetch->request);
+        if( fetch->request)
+        {
+            free( fetch->request);
+            fetch->primary_request = fetch->redirect_request = 0;
+	}
 #ifdef NO_CR
         fetch->request = gsub_string( &rc, NO_CR_FETCH_REQUEST_TEMPLATE, subs);
 #else
@@ -3740,17 +3744,18 @@ int main( int narg, char **opts)
     struct fetch_status *fetch = 0;
     struct value_chain *chain = 0;
 
+    ENTER( "http-fetch" )
+
 #ifdef DEBUG_MALLOC
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE | BUG_OPT_REINITONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_KEEPONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE | BUG_OPT_REINITONFREE ); */
-/* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); */
+ bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_TRFREE ); 
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_TRCALLS | BUG_OPT_KEEPONFREE ); */
 /* bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE | BUG_OPT_KEEPONFREE ); */
-   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE );
+/*   bug_control( BUG_FLAG_SET, BUG_OPT_OBSESSIVE ); */
 #endif
 
-    ENTER( "http-fetch" )
     /* --- */
 
     plan = figure_out_plan( &rc, narg, opts);
@@ -4046,7 +4051,7 @@ void free_fstat_data( struct fetch_status *fetch)
         if( fetch->request) free( fetch->request);
 
         fetch->err_msg = 0;
-        fetch->request = 0;
+        fetch->primary_request = fetch->redirect_request = fetch->request = 0;
 
         /* These pointers just get cleared, not free'd */
         fetch->primary_request = 0;
