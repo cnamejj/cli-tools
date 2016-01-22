@@ -62,6 +62,7 @@
 #define DEF_LEG_LINE_PAD 25
 #define DEF_LEG_FONT_SCALE 60
 #define DEF_LEGEND_TABLE "<!-- no legend requested -->"
+#define DEF_MATTE_OP 0.75
 
 #define DEF_MSTONE_EXTEND 0.05
 #define DEF_MSTONE_TEXT_OP 0.7
@@ -142,6 +143,7 @@
 #define S_LEG_WIDTH "++legend-width++"
 #define S_LEG_SER_DESC_COL "++series-desc-col++"
 #define S_LEG_SER_DESC_TXT "++series-desc-text++"
+#define S_MATTE_OP "++matte-opacity++"
 
 #define S_XPOS "++xpos++"
 #define S_YPOS "++ypos++"
@@ -248,7 +250,7 @@
  h ++graph-area-width++ h ++circle-radius++ h ++circle-radius++ h ++circle-line-size++ h ++circle-line-size++\n\
  V ++graph-top-row++ v -++circle-radius++ v -++circle-line-size++\n\
  H -++matte-width++ \"\n\
-    stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" stroke-width=\"1\" fill-opacity=\"0.75\" />\n\
+    stroke=\"transparent\" stroke-opacity=\"0\" fill=\"++bg-color++\" stroke-width=\"1\" fill-opacity=\"++matte-opacity++\" />\n\
 \n\
   <path d=\"M ++graph-left-col++ ++graph-top-row++ v ++graph-area-height++ h ++graph-area-width++\"\n\
     stroke=\"++axis-color++\" stroke-opacity=\"++axis-opacity++\" fill=\"transparent\"\n\
@@ -395,7 +397,7 @@ struct svg_model
       xax_format_type, yax_format_type;
 
     float axis_alpha, graph_alpha, chart_alpha, text_alpha,
-      x_gridline_alpha, y_gridline_alpha;
+      x_gridline_alpha, y_gridline_alpha, matte_alpha;
 
     double xmin, xmax, ymin, ymax;
 
@@ -511,6 +513,7 @@ int svg_set_data_fill_alpha(struct series_data *ds, float val);
 int svg_set_data_line_alpha(struct series_data *ds, float val);
 int svg_set_chart_width(struct svg_model *svg, int val);
 int svg_set_chart_height(struct svg_model *svg, int val);
+int svg_set_matte_alpha(struct svg_model *svg, float val);
 
 char *svg_get_chart_title(struct svg_model *svg);
 char *svg_get_xax_title(struct svg_model *svg);
@@ -570,6 +573,7 @@ float svg_get_data_fill_alpha(struct series_data *ds);
 float svg_get_data_line_alpha(struct series_data *ds);
 int svg_get_chart_width(struct svg_model *svg);
 int svg_get_chart_height(struct svg_model *svg);
+float svg_get_matte_alpha(struct svg_model *svg);
 
 struct svg_chart_milestone *svg_add_xax_checkpoint(struct svg_model *svg, float offset, char *label);
 struct svg_chart_milestone *svg_add_yax_checkpoint(struct svg_model *svg, float offset, char *label);

@@ -102,6 +102,7 @@ static struct context_info context_list[] =
 #define OP_DSNAME      35
 #define OP_XLAB_FORMAT 36
 #define OP_YLAB_FORMAT 37
+#define OP_MATTE_ALPHA 38
 
 #define FL_CHART_TITLE "title"
 #define FL_XAX_TITLE   "xtitle"
@@ -141,6 +142,7 @@ static struct context_info context_list[] =
 #define FL_DSNAME      "series"
 #define FL_XLAB_FORMAT "xlab-format"
 #define FL_YLAB_FORMAT "ylab-format"
+#define FL_MATTE_ALPHA "matte-alpha"
 
 #define DEF_CHART_TITLE ""
 #define DEF_XAX_TITLE   ""
@@ -180,6 +182,7 @@ static struct context_info context_list[] =
 #define DEF_DSNAME      ""
 #define DEF_XLAB_FORMAT ""
 #define DEF_YLAB_FORMAT ""
+#define DEF_MATTE_ALPHA ".75"
 
 #define DATABUFFSIZE 8192
 
@@ -199,6 +202,7 @@ static struct context_info context_list[] =
 #define SC_CIRC_LINE_ALPHA 0.4
 #define SC_DATA_FILL_ALPHA 0.0
 #define SC_DATA_LINE_ALPHA 0.6
+#define SC_MATTE_ALPHA 0.75
 
 #define CGI_RAW_EOL "\r\n"
 #define CLI_RAW_EOL "\n"
@@ -305,6 +309,8 @@ No<input type=\"radio\" name=\"only-all-good\" value=\"yes\"></td></tr>\n\
 No<input type=\"radio\" name=\"legend\" value=\"0\" checked></td></tr>\n\
   <tr><td>Legend Size (as % of chart width, default is 20)</td><td><input type=\"text\" name=\"lscale\"></td></tr>\n\
 \
+  <tr><td>Matte Frame Alpha Value (0.0-1.0)</td><td><input type=\"text\" name=\"matte-alpha\" value=\"0.75\"></td></tr>\n\
+\
   <tr><td>Data Series #1 Name (defaults to column number info)</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
   <tr><td>Data Series #2 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
   <tr><td>Data Series #3 Name</td><td><input type=\"text\" name=\"series\"></td></tr>\n\
@@ -406,6 +412,7 @@ Options are:\n\
   <--display-height ##>\n\
   <--legend> | <--no-legend>\n\
   <--lscale ##>\n\
+  <--matte-alpha #>##>\n\
   <--series 'data series name#1'> <--series 'data series name#2'> etc...\n\
 \n\
 If no output file is specified, the SVG document is written to STDOUT.  To\n\
@@ -469,7 +476,7 @@ struct parsed_options {
       data_line_size, only_all_good, chart_width, chart_height, html_out,
       has_legend, legend_scale, xtick_type, ytick_type;
     float circ_line_alpha, circ_fill_alpha, data_line_alpha,
-      data_fill_alpha;
+      data_fill_alpha, matte_alpha;
     double fix_xmin, fix_xmax, fix_ymin, fix_ymax;
     char *data_file, *out_file, *chart_title, *xax_title, *yax_title,
       *x_col_req, *y_col_req, *delim, *display_width, *display_height,

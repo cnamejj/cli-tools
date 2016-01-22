@@ -225,6 +225,7 @@ struct svg_model *svg_make_chart()
         svg->text_alpha = DEF_TEXT_OP;
         svg->x_gridline_alpha = DEF_X_GRID_OP;
         svg->y_gridline_alpha = DEF_Y_GRID_OP;
+        svg->matte_alpha = DEF_MATTE_OP;
 
         svg->svt_row_label = 0;
         svg->svt_row_line = 0;
@@ -1987,6 +1988,7 @@ struct sub_list *svg_make_sublist( int *rc, struct svg_model *svg )
     ADD_SUB_PAIR_RULE( S_GR_BOTTOM, string_from_int( rc, svg->graph_bottom, 0 ) )
     ADD_SUB_PAIR_RULE( S_MATTE_WID, string_from_int( rc, svg->matte_width, 0 ) )
     ADD_SUB_PAIR_RULE( S_MATTE_HI, string_from_int( rc, svg->matte_height, 0 ) )
+    ADD_SUB_PAIR_RULE( S_MATTE_OP, string_from_float( rc, svg->matte_alpha, ALPHA_DISP_FORMAT ) )
 
     ADD_SUB_PAIR_RULE( S_LEG_CIR_COL, string_from_int( rc, svg->leg_circ_col, 0 ) )
     ADD_SUB_PAIR_RULE( S_LEG_CONT_WID, string_from_int( rc, svg->leg_cont_width, 0 ) )
@@ -3197,6 +3199,28 @@ int svg_get_chart_height( struct svg_model *svg )
 {
     if( !svg ) return( 0.0 );
     else return( svg->chart_height );
+}
+
+/* --- */
+
+int svg_set_matte_alpha( struct svg_model *svg, float val )
+
+{
+    int rc = RC_NORMAL;
+
+    if( !svg ) rc = ERR_UNSUPPORTED;
+    else svg->matte_alpha = val;
+
+    return( rc );
+}
+
+/* --- */
+
+float svg_get_matte_alpha( struct svg_model *svg )
+
+{
+    if( !svg ) return( 0.0 );
+    else return( svg->matte_alpha );
 }
 
 

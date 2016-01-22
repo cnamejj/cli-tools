@@ -640,6 +640,7 @@ int main( int narg, char **opts )
       { OP_DSNAME,      OP_TYPE_CHAR,  OP_FL_REPEATS, FL_DSNAME,      0, DEF_DSNAME,      0, 0 },
       { OP_XLAB_FORMAT, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_XLAB_FORMAT, 0, DEF_XLAB_FORMAT, 0, 0 },
       { OP_YLAB_FORMAT, OP_TYPE_CHAR,  OP_FL_BLANK,   FL_YLAB_FORMAT, 0, DEF_YLAB_FORMAT, 0, 0 },
+      { OP_MATTE_ALPHA, OP_TYPE_FLOAT, OP_FL_BLANK,   FL_MATTE_ALPHA, 0, DEF_MATTE_ALPHA, 0, 0 },
     };
     struct option_set *co, *co_leg;
     struct parsed_options popt;
@@ -674,7 +675,8 @@ int main( int narg, char **opts )
     popt.chart_title = popt.xax_title = popt.yax_title = 0;
     popt.out_file = popt.data_file = 0;
     popt.delim = 0;
-    popt.circ_line_alpha = popt.circ_fill_alpha = popt.data_line_alpha = popt.data_fill_alpha = 0.0;
+    popt.circ_line_alpha = popt.circ_fill_alpha = popt.data_line_alpha = 0.0;
+    popt.data_fill_alpha = popt.matte_alpha = 0.0;
     popt.circ_radius = popt.circ_line_size = popt.data_line_size = 0;
     popt.only_all_good = 0;
     popt.fix_xmin = popt.fix_xmax = popt.fix_ymin = popt.fix_ymax = no_value;
@@ -882,6 +884,10 @@ int main( int narg, char **opts )
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.dsname = (struct value_chain *) co->parsed;
 
+    co = get_matching_option( OP_MATTE_ALPHA, opset, nflags );
+    if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
+    popt.matte_alpha = *((float *) co->parsed);
+
     if( !popt.chart_title ) popt.chart_title = empty_string;
     if( !popt.xax_title ) popt.xax_title = empty_string;
     if( !popt.yax_title ) popt.yax_title = empty_string;
@@ -1038,6 +1044,7 @@ int main( int narg, char **opts )
     if( rc == RC_NORMAL ) rc = svg_set_y_gridline_color( svg, SC_YGRID_COLOR );
 
     if( rc == RC_NORMAL ) rc = svg_set_graph_alpha( svg, SC_GRAPH_ALPHA );
+    if( rc == RC_NORMAL ) rc = svg_set_matte_alpha( svg, popt.matte_alpha );
     for( ds = svg->series; ds; ds = ds->next )
     {
         viz = &def_series_visuals[(ds->id - 1) % nseries_styles];
