@@ -91,7 +91,7 @@ void dump_checkpoint_chain( struct plan_data *plan)
     ENTER( "dump_checkpoint_chain" )
     out = plan->out;
 
-    if( out->debug_level >= DEBUG_HIGH2)
+    if( out->debug_level >= DEBUG_LOW1)
     {
         fetch = plan->status;
         disp = plan->disp;
