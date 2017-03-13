@@ -189,7 +189,7 @@ int verify_ssl_callback(int ok, X509_STORE_CTX *context)
         for(exn = 0; exn < excount; exn++)
         {
             cex = X509_get_ext(cert, exn);
-            nid_num = OBJ_obj2nid(cex->object);
+            nid_num = OBJ_obj2nid(X509_EXTENSION_get_object(cex));
             printf("dbg:: VC: ext, nid=%d name'%s'\n", nid_num, OBJ_nid2ln(nid_num));
             printf("dbg:: VC: ext, val'");
             X509V3_EXT_print_fp(stdout, cex, 0, 1);

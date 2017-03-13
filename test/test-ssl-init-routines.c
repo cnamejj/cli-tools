@@ -68,8 +68,8 @@ SSL *debug_map_sock_to_ssl(int sock, SSL_CTX *context, long (*callback)(struct b
 
             if(callback)
             {
-                BIO_set_callback(ssl->rbio, callback);
-                BIO_set_callback(ssl->wbio, callback);
+                BIO_set_callback(SSL_get_rbio(ssl), callback);
+                BIO_set_callback(SSL_get_wbio(ssl), callback);
             }
         }
     }

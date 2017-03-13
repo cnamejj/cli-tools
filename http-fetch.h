@@ -884,7 +884,10 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
 
 int s2n_finish( struct fetch_status *fetch, int timeout);
 
-ssize_t s2n_raw_net_read(int fd, void *buf, size_t count);
+int s2n_raw_net_read(void *ctx_fd, uint8_t *buf, uint32_t count);
+
+int s2n_raw_net_write(void *ctx_fd, const uint8_t *buf, uint32_t count);
+
 #endif
 
 /* --- */

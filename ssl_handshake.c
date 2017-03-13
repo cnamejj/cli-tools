@@ -126,8 +126,14 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             if( deadline <= now) deadline = now + 1;
 
             sock = fetch->conn_sock;
-            s2n_connection_set_fd( fetch->s2n_conn, sock);
-            s2n_connection_set_read_call( fetch->s2n_conn, s2n_raw_net_read);
+#ifdef S2N_CUSTOM_IO_HANDLER
+            s2n_connection_set_recv_cb( fetch->s2n_conn, s2n_raw_net_read);
+            s2n_connection_set_recv_ctx( fetch->s2n_conn, &fetch->conn_sock);
+            s2n_connection_set_send_cb( fetch->s2n_conn, s2n_raw_net_write);
+            s2n_connection_set_send_ctx( fetch->s2n_conn, &fetch->conn_sock);
+#else
+            s2n_connection_set_fd( fetch->s2n_conn, fetch->conn_sock);
+#endif
 
             /* Set SNI hostname */
             if( *plan->target->http_host)
@@ -179,10 +185,10 @@ void ssl_handshake( int *rc, struct plan_data *plan)
 
 /* --- */
 
-ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
+int s2n_raw_net_read(void *ctx_fd, uint8_t *buffer, uint32_t blen)
 
 {
-    int io_rc = 0, space, avail, ctype, sysrc, read_errno = 0;
+    int io_rc = 0, space, avail, ctype, sysrc, read_errno = 0, fd;
     static struct fd_buffer_list *fd_list = 0;
     struct fd_buffer_list *walk = 0, *slot = 0, *before, *after;
     struct plan_data *plan;
@@ -191,6 +197,8 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
     /* --- */
 
     ENTER( "s2n_raw_net_read")
+
+    fd = *(int *)ctx_fd;
 
 /* fprintf(stderr, "dbg:: raw-net-read: enter, fd=%d, len=%d\n", fd, (int) blen); */
 
@@ -293,4 +301,23 @@ ssize_t s2n_raw_net_read(int fd, void *buffer, size_t blen)
 
     errno = read_errno;
     return(io_rc);
+}
+
+/* --- */
+
+int s2n_raw_net_write(void *ctx_fd, const uint8_t *buffer, uint32_t blen)
+
+{
+    int fd;
+
+    /* --- */
+
+    ENTER( "s2n_raw_net_write")
+
+    fd = *(int *)ctx_fd;
+
+    errno = 0;
+    return write(fd, buffer, blen);
+
+    LEAVE( "s2n_raw_net_write")
 }
