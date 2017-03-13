@@ -53,7 +53,9 @@ CFLAGS = -g -Wall -pedantic $(SSL_INC_CFLAGS) -I/usr/include/libxml2 -I/usr/loca
 #CFLAGS = -g -Wall -pedantic -I/usr/include/libxml2 $(CFLAGS_$(OS)) -I/usr/local/src/debug
 
 #LDFLAGS = $(SSL_LIB_LDFLAGS) -L . LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread
-LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread
+#LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread
+#LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lrt -lssl -lcrypto -ldl
+LDFLAGS = $(SSL_LIB_LDFLAGS) -L. -L/usr/local/src/s2n/lib $(LD_OPTS_$(OS)) -lCLISUB -lssl -ls2n -lssl -lcrypto -ldl -lm -lpthread -lrt -lxml2
 #LDFLAGS = $(SSL_LIB_LDFLAGS) -L . -lCLISUB -L /usr/local/src/s2n/lib -ls2n -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto -ldl -lpthread $(DEBUG_MALLOC_LIBS)
 #LDFLAGS = -L . -lCLISUB -lxml2 -lm $(LD_OPTS_$(OS)) -lssl -lcrypto
 
