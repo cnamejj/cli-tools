@@ -126,13 +126,13 @@ void ssl_handshake( int *rc, struct plan_data *plan)
             if( deadline <= now) deadline = now + 1;
 
             sock = fetch->conn_sock;
-#ifdef S2N_CUSTOM_IO_HANDLER
+#ifdef S2N_SKIP_CUSTOM_IO_HANDLER
+            s2n_connection_set_fd( fetch->s2n_conn, fetch->conn_sock);
+#else
             s2n_connection_set_recv_cb( fetch->s2n_conn, s2n_raw_net_read);
             s2n_connection_set_recv_ctx( fetch->s2n_conn, &fetch->conn_sock);
             s2n_connection_set_send_cb( fetch->s2n_conn, s2n_raw_net_write);
             s2n_connection_set_send_ctx( fetch->s2n_conn, &fetch->conn_sock);
-#else
-            s2n_connection_set_fd( fetch->s2n_conn, fetch->conn_sock);
 #endif
 
             /* Set SNI hostname */
