@@ -21,7 +21,7 @@
     #include <tls/s2n_connection.h>
 #endif
 
-#ifdef HEADER_SSL23_H
+#ifndef SSLv23_client_method
 /* Yes, this is ugly, but we need a way to test in
  * the precompiler for older versions of OpenSSL
  * that don't have "TLS_client_methd()" and map the

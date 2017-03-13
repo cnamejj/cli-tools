@@ -20,7 +20,7 @@ SSL_CTX *debug_init_ssl_context(int *sysrc, int (*callback)(int, X509_STORE_CTX 
     SSL_library_init();
     ENGINE_load_builtin_engines();
 
-    meth = SSLv23_client_method();
+    meth = TLS_client_method();
     context = SSL_CTX_new(meth);
     if(!context) err = 1;
     else
