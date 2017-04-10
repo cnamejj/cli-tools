@@ -24,6 +24,7 @@ SSL_CTX *init_ssl_context(int (*ssl_callback)(int, X509_STORE_CTX *),
         if(!rc) err = 1;
         else
         {
+            (void) SSL_CTX_set_default_read_buffer_len(context, READ_BUFF_SIZE);
             (void) SSL_CTX_set_mode(context, CTX_MODES);
             (void) SSL_CTX_set_read_ahead(context, SSL_MAX_READ_AHEAD);
             (void) SSL_CTX_set_options(context, SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER);
