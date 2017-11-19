@@ -28,7 +28,7 @@ SSL_CTX *init_ssl_context(int (*ssl_callback)(int, X509_STORE_CTX *),
             (void) SSL_CTX_set_mode(context, CTX_MODES);
             (void) SSL_CTX_set_read_ahead(context, SSL_MAX_READ_AHEAD);
             (void) SSL_CTX_set_options(context, SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER);
-            rc = SSL_CTX_load_verify_locations(context, 0, SSL_TRUSTED_CERT_PATH);
+            rc = SSL_CTX_load_verify_locations(context, SSL_TRUSTED_CERT_PEM_FILE, SSL_TRUSTED_CERT_PATH);
             if(!rc) err = 1;
             else if(ssl_callback) SSL_CTX_set_verify(context, SSL_VERIFY_PEER, ssl_callback);
 

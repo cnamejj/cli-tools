@@ -55,6 +55,15 @@
 
 /* --- */
 
+/* On MacOS, the local certs are not in the normal location, set to something that might work */
+#ifdef __APPLE__
+#  define SSL_TRUSTED_CERT_PEM_FILE "/opt/local/etc/openssl/cert.pem"
+#else
+#  define SSL_TRUSTED_CERT_PEM_FILE 0
+#endif
+
+/* --- */
+
 #define CH_OPT_NO_VALUE -999999
 
 /* --- */
