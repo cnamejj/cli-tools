@@ -40,6 +40,12 @@ OS=$(shell uname)
 LD_OPTS_Linux = -L/usr/lib/x86_64-linux-gnu -lrt
 CFLAGS_Linux = -DUSE_CLOCK_GETTIME -DS2N_SUPPORT
 
+ifeq ($(OS),Darwin)
+    MACOS_VERSION=$(shell sw_vers -productVersion | cut -d '.' -f 1,2)
+    LD_OPTS_Darwin = -mmacosx-version-min=$(MACOS_VERSION)
+    CFLAGS_Darwin = -mmacosx-version-min=$(MACOS_VERSION)
+endif
+
 CC = gcc $(DEBUG_DEFS) -Wall -g
 LD = gcc
 SSL_INC_CFLAGS = -I/usr/local/ssl/include
