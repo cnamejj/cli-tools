@@ -60,6 +60,10 @@ int s2n_read( int *rc, struct fetch_status *fetch, int timeout, char *buff, int 
 
 #else
 
-#define UNAVAILABLE_SN2_READ
+void s2n_read()
+
+{
+    return;
+}
 
 #endif

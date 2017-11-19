@@ -27,6 +27,10 @@ int s2n_finish( struct fetch_status *fetch, int timeout)
 
 #else
 
-#define UNAVAILABLE_SN2_FINISH
+void s2n_finish()
+
+{
+    return;
+}
 
 #endif

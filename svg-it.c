@@ -793,7 +793,7 @@ int main( int narg, char **opts )
     co = get_matching_option( OP_CFILL_ALPHA, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );
     popt.circ_fill_alpha = *((float *) co->parsed);
-    if( !co->flags & OP_FL_FOUND && fl_circ_alpha ) popt.circ_fill_alpha = popt.circ_line_alpha;
+    if( !(co->flags & OP_FL_FOUND) && fl_circ_alpha ) popt.circ_fill_alpha = popt.circ_line_alpha;
 
     co = get_matching_option( OP_DFILL_ALPHA, opset, nflags );
     if( !co ) bail_out( ERR_UNSUPPORTED, 0, popt.html_out, context, "internal configuration error" );

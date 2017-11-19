@@ -56,6 +56,10 @@ int s2n_write( int *rc, struct fetch_status *fetch, int timeout, char *buff, int
 
 #else
 
-#define UNAVAILABLE_SN2_WRITE
+void s2n_write()
+
+{
+    return;
+}
 
 #endif
